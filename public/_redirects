@@ -1,0 +1,6 @@
+https://jakeschultzastrophotography.net/* https://jakeschultzastrophotography.com/:splat 301!
+https://www.jakeschultzastrophotography.net/* https://jakeschultzastrophotography.com/:splat 301!
+
+# SPA fallback (so /phone-backgrounds works on refresh)
+/* /index.html 200
+ 301!

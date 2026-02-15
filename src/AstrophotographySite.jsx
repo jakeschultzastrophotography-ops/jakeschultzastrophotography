@@ -20,23 +20,31 @@ const STRIPE_PUBLISHABLE_KEY =
 
 const CALENDAR_AD_SRC = "/images/gallery/calendar/calendar-ad.jpg";
 
-// ✅ Use your live wallpaper subdomain for OG share pages
-const SHARE_BASE = "https://wallpapers.jakeschultzastrophotography.com";
-
 /**
- * ✅ Latest News — vertical/social feed style
- * ✅ Share links point to static OG pages so Facebook shows image cards
+ * FIXES INCLUDED:
+ * 1) ShareBar ALWAYS shares ABSOLUTE URLs (Facebook needs absolute).
+ * 2) Latest News "Eclipse lockscreen" image path updated to renamed file:
+ *    /images/wallpapers/backgrounds/Totality-Lock-Screen.jpg
+ * 3) Phone Background downloads list REMOVES lockscreen file (post-only),
+ *    so it does not show in download grid.
+ * 4) Extra safety: heroFallback for broken media remains.
  */
+
+// ✅ Updated to match your renamed file
+const LOCKSCREEN_PREVIEW_SRC =
+  "/images/wallpapers/backgrounds/Totality-Lock-Screen.jpg";
+
+// ✅ Share pages (must exist as static OG pages in /public/share/...)
+// ShareBar will make these absolute automatically.
 const LATEST_NEWS = [
   {
     id: "eclipse-lockscreen",
     title: "Total Solar Eclipse — Lock Screen Edition",
     date: "Feb 13, 2026",
-    image: "/images/wallpapers/backgrounds/Totality Lock Screen.jpg",
+    image: LOCKSCREEN_PREVIEW_SRC,
     href: "/phone-backgrounds",
     external: false,
-    // ✅ ABSOLUTE
-    shareHref: `${SHARE_BASE}/share/eclipse-lockscreen/`,
+    shareHref: "/share/eclipse-lockscreen/",
     description:
       "New free phone wallpaper drop — optimized for lock screens. Click to view and download.",
     cta: "View & Download",
@@ -49,8 +57,7 @@ const LATEST_NEWS = [
     image: "/images/gallery/Orion-Nebula2.jpg",
     href: "https://app.astrobin.com/u/Astro_jake?i=zsffpr#gallery",
     external: true,
-    // ✅ ABSOLUTE (make sure you created /public/share/orion-nebula/index.html)
-    shareHref: `${SHARE_BASE}/share/orion-nebula/`,
+    shareHref: "/share/orion-nebula/",
     description:
       "Posted Jan 2, 2026 — Deep-sky capture processed for structure, contrast, and balanced color. Click to view on AstroBin.",
     cta: "View on AstroBin",
@@ -147,13 +154,14 @@ function NavButton({ onClick, children, className = "", title }) {
    Share helpers
 ============================ */
 
+// ✅ ALWAYS return an absolute URL (Facebook/OG share expects absolute)
 function getAbsoluteUrl(href) {
   try {
-    if (!href) return window.location.href;
-    if (href.startsWith("http")) return href;
+    if (!href) return "";
+    if (href.startsWith("http://") || href.startsWith("https://")) return href;
     return new URL(href, window.location.origin).toString();
   } catch {
-    return href;
+    return href || "";
   }
 }
 
@@ -181,6 +189,7 @@ async function copyToClipboard(text) {
 function ShareBar({ title, shareHref, text }) {
   const [copied, setCopied] = useState(false);
 
+  // ✅ absolute
   const url = useMemo(() => getAbsoluteUrl(shareHref), [shareHref]);
   const shareText = text || title;
 
@@ -189,7 +198,7 @@ function ShareBar({ title, shareHref, text }) {
     try {
       await navigator.share({ title, text: shareText, url });
     } catch {
-      // cancelled / unsupported
+      // ignore cancel
     }
   };
 
@@ -532,7 +541,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
         </div>
       </section>
 
-      {/* LATEST NEWS FEED */}
+      {/* ✅ LATEST NEWS FEED */}
       <section
         className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
@@ -626,7 +635,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
                       )}
                     </div>
 
-                    {/* ✅ Share uses absolute shareHref */}
+                    {/* ✅ Share uses absolute URL under the hood */}
                     <ShareBar
                       title={post.title}
                       shareHref={post.shareHref}
@@ -714,8 +723,12 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
 function PhoneBackgroundsPage({ heroFallback }) {
   const year = new Date().getFullYear();
 
-  // Put wallpapers in: public/images/wallpapers/backgrounds/
-  // ✅ REMOVED: "Totality Lock Screen.jpg" (share-only)
+  /**
+   * Put wallpapers in:
+   * public/images/wallpapers/backgrounds/
+   *
+   * ✅ FIX: Totality-Lock-Screen.jpg is POST-ONLY and REMOVED from downloads.
+   */
   const wallpaperFiles = useMemo(
     () => [
       "Orion Nebula.png",
@@ -735,7 +748,7 @@ function PhoneBackgroundsPage({ heroFallback }) {
       "Heart Nebula.jpg",
       "Moon.png",
       "Horsehead.jpg",
-      // "Totality Lock Screen.jpg", // <-- removed from downloads
+      // ✅ removed: "Totality-Lock-Screen.jpg"
     ],
     []
   );

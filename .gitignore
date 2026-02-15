@@ -25,3 +25,7 @@ dist-ssr
 
 .env
 
+
+# Don't deploy the lockscreen source file
+public/images/wallpapers/backgrounds/Totality-Lock-Screen.jpg
+

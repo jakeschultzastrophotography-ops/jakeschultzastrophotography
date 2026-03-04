@@ -4039,7 +4039,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   return (
     <>
       {/* Mobile sidebar toggle (shows on phones) */}
-      <div className="md:hidden fixed top-3 right-3 z-[60]">
+      <div className="md:hidden fixed top-3 left-3 z-[60]">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}

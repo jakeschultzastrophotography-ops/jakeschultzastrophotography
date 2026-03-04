@@ -1,0 +1,17 @@
+[build]
+  publish = "dist"
+
+# Serve OG-only HTML to social crawlers for link previews
+[[redirects]]
+  from = "/eclipse-guide"
+  to = "/og/eclipse-guide/"
+  status = 200
+  force = true
+  conditions = { UserAgent = ["facebookexternalhit", "Facebot", "Twitterbot", "LinkedInBot", "Slackbot-LinkExpanding", "Discordbot"] }
+
+[[redirects]]
+  from = "/eclipse-guide/"
+  to = "/og/eclipse-guide/"
+  status = 200
+  force = true
+  conditions = { UserAgent = ["facebookexternalhit", "Facebot", "Twitterbot", "LinkedInBot", "Slackbot-LinkExpanding", "Discordbot"] }

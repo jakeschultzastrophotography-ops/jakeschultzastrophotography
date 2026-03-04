@@ -68,6 +68,19 @@ const LOGO_SRC = "/images/brand/logo.png";
 
 
 const ECLIPSE_PHOTO_SRCS = [
+  // Main grid used in the "My eclipse photos" section:
+  "/images/eclipse-guide/eclipse-01.jpg",
+  "/images/eclipse-guide/eclipse-02.jpg",
+  "/images/eclipse-guide/eclipse-03.jpg",
+  "/images/eclipse-guide/eclipse-04.jpg",
+  "/images/eclipse-guide/eclipse-05.jpg",
+  "/images/eclipse-guide/eclipse-06.jpg",
+  "/images/eclipse-guide/eclipse-07.jpg",
+  "/images/eclipse-guide/eclipse-08.jpg",
+  "/images/eclipse-guide/eclipse-09.jpg",
+  "/images/eclipse-guide/eclipse-10.jpg",
+
+  // Extra eclipse-related images available in the same folder (optional use elsewhere):
   "/images/eclipse-guide/blood-moon-over-peoria.webp",
   "/images/eclipse-guide/eclipse-widefield.webp",
   "/images/eclipse-guide/lunar-eclipse.webp",
@@ -77,7 +90,7 @@ const ECLIPSE_PHOTO_SRCS = [
   "/images/eclipse-guide/solar-closeup-2.webp",
   "/images/eclipse-guide/solar-eclipse-hdr.webp",
   "/images/eclipse-guide/solar-eclipse-telescope-1.webp",
-  "/images/eclipse-guide/solar-eclipse-telescope-2.webp"
+  "/images/eclipse-guide/solar-eclipse-telescope-2.webp",
 ];
 
 // ECLIPSE GUIDE: astronomy-engine is ESM; use namespace import
@@ -110,7 +123,7 @@ try {
 
 // ✅ Latest News uses a lockscreen *sample* image (screenshot-style preview)
 const LOCKSCREEN_PREVIEW_SRC =
-  "/share/eclipse-lockscreen/Totality Lock Screen.jpg";
+  "/images/news/feb13-lockscreen-share.jpg";
 
 // ✅ Share pages (must exist as static OG pages in /public/share/...)
 const LATEST_NEWS = [
@@ -172,7 +185,9 @@ function usePathname() {
   const getPath = () => {
     const raw = window.location.pathname || "/";
     const clean = raw.replace(/\/+$/, "") || "/";
-    return clean === "" ? "/" : clean;
+    // Planetarium is now part of Astrocast (no standalone route)
+    const aliased = clean === "/planetarium" ? "/starcast" : clean;
+    return aliased === "" ? "/" : aliased;
   };
 
   const [path, setPath] = useState(() =>
@@ -1246,7 +1261,7 @@ const PLANET_LIST = [
   { id: "Saturn", label: "Saturn" },
 ];
 
-function PlanetariumPage({ navigate }) {
+function PlanetariumPage({ navigate, embedded = false }) {
   const canvasRef = useRef(null);
 
   const [useManual, setUseManual] = useState(false);
@@ -1888,6 +1903,7 @@ function PlanetariumPage({ navigate }) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      {!embedded && (
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Planetarium</h1>
@@ -1922,6 +1938,8 @@ function PlanetariumPage({ navigate }) {
           </span>
         </div>
       </div>
+      )}
+
 
       <div className="mt-6 grid gap-4">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -4084,12 +4102,13 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
           onClick={() => navigate("/starcast")}
         />
 
+
         <Item
-          icon={Compass}
-          label="Planetarium"
-          title="Planetarium"
-          isActive={path === "/planetarium"}
-          onClick={() => navigate("/planetarium")}
+          icon={Grid3X3}
+          label="Eclipse Guide"
+          title="Eclipse Guide"
+          isActive={path === "/eclipse-guide"}
+          onClick={() => navigate("/eclipse-guide")}
         />
 
         <Item
@@ -4101,122 +4120,6 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
         />
       </div>
     </motion.aside>
-  );
-}
-
-
-
-function MobileNavDrawer({ open, setOpen, path, navigate, onHome }) {
-  const goSection = (id) => {
-    if (onHome) {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    navigate("/");
-    setTimeout(() => {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 60);
-  };
-
-  const NavBtn = ({ children, onClick, active }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left flex items-center gap-3 rounded-xl border border-white/10 px-3.5 py-2.5 text-[15px] font-semibold transition ${
-        active ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5 hover:bg-white/10"
-      }`}
-    >
-      {children}
-    </button>
-  );
-
-  return (
-    <div className={`md:hidden fixed inset-0 z-[80] ${open ? "" : "pointer-events-none"}`}>
-      {/* Backdrop */}
-      <motion.button
-        type="button"
-        aria-label="Close menu"
-        onClick={() => setOpen(false)}
-        className="absolute inset-0 bg-black/60"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.18 }}
-      />
-
-      {/* Drawer */}
-      <motion.div
-        className="absolute left-0 top-0 h-full w-[78vw] max-w-[320px] border-r border-white/10 bg-black/70 backdrop-blur p-4"
-        initial={{ x: -24, opacity: 0 }}
-        animate={{ x: open ? 0 : -24, opacity: open ? 1 : 0 }}
-        transition={{ type: "spring", stiffness: 420, damping: 32 }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <img
-              src="/images/brand/logo.png"
-              alt="Jake Schultz Astrophotography"
-              className="h-8 w-auto"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-            <span className="text-white/90 font-semibold">Menu</span>
-          </div>
-
-          <button
-            type="button"
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80 hover:bg-white/10"
-            onClick={() => setOpen(false)}
-            aria-label="Close menu"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <NavBtn active={path === "/"} onClick={() => { navigate("/"); setOpen(false); }}>
-            <span className="opacity-90">Home</span>
-          </NavBtn>
-
-          <NavBtn
-            active={false}
-            onClick={() => { goSection("calendar"); setOpen(false); }}
-          >
-            <span className="opacity-90">Calendar</span>
-          </NavBtn>
-
-          <NavBtn
-            active={false}
-            onClick={() => { goSection("latest-news"); setOpen(false); }}
-          >
-            <span className="opacity-90">Latest News</span>
-          </NavBtn>
-
-          <NavBtn
-            active={false}
-            onClick={() => { goSection("gallery"); setOpen(false); }}
-          >
-            <span className="opacity-90">Gallery</span>
-          </NavBtn>
-
-          <NavBtn active={path === "/starcast"} onClick={() => { navigate("/starcast"); setOpen(false); }}>
-            <span className="opacity-90">Astrocast</span>
-          </NavBtn>
-
-          <NavBtn active={path === "/planetarium"} onClick={() => { navigate("/planetarium"); setOpen(false); }}>
-            <span className="opacity-90">Planetarium</span>
-          </NavBtn>
-
-          <NavBtn active={path === "/phone-backgrounds"} onClick={() => { navigate("/phone-backgrounds"); setOpen(false); }}>
-            <span className="opacity-90">Wallpapers</span>
-          </NavBtn>
-        </div>
-
-        <div className="mt-4 text-xs text-white/50">
-          Tip: Swipe or tap outside to close.
-        </div>
-      </motion.div>
-    </div>
   );
 }
 
@@ -4239,15 +4142,6 @@ export default function AstrophotographySite() {
       localStorage.setItem('sidebarCollapsed', sideCollapsed ? '1' : '0');
     } catch (e) {}
   }, [sideCollapsed]);
-
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  useEffect(() => {
-    document.body.style.overflow = mobileNavOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileNavOpen]);
   const [eclipsePhotoOpen, setEclipsePhotoOpen] = useState(false);
   const [eclipsePhotoIndex, setEclipsePhotoIndex] = useState(0);
   const sectionScrollMargin = "scroll-mt-28 sm:scroll-mt-32";
@@ -4256,7 +4150,6 @@ export default function AstrophotographySite() {
   const { path, navigate } = usePathname();
   const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
-  const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
   const onStarcast = path === "/starcast";
@@ -4270,15 +4163,6 @@ export default function AstrophotographySite() {
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-black/40 backdrop-blur pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <button
-            type="button"
-            className="md:hidden rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/90 hover:bg-white/10"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open menu"
-            title="Menu"
-          >
-            ☰
-          </button>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -4300,7 +4184,7 @@ export default function AstrophotographySite() {
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onPlanetarium || onEclipseGuide || onStarcast) ? (
+            {(onWallpapers || onEclipseGuide || onStarcast) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -4436,16 +4320,13 @@ export default function AstrophotographySite() {
 
       <div className="relative">
         <SideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
-        <MobileNavDrawer open={mobileNavOpen} setOpen={setMobileNavOpen} path={path} navigate={navigate} onHome={onHome} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
-          ) : onPlanetarium ? (
-            <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
-            <Starcast navigate={navigate} embedded />
+            <Starcast navigate={navigate} embedded planetariumRenderer={() => <PlanetariumPage navigate={navigate} embedded />} />
           ) : (
             <HomePage
               sectionScrollMargin={sectionScrollMargin}

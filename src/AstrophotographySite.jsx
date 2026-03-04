@@ -4104,6 +4104,122 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   );
 }
 
+
+
+function MobileNavDrawer({ open, setOpen, path, navigate, onHome }) {
+  const goSection = (id) => {
+    if (onHome) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    navigate("/");
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
+
+  const NavBtn = ({ children, onClick, active }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left flex items-center gap-3 rounded-xl border border-white/10 px-3.5 py-2.5 text-[15px] font-semibold transition ${
+        active ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5 hover:bg-white/10"
+      }`}
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div className={`md:hidden fixed inset-0 z-[80] ${open ? "" : "pointer-events-none"}`}>
+      {/* Backdrop */}
+      <motion.button
+        type="button"
+        aria-label="Close menu"
+        onClick={() => setOpen(false)}
+        className="absolute inset-0 bg-black/60"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={{ duration: 0.18 }}
+      />
+
+      {/* Drawer */}
+      <motion.div
+        className="absolute left-0 top-0 h-full w-[78vw] max-w-[320px] border-r border-white/10 bg-black/70 backdrop-blur p-4"
+        initial={{ x: -24, opacity: 0 }}
+        animate={{ x: open ? 0 : -24, opacity: open ? 1 : 0 }}
+        transition={{ type: "spring", stiffness: 420, damping: 32 }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <img
+              src="/images/brand/logo.png"
+              alt="Jake Schultz Astrophotography"
+              className="h-8 w-auto"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+            <span className="text-white/90 font-semibold">Menu</span>
+          </div>
+
+          <button
+            type="button"
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80 hover:bg-white/10"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <NavBtn active={path === "/"} onClick={() => { navigate("/"); setOpen(false); }}>
+            <span className="opacity-90">Home</span>
+          </NavBtn>
+
+          <NavBtn
+            active={false}
+            onClick={() => { goSection("calendar"); setOpen(false); }}
+          >
+            <span className="opacity-90">Calendar</span>
+          </NavBtn>
+
+          <NavBtn
+            active={false}
+            onClick={() => { goSection("latest-news"); setOpen(false); }}
+          >
+            <span className="opacity-90">Latest News</span>
+          </NavBtn>
+
+          <NavBtn
+            active={false}
+            onClick={() => { goSection("gallery"); setOpen(false); }}
+          >
+            <span className="opacity-90">Gallery</span>
+          </NavBtn>
+
+          <NavBtn active={path === "/starcast"} onClick={() => { navigate("/starcast"); setOpen(false); }}>
+            <span className="opacity-90">Astrocast</span>
+          </NavBtn>
+
+          <NavBtn active={path === "/planetarium"} onClick={() => { navigate("/planetarium"); setOpen(false); }}>
+            <span className="opacity-90">Planetarium</span>
+          </NavBtn>
+
+          <NavBtn active={path === "/phone-backgrounds"} onClick={() => { navigate("/phone-backgrounds"); setOpen(false); }}>
+            <span className="opacity-90">Wallpapers</span>
+          </NavBtn>
+        </div>
+
+        <div className="mt-4 text-xs text-white/50">
+          Tip: Swipe or tap outside to close.
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function AstrophotographySite() {
   useNoHorizontalScroll();
 
@@ -4123,6 +4239,15 @@ export default function AstrophotographySite() {
       localStorage.setItem('sidebarCollapsed', sideCollapsed ? '1' : '0');
     } catch (e) {}
   }, [sideCollapsed]);
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileNavOpen]);
   const [eclipsePhotoOpen, setEclipsePhotoOpen] = useState(false);
   const [eclipsePhotoIndex, setEclipsePhotoIndex] = useState(0);
   const sectionScrollMargin = "scroll-mt-28 sm:scroll-mt-32";
@@ -4145,6 +4270,15 @@ export default function AstrophotographySite() {
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-black/40 backdrop-blur pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <button
+            type="button"
+            className="md:hidden rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/90 hover:bg-white/10"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open menu"
+            title="Menu"
+          >
+            ☰
+          </button>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -4302,6 +4436,7 @@ export default function AstrophotographySite() {
 
       <div className="relative">
         <SideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
+        <MobileNavDrawer open={mobileNavOpen} setOpen={setMobileNavOpen} path={path} navigate={navigate} onHome={onHome} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />

@@ -709,7 +709,7 @@ const [selectedTargetName, setSelectedTargetName] = useState("");
   const [focalMm, setFocalMm] = useState(400);
 
   // Private beta gate (public sees Coming Soon).
-  // Secret unlock: click the Astrocast title 7 times within a few seconds.
+  // Secret unlock: click the Starcast title 7 times within a few seconds.
   // Optional owner shortcuts:
   //  - Triple-click the logo
   //  - Press Shift + A
@@ -1965,7 +1965,7 @@ try {
                 <Camera className="h-5 w-5" />
                 <span>Jake Schultz Astrophotography</span>
               </button>
-              <div className="text-xs text-white/50">Astrocast</div>
+              <div className="text-xs text-white/50">Starcast</div>
             </div>
           </header>
         )}
@@ -1987,15 +1987,15 @@ try {
                 <div
                   className="text-3xl font-semibold tracking-tight cursor-default select-none"
                   onClick={handleSecretTitleTap}
-                  title="Astrocast"
+                  title="Starcast"
                 >
-                  Astrocast
+                  Starcast
                 </div>
                 <div className="mt-2 text-white/60">
                   Coming soon. This planning tool is not available to the public yet.
                 </div>
                 <div className="mt-4 text-sm text-white/55">
-                  You can still browse the rest of the site while Astrocast is in private beta.
+                  You can still browse the rest of the site while Starcast is in private beta.
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -2023,13 +2023,13 @@ try {
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="text-sm font-medium">Release plan</div>
                 <div className="mt-2 text-sm text-white/60">
-                  We’re validating accuracy, performance, and mobile UX before making Astrocast public.
+                  We’re validating accuracy, performance, and mobile UX before making Starcast public.
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="text-sm font-medium">Beta access</div>
                 <div className="mt-2 text-sm text-white/60">
-                  Tap the <span className="text-white/80">Astrocast</span> title 7 times to unlock.
+                  Tap the <span className="text-white/80">Starcast</span> title 7 times to unlock.
                 </div>
               </div>
             </div>
@@ -2090,7 +2090,7 @@ try {
               transition={{ duration: 0.45 }}
               className="text-3xl font-semibold tracking-tight"
             >
-              Astrocast
+              Starcast
             </motion.h1>
             <p className="mt-2 text-sm text-white/70">
               Planner-grade weather + moonlight + targets. (Cloud layers • Dew risk • Moon phase • Aurora Kp • Best windows)
@@ -2558,7 +2558,7 @@ try {
         </div>
 
         <div className="mt-10 text-center text-xs text-white/35">
-          Astrocast is under active development — next up: transparency/smoke model, seeing (jet stream), and Ovation auroral oval map.
+          Starcast is under active development — next up: transparency/smoke model, seeing (jet stream), and Ovation auroral oval map.
         </div>
       </main>
     </div>

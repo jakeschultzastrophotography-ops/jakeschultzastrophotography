@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Star,
   Grid3X3,
+  X,
 } from "lucide-react";
 
 import Starcast from "./Starcast";
@@ -123,7 +124,7 @@ try {
 
 // ✅ Latest News uses a lockscreen *sample* image (screenshot-style preview)
 const LOCKSCREEN_PREVIEW_SRC =
-  "/images/news/feb13-lockscreen-share.jpg";
+  "/share/eclipse-lockscreen/Totality Lock Screen.jpg";
 
 // ✅ Share pages (must exist as static OG pages in /public/share/...)
 const LATEST_NEWS = [
@@ -185,9 +186,7 @@ function usePathname() {
   const getPath = () => {
     const raw = window.location.pathname || "/";
     const clean = raw.replace(/\/+$/, "") || "/";
-    // Planetarium is now part of Astrocast (no standalone route)
-    const aliased = clean === "/planetarium" ? "/starcast" : clean;
-    return aliased === "" ? "/" : aliased;
+    return clean === "" ? "/" : clean;
   };
 
   const [path, setPath] = useState(() =>
@@ -1261,7 +1260,7 @@ const PLANET_LIST = [
   { id: "Saturn", label: "Saturn" },
 ];
 
-function PlanetariumPage({ navigate, embedded = false }) {
+function PlanetariumPage({ navigate }) {
   const canvasRef = useRef(null);
 
   const [useManual, setUseManual] = useState(false);
@@ -1903,7 +1902,6 @@ function PlanetariumPage({ navigate, embedded = false }) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      {!embedded && (
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Planetarium</h1>
@@ -1938,8 +1936,6 @@ function PlanetariumPage({ navigate, embedded = false }) {
           </span>
         </div>
       </div>
-      )}
-
 
       <div className="mt-6 grid gap-4">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -3778,7 +3774,7 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
               {useLocalTime ? "Local time" : "UTC"}
             </button>
 
-            <ShareBar title="Astrocast" shareHref={shareHref} />
+            <ShareBar title="Starcast" shareHref={shareHref} />
           </div>
         </div>
 
@@ -3996,6 +3992,7 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
 
 function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const active = (p) => (path === p ? "bg-white/15" : "bg-white/5");
 
   const itemBase =
@@ -4038,8 +4035,109 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
     </button>
   );
 
+  
   return (
-    <motion.aside
+    <>
+      {/* Mobile sidebar toggle (shows on phones) */}
+      <div className="md:hidden fixed top-3 right-3 z-[60]">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="rounded-2xl border border-white/15 bg-black/55 backdrop-blur px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_24px_rgba(0,0,0,0.35)]"
+          aria-label="Open menu"
+        >
+          <Grid3X3 className="h-5 w-5 opacity-90" />
+        </button>
+      </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-[70]">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/65"
+            aria-label="Close menu overlay"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-[84vw] max-w-[320px] border-r border-white/10 bg-black/80 backdrop-blur p-3">
+            <div className="flex items-center justify-between pb-2">
+              <div className="text-white/90 font-semibold">Menu</div>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl border border-white/10 bg-white/5 px-2 py-2 hover:bg-white/10 transition"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5 opacity-80" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/");
+                }}
+                className={`${itemBase} bg-white/5`}
+              >
+                <Camera className="h-5 w-5 opacity-90 shrink-0" />
+                <span className="whitespace-nowrap">Home</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  goSection("calendar");
+                }}
+                className={`${itemBase} bg-white/5`}
+              >
+                <ShoppingBag className="h-5 w-5 opacity-90 shrink-0" />
+                <span className="whitespace-nowrap">Calendar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  goSection("gallery");
+                }}
+                className={`${itemBase} bg-white/5`}
+              >
+                <ImageIcon className="h-5 w-5 opacity-90 shrink-0" />
+                <span className="whitespace-nowrap">Gallery</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/starcast");
+                }}
+                className={`${itemBase} ${path === "/starcast" || path === "/astrocast" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Target className="h-5 w-5 opacity-90 shrink-0" />
+                <span className="whitespace-nowrap">Starcast</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/eclipse-guide");
+                }}
+                className={`${itemBase} ${path === "/eclipse-guide" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Compass className="h-5 w-5 opacity-90 shrink-0" />
+                <span className="whitespace-nowrap">Eclipse Guide</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <motion.aside
       className="hidden md:block fixed left-3 top-[92px] z-30"
       initial={false}
       animate={{ width: collapsed ? 56 : 248 }}
@@ -4093,18 +4191,17 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
           onClick={() => goSection("gallery")}
         />
 
-        {/* Astrocast (formerly the Eclipse Guide button in the nav) */}
+        {/* Starcast (formerly the Eclipse Guide button in the nav) */}
         <Item
           icon={Target}
-          label="Astrocast"
-          title="Astrocast"
+          label="Starcast"
+          title="Starcast"
           isActive={path === "/starcast" || path === "/astrocast"}
           onClick={() => navigate("/starcast")}
         />
 
-
         <Item
-          icon={Grid3X3}
+          icon={Compass}
           label="Eclipse Guide"
           title="Eclipse Guide"
           isActive={path === "/eclipse-guide"}
@@ -4120,6 +4217,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
         />
       </div>
     </motion.aside>
+    </>
   );
 }
 
@@ -4150,6 +4248,7 @@ export default function AstrophotographySite() {
   const { path, navigate } = usePathname();
   const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
+  const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
   const onStarcast = path === "/starcast";
@@ -4184,7 +4283,7 @@ export default function AstrophotographySite() {
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onEclipseGuide || onStarcast) ? (
+            {(onWallpapers || onPlanetarium || onEclipseGuide || onStarcast) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -4226,7 +4325,7 @@ export default function AstrophotographySite() {
               title="Eclipse Guide"
             >
               <Star className="h-4 w-4" />
-              Astrocast
+              Starcast
             </button>
 
             <button
@@ -4237,7 +4336,7 @@ export default function AstrophotographySite() {
               }`}
             >
               <Star className="h-4 w-4" />
-              Astrocast
+              Starcast
             </button>
 
 
@@ -4323,10 +4422,12 @@ export default function AstrophotographySite() {
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
+          ) : onPlanetarium ? (
+            <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
-            <Starcast navigate={navigate} embedded planetariumRenderer={() => <PlanetariumPage navigate={navigate} embedded />} />
+            <Starcast navigate={navigate} embedded />
           ) : (
             <HomePage
               sectionScrollMargin={sectionScrollMargin}

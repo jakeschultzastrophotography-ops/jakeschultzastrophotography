@@ -3993,6 +3993,14 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
 function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Allow the header mobile "Menu" button to open the sidebar without overlaying the logo.
+  useEffect(() => {
+    const onOpen = () => setMobileOpen(true);
+    window.addEventListener("open-mobile-nav", onOpen);
+    return () => window.removeEventListener("open-mobile-nav", onOpen);
+  }, []);
+
   const active = (p) => (path === p ? "bg-white/15" : "bg-white/5");
 
   const itemBase =
@@ -4038,19 +4046,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   
   return (
     <>
-      {/* Mobile sidebar toggle (shows on phones) */}
-      <div className="md:hidden fixed top-3 left-3 z-[60]">
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="rounded-2xl border border-white/15 bg-black/55 backdrop-blur px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_24px_rgba(0,0,0,0.35)]"
-          aria-label="Open menu"
-        >
-          <Grid3X3 className="h-5 w-5 opacity-90" />
-        </button>
-      </div>
-
-      {/* Mobile drawer */}
+{/* Mobile drawer */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-[70]">
           <button
@@ -4379,7 +4375,18 @@ export default function AstrophotographySite() {
 
         <div className="mx-auto max-w-6xl px-4 pb-3 sm:hidden">
           <div className="grid grid-cols-2 gap-2">
-            
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-mobile-nav"))}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
+              title="Menu"
+              aria-label="Open menu"
+            >
+              <Grid3X3 className="h-4 w-4" />
+              Menu
+            </button>
+
 
             <button
               type="button"

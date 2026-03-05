@@ -1,5 +1,32 @@
+
+function useContainerWidth(ref) {
+  const [w, setW] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const measure = () => setW(Math.max(0, Math.floor(el.getBoundingClientRect().width)));
+    measure();
+
+    let ro;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => measure());
+      ro.observe(el);
+    } else {
+      window.addEventListener("resize", measure);
+    }
+
+    return () => {
+      if (ro) ro.disconnect();
+      else window.removeEventListener("resize", measure);
+    };
+  }, [ref]);
+
+  return w;
+}
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Instagram,
   Facebook,
@@ -20,7 +47,12 @@ import {
   X,
 } from "lucide-react";
 
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import { Responsive } from "react-grid-layout";
+
 import Starcast from "./Starcast";
+import AdminDashboard from "./AdminDashboard";
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -57,6 +89,156 @@ function useNoHorizontalScroll() {
       body.style.overflowX = prevBody.overflowX;
     };
   }, []);
+}
+
+
+/* ============================
+   Site Config (dashboard-driven)
+   - Loads /site-config.json (repo workflow) with safe fallbacks
+   - Applies theme tokens as CSS vars (no design changes unless you choose)
+============================ */
+
+const SITE_CONFIG_URL = "/site-config.json";
+
+function isObj(x) {
+  return x && typeof x === "object" && !Array.isArray(x);
+}
+
+function normalizeConfig(raw) {
+  if (!isObj(raw)) return null;
+
+  // Support v2 (AdminDashboard v2) and legacy v1 (AdminDashboard v1)
+  if (raw.version === 2) {
+    return raw;
+  }
+  if (raw.version === 1) {
+    // Map v1 -> v2-ish minimal surface for our needs (news + enabled/order)
+    const v2 = {
+      version: 2,
+      updatedAt: raw.updatedAt || new Date().toISOString(),
+      theme: raw.theme || null,
+      latestNews: Array.isArray(raw.latestNews) ? raw.latestNews : [],
+      canonicalOrigin: raw.canonicalOrigin || null,
+      sections: {},
+      order: { desktop: [], mobile: [] },
+      layouts: { desktop: [], mobile: [] },
+    };
+
+    const d = Array.isArray(raw.layout?.desktop) ? raw.layout.desktop : [];
+    const m = Array.isArray(raw.layout?.mobile) ? raw.layout.mobile : [];
+
+    const mk = (arr, bp) => {
+      for (const s of arr) {
+        const id = (s?.id || "").toString();
+        if (!id) continue;
+        if (!v2.sections[id]) v2.sections[id] = { id, label: s.label || id, enabled: { desktop: true, mobile: true } };
+        v2.sections[id].enabled[bp] = !!s.enabled;
+        v2.order[bp].push(id);
+      }
+    };
+    mk(d, "desktop");
+    mk(m, "mobile");
+
+    // Fallback order if not present
+    if (!v2.order.desktop.length) v2.order.desktop = ["hero","calendar","latestNews","gallery","starcast","eclipseGuide","phoneBackgrounds","footer"];
+    if (!v2.order.mobile.length) v2.order.mobile = [...v2.order.desktop];
+    return v2;
+  }
+
+  return null;
+}
+
+function applyThemeTokens(tokens) {
+  if (!isObj(tokens)) return;
+  const root = document.documentElement;
+
+  // Keep default site styling; these vars only take effect if you wire them into Tailwind/CSS later.
+  // We still set them so wiring is one-line in the future.
+  const set = (k, v) => {
+    if (v == null) return;
+    root.style.setProperty(k, String(v));
+  };
+
+  set("--site-bg", tokens.bg);
+  set("--site-accent", tokens.accent);
+  set("--site-surface", tokens.surface);
+  set("--site-surface2", tokens.surface2);
+  set("--site-border", tokens.border);
+  set("--site-text", tokens.text);
+  set("--site-muted", tokens.muted);
+  set("--site-radius", tokens.radius != null ? `${tokens.radius}px` : null);
+  set("--site-gap", tokens.gap != null ? `${tokens.gap}px` : null);
+  set("--site-font-body", tokens.fontBody);
+  set("--site-font-display", tokens.fontDisplay);
+}
+
+function useSiteConfig() {
+  const [config, setConfig] = useState(null);
+  const [status, setStatus] = useState("idle"); // idle | loading | ready | missing | error
+
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      try {
+        setStatus("loading");
+        const res = await fetch(SITE_CONFIG_URL, { cache: "no-store" });
+        if (!res.ok) {
+          if (!alive) return;
+          setStatus("missing");
+          setConfig(null);
+          return;
+        }
+        const raw = await res.json();
+        const norm = normalizeConfig(raw);
+        if (!alive) return;
+        if (norm) {
+          setConfig(norm);
+          setStatus("ready");
+          if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
+        } else {
+          setConfig(null);
+          setStatus("error");
+        }
+      } catch (e) {
+        if (!alive) return;
+        setStatus("error");
+        setConfig(null);
+      }
+    }
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return { config, status };
+}
+
+function useBreakpoint() {
+  const get = () => {
+    if (typeof window === "undefined") return "desktop";
+    // Match your Tailwind sm breakpoint (640px)
+    return window.matchMedia("(max-width: 639px)").matches ? "mobile" : "desktop";
+  };
+
+  const [bp, setBp] = useState(get);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const onChange = () => setBp(mq.matches ? "mobile" : "desktop");
+    try {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    } catch (e) {
+      // Safari fallback
+      mq.addListener(onChange);
+      return () => mq.removeListener(onChange);
+    }
+  }, []);
+
+  return bp;
 }
 
 const STRIPE_BUY_BUTTON_ID = "buy_btn_1SkaTJE9TNuvn9mCwYxOtv99";
@@ -390,7 +572,7 @@ function ShareBar({ title, shareHref, text }) {
    HOME PAGE (UNCHANGED LOOK)
 =========================================================== */
 
-function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
+function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sectionEnabled, breakpoint, siteConfig }) {
   const year = new Date().getFullYear();
   const heroSrc = "/images/gallery/hero/hero.jpg";
 
@@ -515,7 +697,416 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
     []
   );
 
+  const enabled = (id) => (typeof sectionEnabled === "function" ? !!sectionEnabled(id) : true);
+
+  
+const gridMode = !!(siteConfig && siteConfig.version === 2 && siteConfig.layouts);
+const gridWrapRef = useRef(null);
+const gridWidth = useContainerWidth(gridWrapRef);
+
+const filterLayout = (layout, enabledSet) => {
+  const arr = Array.isArray(layout) ? layout : [];
+  return arr.filter((it) => enabledSet.has(it.i));
+};
+
+const gridIds = useMemo(() => {
+  // Home sections we support in grid mode
+  const ids = ["hero", "calendar", "latestNews", "gallery", "footer"];
+  return ids;
+}, []);
+
+const enabledSet = useMemo(() => {
+  const set = new Set();
+  for (const id of gridIds) {
+    if (id === "hero" || id === "footer") {
+      set.add(id);
+      continue;
+    }
+    if (sectionEnabled(id)) set.add(id);
+  }
+  return set;
+}, [gridIds, breakpoint, siteConfig, sectionEnabled]);
+
+const layouts = useMemo(() => {
+  if (!gridMode) return null;
+  const d = filterLayout(siteConfig.layouts.desktop, enabledSet);
+  const m = filterLayout(siteConfig.layouts.mobile, enabledSet);
+  return { lg: d, sm: m };
+}, [gridMode, siteConfig, enabledSet]);
+
+const order = useMemo(() => {
+  if (!gridMode) return null;
+  const o = (siteConfig.order && siteConfig.order[breakpoint]) ? siteConfig.order[breakpoint] : gridIds;
+  return o.filter((id) => enabledSet.has(id));
+}, [gridMode, siteConfig, breakpoint, gridIds, enabledSet]);
+
+const renderGridSection = (id) => {
+  switch (id) {
+    case "hero":
+      return (
+        <div className="h-full w-full">
+{/* HERO */}
+      <section
+        id="top"
+        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin}`}
+      >
+        <div className="grid items-center gap-8 lg:grid-cols-2">
+          <div>
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-2xl font-semibold leading-tight sm:text-5xl"
+            >
+              Deep-sky images and nightscapes, built for the wall.
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.05 }}
+              className="mt-4 max-w-xl text-white/75"
+            >
+              Explore the gallery, then grab the 2026 astrophotography calendar
+              through secure Stripe checkout.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+            >
+              <a
+                href="#gallery"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 sm:w-auto"
+              >
+                <ImageIcon className="h-4 w-4" />
+                View gallery
+              </a>
+
+              <a
+                href="#calendar"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 sm:w-auto"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                Buy the calendar
+              </a>
+            </motion.div>
+
+            <div className="mt-6 flex flex-wrap gap-2 text-xs text-white/60">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                Peoria, Illinois
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                Deep-sky & nightscapes
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                Print-ready processing
+              </span>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative"
+          >
+            <div className="overflow-hidden rounded-[2.25rem] border border-white/10 bg-white/5 shadow-2xl">
+              <div className="aspect-[4/3]">
+                <img
+                  alt="Featured astrophotography"
+                  className="h-full w-full object-cover"
+                  src={heroSrc}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  onError={(e) => {
+                    e.currentTarget.src = heroFallback;
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
+          </motion.div>
+        </div>
+      </section>
+
+      
+
+    </div>
+  );
+case "calendar":
   return (
+    <div className="h-full w-full">
+{/* CALENDAR PROMO */}
+      {enabled("calendar") ? (
+      <section
+        id="calendar"
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+      >
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold">
+                2026 Astrophotography Calendar
+              </h2>
+              <p className="mt-1 text-sm text-white/70">
+                Secure Stripe checkout.
+              </p>
+            </div>
+            <a
+              href="#gallery"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:mt-0 sm:w-auto"
+            >
+              <ImageIcon className="h-4 w-4" />
+              View gallery
+            </a>
+          </div>
+
+          <div className="mt-5 grid gap-6 lg:grid-cols-2">
+            {/* Calendar ad image (NO CROPPING) */}
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3 sm:p-4">
+              <div className="relative w-full overflow-hidden rounded-xl bg-black/40">
+                <div className="h-[260px] sm:h-[360px] lg:h-[420px]">
+                  <img
+                    src={CALENDAR_AD_SRC}
+                    alt="2026 Astrophotography Calendar ad"
+                    className="h-full w-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Buy button */}
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+              <div className="text-sm font-semibold">Buy now</div>
+              <div className="mt-3">
+                <StripeBuyButton
+                  buyButtonId={STRIPE_BUY_BUTTON_ID}
+                  publishableKey={STRIPE_PUBLISHABLE_KEY}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      ) : null}
+
+      
+
+    </div>
+  );
+case "latestNews":
+  return (
+    <div className="h-full w-full">
+{/* LATEST NEWS FEED */}
+      {enabled("latestNews") ? (
+      <section
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+      >
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold">Latest News</h2>
+              <p className="mt-1 text-sm text-white/70">
+                New releases, free downloads, and shareable posts.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-10">
+            {(latestNews || LATEST_NEWS).map((post) => {
+              const isExternal = !!post.external;
+              const mediaFit =
+                post.mediaFit === "cover" ? "object-cover" : "object-contain";
+
+              const openPost = () => {
+                if (isExternal) {
+                  window.open(post.href, "_blank", "noreferrer");
+                } else {
+                  navigate(post.href);
+                }
+              };
+
+              return (
+                <div key={post.id} className="mx-auto w-full max-w-2xl">
+                  <div className="mb-3 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate">
+                        Jake Schultz Astrophotography
+                      </div>
+                      <div className="text-xs text-white/60">
+                        Posted {post.date}
+                      </div>
+                    </div>
+                    <div className="text-xs text-white/60">
+                      {isExternal ? "AstroBin" : "Free wallpaper"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={openPost}
+                    className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 text-left"
+                    title={post.title}
+                  >
+                    <div className="w-full bg-black/40">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className={`w-full h-auto ${mediaFit}`}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = heroFallback;
+                        }}
+                      />
+                    </div>
+                  </button>
+
+                  <div className="mt-4">
+                    <div className="text-lg font-semibold">{post.title}</div>
+                    <p className="mt-2 text-white/75">{post.description}</p>
+
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                      {isExternal ? (
+                        <a
+                          href={post.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                        >
+                          {post.cta}
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => navigate(post.href)}
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15"
+                        >
+                          {post.cta}
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <ShareBar
+                      title={post.title}
+                      shareHref={post.shareHref}
+                      text={post.description}
+                    />
+                  </div>
+
+                  <div className="mt-8 border-t border-white/10" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+      ) : null}
+
+      
+
+    </div>
+  );
+case "gallery":
+  return (
+    <div className="h-full w-full">
+{/* GALLERY */}
+      {enabled("gallery") ? (
+      <section
+        id="gallery"
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
+      >
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold">Gallery</h2>
+            <p className="mt-1 text-sm text-white/70">
+              Click any image to view it on AstroBin.
+            </p>
+          </div>
+
+          <a
+            href="#calendar"
+            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
+          >
+            Calendar
+          </a>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {gallery.map((item) => (
+            <motion.a
+              key={item.title}
+              href={item.astrobin}
+              target="_blank"
+              rel="noreferrer"
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.35 }}
+              className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
+              title={`Open on AstroBin: ${item.title}`}
+            >
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <img
+                  src={item.src}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.currentTarget.src = heroFallback;
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="text-base font-semibold">{item.title}</div>
+                  <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>View on AstroBin →</span>
+                  </div>
+                </div>
+              </div>
+            </motion.a>
+          ))}
+        </div>
+      </section>
+      ) : null}
+
+      
+
+    </div>
+  );
+case "footer":
+  return (
+    <div className="h-full w-full">
+<footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
+          © {year} Jake Schultz Astrophotography. All rights reserved.
+        </div>
+      </footer>
+    
+
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
+if (!gridMode) {
+return (
     <>
       {/* HERO */}
       <section
@@ -607,6 +1198,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
       </section>
 
       {/* CALENDAR PROMO */}
+      {enabled("calendar") ? (
       <section
         id="calendar"
         className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
@@ -662,8 +1254,10 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* LATEST NEWS FEED */}
+      {enabled("latestNews") ? (
       <section
         className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
@@ -678,7 +1272,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
           </div>
 
           <div className="mt-6 flex flex-col gap-10">
-            {LATEST_NEWS.map((post) => {
+            {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
                 post.mediaFit === "cover" ? "object-cover" : "object-contain";
@@ -768,8 +1362,10 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* GALLERY */}
+      {enabled("gallery") ? (
       <section
         id="gallery"
         className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
@@ -828,12 +1424,47 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate }) {
           ))}
         </div>
       </section>
+      ) : null}
 
       <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
       </footer>
+    </>
+  );
+  }
+
+  return (
+    <>
+      <div ref={gridWrapRef} className="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14">
+        {gridWidth > 0 && layouts ? (
+          <Responsive
+            className="layout"
+            width={gridWidth}
+            layouts={layouts}
+            breakpoints={{ lg: 1200, sm: 0 }}
+            cols={{ lg: 12, sm: 4 }}
+            rowHeight={22}
+            margin={[10, 10]}
+            containerPadding={[0, 0]}
+            isDraggable={false}
+            isResizable={false}
+            compactType="vertical"
+            preventCollision={false}
+          >
+            {(order || []).map((id) => (
+              <div key={id} className="overflow-hidden">
+                {renderGridSection(id)}
+              </div>
+            ))}
+          </Responsive>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            Measuring layout…
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -982,6 +1613,7 @@ function PhoneBackgroundsPage({ heroFallback }) {
           })}
         </div>
       </section>
+      ) : null}
 
       <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
@@ -3992,20 +4624,44 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
 
 function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [orbOpen, setOrbOpen] = useState(false);
+  const ORB_ANIMS = ["bloom","bloomSoft","bloomNeon","bloomRipple","bloomGlitch","bloomStardust","bloomOrbit","bloomMagnetic"];
+  const isDev = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"));
+  const getParam = (k) => {
+    try { return new URLSearchParams(window.location.search).get(k); } catch { return null; }
+  };
+  const [orbAnim, setOrbAnim] = useState(() => {
+    try {
+      const fromUrl = typeof window !== "undefined" ? getParam("orbAnim") : null;
+      const fromLS = typeof window !== "undefined" ? window.localStorage.getItem("orbAnim") : null;
+      const v = (fromUrl || fromLS || "bloom").trim();
+      return ORB_ANIMS.includes(v) ? v : "bloom";
+    } catch {
+      return "bloom";
+    }
+  });
 
-  // Allow the header mobile "Menu" button to open the sidebar without overlaying the logo.
   useEffect(() => {
-    const onOpen = () => setMobileOpen(true);
-    window.addEventListener("open-mobile-nav", onOpen);
-    return () => window.removeEventListener("open-mobile-nav", onOpen);
-  }, []);
+    try { if (typeof window !== "undefined") window.localStorage.setItem("orbAnim", orbAnim); } catch {}
+  }, [orbAnim]);
 
+  useEffect(() => {
+    // keep in sync when you edit URL while testing
+    try {
+      const v = typeof window !== "undefined" ? getParam("orbAnim") : null;
+      if (v && ORB_ANIMS.includes(v) && v !== orbAnim) setOrbAnim(v);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeof window !== "undefined" ? window.location.search : ""]);
   const active = (p) => (path === p ? "bg-white/15" : "bg-white/5");
 
   const itemBase =
-    "group relative flex items-center gap-3 rounded-xl border border-white/10 px-3.5 py-2.5 text-[15px] font-semibold hover:bg-white/10 transition";
+    "group relative flex items-center gap-3 rounded-xl border border-white/10 px-3.5 py-2.5 text-[15px] font-semibold text-left hover:bg-white/10 transition";
 
+
+  // Orb panel items should match the main sidebar typography/alignment (Starcast/Eclipse Guide style)
+  const orbItemBase =
+    "group w-full relative flex items-start gap-4 rounded-2xl border border-white/15 px-4 py-4 text-[17px] font-semibold text-white/95 tracking-wide text-left transition hover:bg-white/10 active:bg-white/15";
   const goSection = (id) => {
     if (onHome) {
       const el = document.getElementById(id);
@@ -4019,7 +4675,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
     }, 60);
   };
 
-  const Item = ({ icon: Icon, label, onClick, isActive, title }) => (
+  const Item = ({ icon: Icon, label, subtitle, onClick, isActive, title }) => (
     <button
       type="button"
       onClick={onClick}
@@ -4027,13 +4683,22 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
       title={title || label}
     >
       <Icon className="h-5 w-5 opacity-90 shrink-0" />
+
+      {/* Text block: match Starcast/Eclipse Guide alignment */}
       <motion.span
         initial={false}
         animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -6 : 0 }}
         transition={{ duration: 0.18 }}
-        className={`whitespace-nowrap ${collapsed ? "pointer-events-none w-0 overflow-hidden" : ""}`}
+        className={`min-w-0 text-left ${collapsed ? "pointer-events-none w-0 overflow-hidden" : ""}`}
       >
-        {label}
+        <span className="block whitespace-nowrap leading-tight">
+          {label}
+        </span>
+        {subtitle ? (
+          <span className="block text-[13px] font-medium text-white/70 leading-snug">
+            {subtitle}
+          </span>
+        ) : null}
       </motion.span>
 
       {/* subtle hover glow */}
@@ -4046,92 +4711,353 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   
   return (
     <>
-{/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-[70]">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/65"
-            aria-label="Close menu overlay"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div className="absolute left-0 top-0 h-full w-[84vw] max-w-[320px] border-r border-white/10 bg-black/80 backdrop-blur p-3">
-            <div className="flex items-center justify-between pb-2">
-              <div className="text-white/90 font-semibold">Menu</div>
+      
+{/* Mobile orb menu (phones only) */}
+<div className="md:hidden fixed bottom-4 left-4 z-[70]">
+  {/* Dev-only animation picker (shows only on localhost/dev) */}
+  {isDev && (
+    <div className="mb-2 w-[210px] rounded-2xl border border-white/10 bg-black/60 backdrop-blur px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_16px_28px_rgba(0,0,0,0.45)]">
+      <div className="text-[11px] uppercase tracking-wider text-white/70 mb-1">Orb animation</div>
+      <select
+        value={orbAnim}
+        onChange={(e) => setOrbAnim(e.target.value)}
+        className="w-full rounded-xl border border-white/10 bg-black/40 px-2 py-1.5 text-[13px] text-white/90 outline-none"
+      >
+        <option value="bloom">Bloom (original)</option>
+        <option value="bloomSoft">Bloom Soft</option>
+        <option value="bloomNeon">Bloom Neon</option>
+        <option value="bloomRipple">Bloom Ripple</option>
+        <option value="bloomGlitch">Bloom Glitch</option>
+        <option value="bloomStardust">Bloom Stardust</option>
+        <option value="bloomOrbit">Bloom Orbit</option>
+        <option value="bloomMagnetic">Bloom Magnetic</option>
+      </select>
+    </div>
+  )}
+
+  {/* Saturn orb trigger */}
+  <button
+    type="button"
+    onClick={() => setOrbOpen((v) => !v)}
+    className="relative rounded-full border border-white/15 bg-black/55 backdrop-blur w-12 h-12 flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_14px_30px_rgba(0,0,0,0.45)] active:scale-[0.98] transition"
+    aria-label={orbOpen ? "Close menu" : "Open menu"}
+  >
+    {/* subtle breathing glow */}
+    <span className="pointer-events-none absolute inset-0 rounded-full opacity-70">
+      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.22),rgba(255,255,255,0)_55%)]" />
+    </span>
+    {/* Saturn icon (clean, stroke-based) */}
+    <svg viewBox="0 0 24 24" className="h-6 w-6 opacity-90" aria-hidden="true">
+      <ellipse
+        cx="12"
+        cy="12"
+        rx="10"
+        ry="4"
+        transform="rotate(-18 12 12)"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+      />
+      <path
+        d="M13.6 9.7c1.2.4 2.1 1.3 2.5 2.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+    </svg>
+  </button>
+
+  {/* Orb panel */}
+  <AnimatePresence>
+    {orbOpen && (
+      <>
+        {/* click-away overlay */}
+        <motion.button
+          type="button"
+          className="fixed inset-0 z-[69] bg-black/20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setOrbOpen(false)}
+          aria-label="Close menu overlay"
+        />
+
+        <motion.div
+          className="fixed bottom-[86px] left-4 z-[70] w-[55vw] min-w-[240px] max-w-[350px] h-[70vh]"
+          {...(() => {
+            const presets = {
+              bloom: {
+                initial: { opacity: 0, y: 18, scale: 0.92, filter: "blur(10px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 14, scale: 0.96, filter: "blur(10px)" },
+                transition: { type: "spring", stiffness: 520, damping: 34 },
+              },
+              bloomSoft: {
+                initial: { opacity: 0, y: 14, scale: 0.96, filter: "blur(14px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.98, filter: "blur(12px)" },
+                transition: { type: "spring", stiffness: 360, damping: 32 },
+              },
+              bloomNeon: {
+                initial: { opacity: 0, y: 18, scale: 0.90, filter: "blur(12px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.96, filter: "blur(12px)" },
+                transition: { type: "spring", stiffness: 520, damping: 30 },
+              },
+              bloomRipple: {
+                initial: { opacity: 0, y: 18, scale: 0.90, filter: "blur(10px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.97, filter: "blur(10px)" },
+                transition: { type: "spring", stiffness: 520, damping: 34 },
+              },
+              bloomGlitch: {
+                initial: { opacity: 0, y: 16, scale: 0.92, filter: "blur(10px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.97, filter: "blur(10px)" },
+                transition: { type: "spring", stiffness: 520, damping: 34 },
+              },
+              bloomStardust: {
+                initial: { opacity: 0, y: 16, scale: 0.93, filter: "blur(12px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.97, filter: "blur(12px)" },
+                transition: { type: "spring", stiffness: 480, damping: 34 },
+              },
+              bloomOrbit: {
+                initial: { opacity: 0, y: 18, scale: 0.90, rotate: -2, filter: "blur(10px)" },
+                animate: { opacity: 1, y: 0, scale: 1, rotate: 0, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 10, scale: 0.96, rotate: 1, filter: "blur(10px)" },
+                transition: { type: "spring", stiffness: 520, damping: 34 },
+              },
+              bloomMagnetic: {
+                initial: { opacity: 0, y: 22, scale: 0.90, filter: "blur(14px)" },
+                animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+                exit: { opacity: 0, y: 12, scale: 0.97, filter: "blur(14px)" },
+                transition: { type: "spring", stiffness: 620, damping: 36 },
+              },
+            };
+            return presets[orbAnim] || presets.bloom;
+          })()}
+        >
+          <div className="relative h-full overflow-hidden rounded-3xl border border-white/20 bg-black/80 backdrop-blur-xl p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_22px_50px_rgba(0,0,0,0.65)] flex flex-col">
+            {/* ambient layers */}
+            <span className="pointer-events-none absolute -inset-10 opacity-60">
+              <span className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.14),rgba(255,255,255,0)_55%)]" />
+              <span className="absolute inset-0 bg-[radial-gradient(circle_at_80%_60%,rgba(255,255,255,0.10),rgba(255,255,255,0)_55%)]" />
+            </span>
+
+            {/* Variant-specific effect layers */}
+            {orbAnim === "bloomNeon" && (
+              <motion.span
+                className="pointer-events-none absolute -inset-6 opacity-70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.7 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <span className="absolute inset-0 blur-2xl bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.22),rgba(255,255,255,0)_60%)]" />
+              </motion.span>
+            )}
+
+            {orbAnim === "bloomRipple" && (
+              <motion.span
+                className="pointer-events-none absolute left-3 bottom-3 w-10 h-10 rounded-full border border-white/25"
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: [0.35, 0], scale: [0.7, 2.2] }}
+                transition={{ duration: 0.85, ease: "easeOut" }}
+              />
+            )}
+
+            {orbAnim === "bloomGlitch" && (
+              <motion.span
+                className="pointer-events-none absolute inset-0 opacity-40 mix-blend-overlay"
+                initial={{ x: 0, opacity: 0 }}
+                animate={{ opacity: 0.35, x: [0, -2, 2, -1, 1, 0] }}
+                transition={{ duration: 0.36, ease: "easeInOut" }}
+              >
+                <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.12)_30%,rgba(255,255,255,0)_60%)]" />
+              </motion.span>
+            )}
+
+            {orbAnim === "bloomStardust" && (
+              <motion.span
+                className="pointer-events-none absolute inset-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <span className="absolute inset-0 opacity-50 bg-[radial-gradient(circle,rgba(255,255,255,0.35)_1px,rgba(255,255,255,0)_1.8px)] [background-size:14px_14px]" />
+                <span className="absolute inset-0 opacity-25 bg-[radial-gradient(circle,rgba(255,255,255,0.28)_1px,rgba(255,255,255,0)_1.8px)] [background-size:22px_22px]" />
+              </motion.span>
+            )}
+
+            {orbAnim === "bloomOrbit" && (
+              <motion.span
+                className="pointer-events-none absolute -left-10 -top-12 w-[220px] h-[220px] rounded-full border border-white/10"
+                initial={{ opacity: 0, rotate: -20 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+              />
+            )}
+
+            {orbAnim === "bloomMagnetic" && (
+              <motion.span
+                className="pointer-events-none absolute -left-6 -bottom-6 w-[160px] h-[160px] rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.18),rgba(255,255,255,0)_60%)] blur-2xl"
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+              />
+            )}
+
+            <div className="flex items-center justify-between pb-3">
+              <div className="text-white/95 text-[17px] font-semibold tracking-wide">Quick Menu</div>
               <button
                 type="button"
-                onClick={() => setMobileOpen(false)}
-                className="rounded-xl border border-white/10 bg-white/5 px-2 py-2 hover:bg-white/10 transition"
+                onClick={() => setOrbOpen(false)}
+                className="rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 hover:bg-white/10 active:bg-white/15 transition"
                 aria-label="Close menu"
               >
-                <X className="h-5 w-5 opacity-80" />
+                <X className="h-4 w-4 opacity-80" />
               </button>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={() => {
-                  setMobileOpen(false);
+                  setOrbOpen(false);
                   navigate("/");
                 }}
-                className={`${itemBase} bg-white/5`}
+                className={`${orbItemBase} bg-white/5`}
               >
                 <Camera className="h-5 w-5 opacity-90 shrink-0" />
-                <span className="whitespace-nowrap">Home</span>
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Home</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Back to main</div>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setMobileOpen(false);
+                  setOrbOpen(false);
                   goSection("calendar");
                 }}
-                className={`${itemBase} bg-white/5`}
+                className={`${orbItemBase} bg-white/5`}
               >
                 <ShoppingBag className="h-5 w-5 opacity-90 shrink-0" />
-                <span className="whitespace-nowrap">Calendar</span>
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Calendar</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Buy the 2026 calendar</div>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setMobileOpen(false);
+                  setOrbOpen(false);
                   goSection("gallery");
                 }}
-                className={`${itemBase} bg-white/5`}
+                className={`${orbItemBase} bg-white/5`}
               >
                 <ImageIcon className="h-5 w-5 opacity-90 shrink-0" />
-                <span className="whitespace-nowrap">Gallery</span>
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Gallery</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Deep-sky images</div>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setMobileOpen(false);
+                  setOrbOpen(false);
                   navigate("/starcast");
                 }}
-                className={`${itemBase} ${path === "/starcast" || path === "/astrocast" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+                className={`${orbItemBase} ${path === "/starcast" || path === "/astrocast" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
               >
                 <Target className="h-5 w-5 opacity-90 shrink-0" />
-                <span className="whitespace-nowrap">Starcast</span>
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Starcast</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Forecast & best targets</div>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setMobileOpen(false);
+                  setOrbOpen(false);
                   navigate("/eclipse-guide");
                 }}
-                className={`${itemBase} ${path === "/eclipse-guide" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+                className={`${orbItemBase} ${path === "/eclipse-guide" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
               >
                 <Compass className="h-5 w-5 opacity-90 shrink-0" />
-                <span className="whitespace-nowrap">Eclipse Guide</span>
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Eclipse Guide</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Eclipse details</div>
+                </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbOpen(false);
+                  navigate("/phone-backgrounds");
+                }}
+                className={`${orbItemBase} ${path === "/phone-backgrounds" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Download className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Phone Backgrounds</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Free wallpapers</div>
+                </div>
+              </button>
+
+              <a
+                href="https://www.instagram.com/jakeschultzastrophotography"
+                target="_blank"
+                rel="noreferrer"
+                className={`${orbItemBase} bg-white/5`}
+                onClick={() => setOrbOpen(false)}
+              >
+                <Instagram className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Instagram</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Follow & updates</div>
+                </div>
+              </a>
+
+              <a
+                href="https://www.facebook.com/jakeschultzastrophotography"
+                target="_blank"
+                rel="noreferrer"
+                className={`${orbItemBase} bg-white/5`}
+                onClick={() => setOrbOpen(false)}
+              >
+                <Facebook className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Facebook</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Posts & shares</div>
+                </div>
+              </a>
             </div>
           </div>
-        </div>
-      )}
+        </motion.div>      </>
+    )}
+  </AnimatePresence>
+</div>
 
       <motion.aside
       className="hidden md:block fixed left-3 top-[92px] z-30"
@@ -4163,54 +5089,77 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
           )}
         </button>
 
-        <Item
-          icon={Camera}
-          label="Home"
-          title="Home"
-          isActive={path === "/"}
-          onClick={() => navigate("/")}
-        />
-
-        <Item
-          icon={ShoppingBag}
-          label="Calendar"
-          title="Calendar"
-          isActive={false}
-          onClick={() => goSection("calendar")}
-        />
-
-        <Item
-          icon={ImageIcon}
-          label="Gallery"
-          title="Gallery"
-          isActive={false}
-          onClick={() => goSection("gallery")}
-        />
-
-        {/* Starcast (formerly the Eclipse Guide button in the nav) */}
-        <Item
-          icon={Target}
-          label="Starcast"
-          title="Starcast"
-          isActive={path === "/starcast" || path === "/astrocast"}
-          onClick={() => navigate("/starcast")}
-        />
-
-        <Item
-          icon={Compass}
-          label="Eclipse Guide"
-          title="Eclipse Guide"
-          isActive={path === "/eclipse-guide"}
-          onClick={() => navigate("/eclipse-guide")}
-        />
-
-        <Item
-          icon={Download}
-          label="Wallpapers"
-          title="Phone Backgrounds"
-          isActive={path === "/phone-backgrounds"}
-          onClick={() => navigate("/phone-backgrounds")}
-        />
+        {/* Desktop sidebar items */}
+        {(
+          [
+            {
+              key: "home",
+              label: "Home",
+              subtitle: "Back to main",
+              icon: Camera,
+              active: path === "/",
+              onClick: () => navigate("/"),
+            },
+            {
+              key: "calendar",
+              label: "Calendar",
+              subtitle: "Buy the 2026 calendar",
+              icon: ShoppingBag,
+              active: false,
+              onClick: () => goSection("calendar"),
+            },
+            {
+              key: "gallery",
+              label: "Gallery",
+              subtitle: "Deep-sky images",
+              icon: ImageIcon,
+              active: false,
+              onClick: () => goSection("gallery"),
+            },
+            {
+              key: "starcast",
+              label: "Starcast",
+              subtitle: "Forecast & best targets",
+              icon: Star,
+              active: path === "/starcast" || path === "/astrocast",
+              onClick: () => navigate("/starcast"),
+            },
+            {
+              key: "eclipse",
+              label: "Eclipse Guide",
+              subtitle: "Eclipse details",
+              icon: Compass,
+              active: path === "/eclipse-guide",
+              onClick: () => navigate("/eclipse-guide"),
+            },
+            {
+              key: "wallpapers",
+              label: "Phone Backgrounds",
+              subtitle: "Free downloads",
+              icon: Download,
+              active: path === "/phone-backgrounds",
+              onClick: () => navigate("/phone-backgrounds"),
+            },
+          ].map(({ key, label, subtitle, icon: Icon, active, onClick }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={onClick}
+              className={`group relative flex items-center gap-3 rounded-xl border border-white/10 px-3.5 py-2.5 text-[15px] font-semibold transition ${
+                active ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5 hover:bg-white/10"
+              } ${collapsed ? "justify-center" : "justify-start"}`}
+              title={label}
+            >
+              <Icon className="h-5 w-5 opacity-90 shrink-0" />
+              {!collapsed && (
+                <div className="min-w-0 text-left">
+                  <div className="truncate leading-snug">{label}</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">{subtitle}</div>
+                </div>
+              )}
+            </button>
+          ))
+        )}
       </div>
     </motion.aside>
     </>
@@ -4219,6 +5168,31 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
 
 export default function AstrophotographySite() {
   useNoHorizontalScroll();
+
+  const breakpoint = useBreakpoint();
+  const { config: siteConfig } = useSiteConfig();
+
+  const sectionEnabled = useMemo(() => {
+    const cfg = siteConfig;
+    if (!cfg || cfg.version !== 2 || !cfg.sections) return (id) => true;
+    return (id) => {
+      const s = cfg.sections?.[id];
+      if (!s) return true;
+      const en = s.enabled?.[breakpoint];
+      return en == null ? true : !!en;
+    };
+  }, [siteConfig, breakpoint]);
+
+  const latestNewsOverride = useMemo(() => {
+    const cfg = siteConfig;
+    if (!cfg || !Array.isArray(cfg.latestNews) || cfg.latestNews.length === 0) return null;
+    // Allow dashboard fields like pinned/status; filter drafts and sort pinned first (stable).
+    const list = cfg.latestNews
+      .filter((p) => (p?.status || "published") !== "draft")
+      .slice();
+    list.sort((a, b) => (b?.pinned ? 1 : 0) - (a?.pinned ? 1 : 0));
+    return list;
+  }, [siteConfig]);
 
   const [logoOk, setLogoOk] = useState(true);
   const handleLogoError = () => setLogoOk(false);
@@ -4242,7 +5216,13 @@ export default function AstrophotographySite() {
   const heroFallback = "/images/gallery/M31-andromeda-galaxy.jpg";
 
   const { path, navigate } = usePathname();
-  const onHome = path === "/";
+  
+  // Jake-only editor dashboard (not linked in UI)
+  if (path === "/admin") {
+    return <AdminDashboard onExit={() => navigate("/")} />;
+  }
+
+const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
   const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
@@ -4292,7 +5272,7 @@ export default function AstrophotographySite() {
               <>
                 <a
                   href="#calendar"
-                  className="ml-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15"
+                  className="ml-1 hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15"
                   title="Jump to Calendar"
                 >
                   <ShoppingBag className="h-4 w-4" />
@@ -4312,13 +5292,14 @@ export default function AstrophotographySite() {
 
             
 
+            {/* Legacy mobile header button hidden (orb drawer replaces mobile nav) */}
             <button
               type="button"
               onClick={() => navigate("/starcast")}
-              className={`inline-flex w-full sm:hidden items-center justify-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 ${
+              className={`hidden w-full sm:hidden items-center justify-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 ${
                 onAstrocast ? "bg-white/15" : "bg-white/5"
               }`}
-              title="Eclipse Guide"
+              title="Starcast"
             >
               <Star className="h-4 w-4" />
               Starcast
@@ -4373,20 +5354,10 @@ export default function AstrophotographySite() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-6xl px-4 pb-3 sm:hidden">
+        {/* Legacy mobile quick-link grid hidden (orb drawer replaces mobile nav) */}
+        <div className="mx-auto hidden max-w-6xl px-4 pb-3 sm:hidden">
           <div className="grid grid-cols-2 gap-2">
-
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event("open-mobile-nav"))}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
-              title="Menu"
-              aria-label="Open menu"
-            >
-              <Grid3X3 className="h-4 w-4" />
-              Menu
-            </button>
-
+            
 
             <button
               type="button"
@@ -4440,6 +5411,8 @@ export default function AstrophotographySite() {
               sectionScrollMargin={sectionScrollMargin}
               heroFallback={heroFallback}
               navigate={navigate}
+              latestNews={latestNewsOverride}
+              sectionEnabled={sectionEnabled}
             />
           )}
         </main>

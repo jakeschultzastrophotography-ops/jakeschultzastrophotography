@@ -1,0 +1,290 @@
+{
+  "version": 2,
+  "updatedAt": "2026-03-05T19:08:04.622703+00:00",
+  "secret": "saturn",
+  "persistence": {
+    "mode": "localStorage",
+    "netlifyGet": "/.netlify/functions/siteConfigGet",
+    "netlifySave": "/.netlify/functions/siteConfigSave"
+  },
+  "theme": {
+    "preset": "Nebula Glass",
+    "tokens": {
+      "bg": "#070812",
+      "surface": "rgba(255,255,255,0.06)",
+      "surface2": "rgba(255,255,255,0.10)",
+      "border": "rgba(255,255,255,0.10)",
+      "text": "rgba(255,255,255,0.92)",
+      "muted": "rgba(255,255,255,0.60)",
+      "accent": "#8ab4ff",
+      "radius": 18,
+      "gap": 14,
+      "fontBody": "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
+      "fontDisplay": "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    }
+  },
+  "canonicalOrigin": "https://jakeschultzastrophotography.com",
+  "sections": {
+    "hero": {
+      "id": "hero",
+      "label": "Hero",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "calendar": {
+      "id": "calendar",
+      "label": "Calendar",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "latestNews": {
+      "id": "latestNews",
+      "label": "Latest News",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "gallery": {
+      "id": "gallery",
+      "label": "Gallery",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "starcast": {
+      "id": "starcast",
+      "label": "Starcast",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "eclipseGuide": {
+      "id": "eclipseGuide",
+      "label": "Eclipse Guide",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "phoneBackgrounds": {
+      "id": "phoneBackgrounds",
+      "label": "Phone Backgrounds",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    },
+    "footer": {
+      "id": "footer",
+      "label": "Footer",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
+    }
+  },
+  "layouts": {
+    "desktop": [
+      {
+        "i": "hero",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "calendar",
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "latestNews",
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "gallery",
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "starcast",
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "eclipseGuide",
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "phoneBackgrounds",
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "footer",
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      }
+    ],
+    "mobile": [
+      {
+        "i": "hero",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "calendar",
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "latestNews",
+        "x": 0,
+        "y": 8,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "gallery",
+        "x": 0,
+        "y": 12,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "starcast",
+        "x": 0,
+        "y": 16,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "eclipseGuide",
+        "x": 0,
+        "y": 20,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "phoneBackgrounds",
+        "x": 0,
+        "y": 24,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "footer",
+        "x": 0,
+        "y": 28,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      }
+    ]
+  },
+  "order": {
+    "desktop": [
+      "hero",
+      "calendar",
+      "latestNews",
+      "gallery",
+      "starcast",
+      "eclipseGuide",
+      "phoneBackgrounds",
+      "footer"
+    ],
+    "mobile": [
+      "hero",
+      "calendar",
+      "latestNews",
+      "gallery",
+      "starcast",
+      "eclipseGuide",
+      "phoneBackgrounds",
+      "footer"
+    ]
+  },
+  "latestNews": []
+}

@@ -275,52 +275,23 @@ This rebuilds the code already on your ${branchLabel} branch. Make sure your lat
     setDeployStatus("Recommended defaults applied.");
   };
 
-  const releaseFiles = [
-    "src/AstrophotographySite.jsx",
-    "src/AdminDashboard.jsx",
-    "src/DashboardHome.jsx",
-    "src/Starcast.jsx",
-    "src/siteVersion.js",
-  ];
-
-  const copyText = async (value, okMessage) => {
+  const copyReleaseCommand = async () => {
+    const command = [
+      "git checkout dev",
+      "git add .",
+      `git commit -m "Release ${SITE_VERSION}"`,
+      "git push origin dev",
+      "git checkout main",
+      "git pull origin main",
+      "git merge dev",
+      "git push origin main",
+    ].join("; ");
     try {
-      await navigator.clipboard.writeText(value);
-      setDeployStatus(okMessage);
+      await navigator.clipboard.writeText(command);
+      setDeployStatus("Release command copied. Paste it into PowerShell, let Git finish, then click Deploy.");
     } catch {
-      setDeployStatus("Could not copy to clipboard.");
+      setDeployStatus("Could not copy the release command.");
     }
-  };
-
-  const copyPowerShellPushCommand = async () => {
-    const branch = (branchLabel || "main").trim() || "main";
-    const cmd = `git add ${releaseFiles.join(" ")}; git commit -m "Release ${SITE_VERSION}"; git push origin ${branch}`;
-    await copyText(cmd, `PowerShell push command copied for ${branch}.`);
-  };
-
-  const copyCmdPushCommand = async () => {
-    const branch = (branchLabel || "main").trim() || "main";
-    const cmd = `git add ${releaseFiles.join(" ")} && git commit -m "Release ${SITE_VERSION}" && git push origin ${branch}`;
-    await copyText(cmd, `Command Prompt push command copied for ${branch}.`);
-  };
-
-  const copyPowerShellMainReleaseCommand = async () => {
-    const sourceBranch = ((branchLabel || "dev").trim() || "dev");
-    const cmd = sourceBranch.toLowerCase() === 'main'
-      ? `git checkout main; git pull origin main; git add ${releaseFiles.join(" ")}; git commit -m "Release ${SITE_VERSION}"; git push origin main`
-      : `git checkout main; git pull origin main; git merge ${sourceBranch}; git push origin main`;
-    await copyText(cmd, sourceBranch.toLowerCase() === 'main' ? 'PowerShell main release command copied.' : `PowerShell merge-and-release command copied: ${sourceBranch} → main.`);
-  };
-
-  const copyDeploySteps = async () => {
-    const branch = (branchLabel || "main").trim() || "main";
-    const steps = [
-      `1. Run in PowerShell: git add ${releaseFiles.join(" ")}; git commit -m "Release ${SITE_VERSION}"; git push origin ${branch}`,
-      `2. If Netlify deploys from main but you are working on dev, run instead: git checkout main; git pull origin main; git merge ${branch}; git push origin main`,
-      `3. Return here and click Deploy ${SITE_VERSION}.`,
-      `4. Check the live site version badge after Netlify finishes building.`,
-    ].join("\n");
-    await copyText(steps, 'Deploy steps copied.');
   };
 
   const activityFeed = [
@@ -490,12 +461,9 @@ This rebuilds the code already on your ${branchLabel} branch. Make sure your lat
                   <div className="flex flex-wrap gap-3 pt-1">
                     <button onClick={deployNow} disabled={busy || !hookReady} className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50">{busy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Deploy {SITE_VERSION}</button>
                     <button onClick={useRecommended} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Use recommended defaults</button>
-                    <button onClick={copyPowerShellPushCommand} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy PowerShell push command</button>
-                    <button onClick={copyCmdPushCommand} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy Command Prompt push command</button>
-                    <button onClick={copyPowerShellMainReleaseCommand} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy main release command</button>
-                    <button onClick={copyDeploySteps} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy deploy steps</button>
+                    <button onClick={copyReleaseCommand} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy release command</button>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white/60"><strong className="text-white/80">Important:</strong> copy the terminal command first, paste it into your terminal, confirm your changes are pushed to the correct branch, then click Deploy. The deploy button only tells Netlify to rebuild code that is already in GitHub.</div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white/60"><strong className="text-white/80">Step 1:</strong> click <span className="text-white/80">Copy release command</span>. <strong className="text-white/80">Step 2:</strong> paste it into Windows PowerShell and press Enter. <strong className="text-white/80">Step 3:</strong> wait until Git finishes pushing to <span className="text-white/80">main</span>. <strong className="text-white/80">Step 4:</strong> come back here and click <span className="text-white/80">Deploy</span>. The deploy button rebuilds the code already on your connected Git branch; it does not upload unsaved local code by itself.</div>
                   {deployStatus ? <div className="text-sm text-cyan-200/85">{deployStatus}</div> : null}
                 </div>
               </Panel>

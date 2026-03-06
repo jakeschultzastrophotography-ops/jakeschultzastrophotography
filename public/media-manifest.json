@@ -1,0 +1,689 @@
+{
+  "generatedAt": "2026-03-06T03:13:45.289Z",
+  "generatedFrom": "/public/images",
+  "assetCount": 60,
+  "assets": [
+    {
+      "id": "asset_L2ltYWdlcy9icmFuZC",
+      "title": "logo",
+      "path": "/images/brand/logo.png",
+      "folder": "brand",
+      "tags": [
+        "brand"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 01",
+      "path": "/images/eclipse-guide/eclipse-01.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 02",
+      "path": "/images/eclipse-guide/eclipse-02.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 03",
+      "path": "/images/eclipse-guide/eclipse-03.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 04",
+      "path": "/images/eclipse-guide/eclipse-04.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 05",
+      "path": "/images/eclipse-guide/eclipse-05.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 06",
+      "path": "/images/eclipse-guide/eclipse-06.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 07",
+      "path": "/images/eclipse-guide/eclipse-07.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 08",
+      "path": "/images/eclipse-guide/eclipse-08.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 09",
+      "path": "/images/eclipse-guide/eclipse-09.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "eclipse 10",
+      "path": "/images/eclipse-guide/eclipse-10.jpg",
+      "folder": "eclipse guide",
+      "tags": [
+        "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "auroras at jubilee observatory",
+      "path": "/images/gallery/auroras-at-jubilee-observatory.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "auroras",
+      "path": "/images/gallery/auroras.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Back",
+      "path": "/images/gallery/calendar/Back_.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery",
+        "calendar"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "calendar ad",
+      "path": "/images/gallery/calendar/calendar-ad.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery",
+        "calendar"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Cover",
+      "path": "/images/gallery/calendar/Cover.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery",
+        "calendar"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "California nebula",
+      "path": "/images/gallery/California-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Comet C2023 A3 (Tsuchinshan ATLAS)v2",
+      "path": "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "crescent nebula",
+      "path": "/images/gallery/crescent-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "cygnus loop",
+      "path": "/images/gallery/cygnus-loop.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "eastern veil nebula",
+      "path": "/images/gallery/eastern-veil-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Flame and horsehead nebula",
+      "path": "/images/gallery/Flame-and-horsehead-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "harvest moon",
+      "path": "/images/gallery/harvest-moon.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "hero",
+      "path": "/images/gallery/hero/hero.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery",
+        "hero"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M3 star cluster",
+      "path": "/images/gallery/M3-star-cluster.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M31 andromeda galaxy",
+      "path": "/images/gallery/M31-andromeda-galaxy.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M33 Triangulum Galaxy",
+      "path": "/images/gallery/M33-Triangulum-Galaxy.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M42 orion nebula",
+      "path": "/images/gallery/M42-orion-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M45 pleiades",
+      "path": "/images/gallery/M45-pleiades.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "markarians chain",
+      "path": "/images/gallery/markarians-chain.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "milky way at jubilee",
+      "path": "/images/gallery/milky-way-at-jubilee.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "moon 1",
+      "path": "/images/gallery/moon-1.png",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "moon 2",
+      "path": "/images/gallery/moon-2.png",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "north american nebula",
+      "path": "/images/gallery/north-american-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Orion Nebula2",
+      "path": "/images/gallery/Orion-Nebula2.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "pacman nebula",
+      "path": "/images/gallery/pacman-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "pelican nebula",
+      "path": "/images/gallery/pelican-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "rosette nebula",
+      "path": "/images/gallery/rosette-nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "totality",
+      "path": "/images/gallery/totality.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "venus and crescent moon",
+      "path": "/images/gallery/venus-and-crescent-moon.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9uZXdzL2",
+      "title": "eclipse og",
+      "path": "/images/news/eclipse-og.jpg",
+      "folder": "news",
+      "tags": [
+        "news"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9uZXdzL2",
+      "title": "feb13 lockscreen share",
+      "path": "/images/news/feb13-lockscreen-share.jpg",
+      "folder": "news",
+      "tags": [
+        "news"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Andromeda",
+      "path": "/images/wallpapers/backgrounds/Andromeda.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "California Nebula",
+      "path": "/images/wallpapers/backgrounds/California Nebula.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Crescent Nebula",
+      "path": "/images/wallpapers/backgrounds/Crescent Nebula.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Eastern Veil",
+      "path": "/images/wallpapers/backgrounds/Eastern Veil.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Heart Nebula",
+      "path": "/images/wallpapers/backgrounds/Heart Nebula.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Horsehead",
+      "path": "/images/wallpapers/backgrounds/Horsehead.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Lightning",
+      "path": "/images/wallpapers/backgrounds/Lightning.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "M31",
+      "path": "/images/wallpapers/backgrounds/M31.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "M33",
+      "path": "/images/wallpapers/backgrounds/M33.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "M42",
+      "path": "/images/wallpapers/backgrounds/M42.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "M45",
+      "path": "/images/wallpapers/backgrounds/M45.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Moon",
+      "path": "/images/wallpapers/backgrounds/Moon.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Orion Nebula",
+      "path": "/images/wallpapers/backgrounds/Orion Nebula.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Pelican Nebula",
+      "path": "/images/wallpapers/backgrounds/Pelican Nebula.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Rosette",
+      "path": "/images/wallpapers/backgrounds/Rosette.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Totality Lock Screen",
+      "path": "/images/wallpapers/backgrounds/Totality-Lock-Screen.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Totality",
+      "path": "/images/wallpapers/backgrounds/Totality.png",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy93YWxscG",
+      "title": "Totality2",
+      "path": "/images/wallpapers/backgrounds/Totality2.jpg",
+      "folder": "wallpapers",
+      "tags": [
+        "wallpapers",
+        "backgrounds"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    }
+  ]
+}

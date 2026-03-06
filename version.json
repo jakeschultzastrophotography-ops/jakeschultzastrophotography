@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "releaseName": "Command Center",
+  "releaseDate": "2026-03-05",
+  "notes": [
+    "Command Center is the default admin homepage.",
+    "Editor password gate removed.",
+    "Admin routes restored for editor, post studio, and media library."
+  ]
+}

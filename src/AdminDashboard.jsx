@@ -420,15 +420,14 @@ function SectionTile({ section, tokens }) {
   );
 }
 
-export default function AdminDashboard({ onExit }) {
+export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
   const fileInputRef = useRef(null);
   const imgUploadRef = useRef(null);
   const canvasWrapRef = useRef(null);
   const canvasWidth = useContainerWidth(canvasWrapRef);
 
 
-  const [locked, setLocked] = useState(true);
-  const [secretInput, setSecretInput] = useState("");
+  const [locked, setLocked] = useState(false);
 
   const [history, setHistory] = useState(() => {
     const cfg = loadLocal();
@@ -437,13 +436,17 @@ export default function AdminDashboard({ onExit }) {
   const cfg = history.stack[history.idx];
   const tokens = cfg?.theme?.tokens || {};
 
-  const [tab, setTab] = useState("canvas"); // canvas | theme | sections | news | persistence
+  const [tab, setTab] = useState(initialTab || "canvas"); // canvas | theme | sections | news | persistence
   const [breakpoint, setBreakpoint] = useState("desktop"); // desktop | mobile
   const [filter, setFilter] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState("hero");
   const [selectedPostId, setSelectedPostId] = useState(cfg?.latestNews?.[0]?.id || null);
 
   useEffect(() => { applyDashboardCss(tokens); }, [tokens]);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   // Optional: hydrate from Netlify on load if enabled
   useEffect(() => {
@@ -476,34 +479,6 @@ export default function AdminDashboard({ onExit }) {
   const undo = () => setHistory((h) => ({ ...h, idx: clamp(h.idx - 1, 0, h.stack.length - 1) }));
   const redo = () => setHistory((h) => ({ ...h, idx: clamp(h.idx + 1, 0, h.stack.length - 1) }));
 
-  const gate = (
-    <div className="mx-auto mt-12 max-w-md rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div className="text-lg font-semibold text-white/90">Unlock editor</div>
-      <div className="mt-1 text-sm text-white/60">
-        Local-only safeguard. Secret is <code className="text-white/80">"{String(cfg?.secret || DEFAULT_SECRET)}"</code>.
-      </div>
-      <div className="mt-4 space-y-3">
-        <Field label="Secret">
-          <TextInput value={secretInput} onChange={setSecretInput} placeholder="Type secret…" />
-        </Field>
-        <PrimaryButton
-          onClick={() => {
-            if ((secretInput || "").trim().toLowerCase() === String(cfg?.secret || DEFAULT_SECRET).toLowerCase()) {
-              setLocked(false);
-            } else {
-              alert("Nope 🙂");
-            }
-          }}
-          className="w-full"
-        >
-          <Unlock size={14} /> Unlock
-        </PrimaryButton>
-        <div className="text-[11px] text-white/40">
-          Tip: keep route <code className="text-white/70">/admin</code> unlinked.
-        </div>
-      </div>
-    </div>
-  );
 
   const topBar = (
     <div className="sticky top-0 z-30 border-b border-white/10 bg-black/70 backdrop-blur-xl">
@@ -560,7 +535,7 @@ export default function AdminDashboard({ onExit }) {
           </IconButton>
 
           <IconButton title="Exit" onClick={() => onExit?.()} className="hidden sm:inline-flex">
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={14} /> Command Center
           </IconButton>
         </div>
       </div>
@@ -1314,7 +1289,7 @@ export default function AdminDashboard({ onExit }) {
     </div>
   );
 
-  const content = locked ? gate : (
+  const content = (
     <div className="mx-auto max-w-6xl px-4 py-6">
       {tab === "canvas" ? canvas : null}
       {tab === "sections" ? sectionsTab : null}

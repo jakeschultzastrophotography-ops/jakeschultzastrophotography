@@ -53,6 +53,8 @@ import { Responsive } from "react-grid-layout";
 
 import Starcast from "./Starcast";
 import AdminDashboard from "./AdminDashboard";
+import DashboardHome from "./DashboardHome";
+import { SITE_VERSION } from "./siteVersion";
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -5166,7 +5168,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   );
 }
 
-export default function AstrophotographySite() {
+function AstrophotographySite() {
   useNoHorizontalScroll();
 
   const breakpoint = useBreakpoint();
@@ -5217,10 +5219,27 @@ export default function AstrophotographySite() {
 
   const { path, navigate } = usePathname();
   
-  // Jake-only editor dashboard (not linked in UI)
-  if (path === "/admin") {
-    return <AdminDashboard onExit={() => navigate("/")} />;
-  }
+
+// Jake-only admin tools (not linked in UI)
+if (path === "/admin") {
+  return <DashboardHome navigate={navigate} />;
+}
+if (path === "/admin/editor") {
+  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="canvas" />;
+}
+if (path === "/admin/news") {
+  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="news" />;
+}
+if (path === "/admin/theme") {
+  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="theme" />;
+}
+if (path === "/admin/sections") {
+  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="sections" />;
+}
+if (path === "/admin/persistence") {
+  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="persistence" />;
+}
+
 
 const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
@@ -5418,6 +5437,13 @@ const onHome = path === "/";
         </main>
       </div>
 
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[120] rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-white/65 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
+
+export default AstrophotographySite;
+export { AstrophotographySite };

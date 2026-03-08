@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Instagram,
@@ -24,9 +24,8 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { Responsive } from "react-grid-layout";
 
-import Starcast from "./Starcast";
-import AdminDashboard from "./AdminDashboard";
-import DashboardHome from "./DashboardHome";
+import HomepageObservingConditionsCard from "./components/HomepageObservingConditionsCard";
+import ObservingConditionsWidget from "./components/ObservingConditionsWidget";
 import { SITE_VERSION } from "./siteVersion";
 
 import "leaflet/dist/leaflet.css";
@@ -41,6 +40,10 @@ import {
   LayersControl,
 } from "react-leaflet";
 import * as AstronomyImport from "astronomy-engine";
+
+const Starcast = lazy(() => import("./Starcast"));
+const AdminDashboard = lazy(() => import("./AdminDashboard"));
+const DashboardHome = lazy(() => import("./DashboardHome"));
 
 
 function useContainerWidth(ref) {
@@ -975,7 +978,7 @@ const renderGridSection = (id) => {
         </div>
       </section>
 
-      
+      <HomepageObservingConditionsCard />
 
     </div>
   );
@@ -1334,6 +1337,8 @@ return (
           </motion.div>
         </div>
       </section>
+
+      <HomepageObservingConditionsCard />
 
       {/* CALENDAR PROMO */}
       {enabled("calendar") ? (
@@ -3299,10 +3304,57 @@ const SPECIAL_LUNAR_REFERENCE_SETS = {
   },
 };
 
+const STELLARIUM_REFERENCE_LOCATION = {
+  lat: 39.0997,
+  lon: -94.5786,
+  radiusDeg: 1.25,
+};
+
+const STELLARIUM_PROFILE_KEYFRAMES = {
+  total: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/total/frame_${String(i + 1).padStart(3, "0")}.png` })),
+  partialHeavy: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-heavy/frame_${String(i + 1).padStart(3, "0")}.png` })),
+  partialLight: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-light/frame_${String(i + 1).padStart(3, "0")}.png` })),
+};
+
+function angularDistanceDeg(lat1, lon1, lat2, lon2) {
+  if (![lat1, lon1, lat2, lon2].every((v) => Number.isFinite(v))) return Infinity;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const p1 = toRad(lat1);
+  const p2 = toRad(lat2);
+  const dl = toRad(lon2 - lon1);
+  const cosD = Math.sin(p1) * Math.sin(p2) + Math.cos(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.acos(Math.max(-1, Math.min(1, cosD))) * 180) / Math.PI;
+}
+
+function isNearStellariumReferenceLocation(lat, lon) {
+  return angularDistanceDeg(lat, lon, STELLARIUM_REFERENCE_LOCATION.lat, STELLARIUM_REFERENCE_LOCATION.lon) <= STELLARIUM_REFERENCE_LOCATION.radiusDeg;
+}
+
+function classifyReferenceProfileForLunarEclipse(eclipse, hasTrueTotality) {
+  const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
+  const kind = String(raw?.kind || raw?.eclipse_kind || raw?.classification || "").toLowerCase();
+  if (hasTrueTotality || kind.includes("total")) return "total";
+  if (kind.includes("penumbral")) return "partialLight";
+
+  const magnitude =
+    (typeof raw?.umbral_magnitude === "number" && isFinite(raw.umbral_magnitude) && raw.umbral_magnitude) ||
+    (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
+    (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
+    null;
+
+  if (magnitude != null) return magnitude >= 0.75 ? "partialHeavy" : "partialLight";
+
+  const peak = timeToDate(eclipse?.peak);
+  const frac = clampNum(lunarEclipseFractionAtTime(eclipse, peak instanceof Date ? peak : new Date()), 0, 1);
+  return frac >= 0.75 ? "partialHeavy" : frac > 0.05 ? "partialLight" : null;
+}
+
 function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime, seekTime }) {
   const canvasRef = useRef(null);
   const frameImgsRef = useRef([]);
   const frameOffsetRef = useRef({ ox: 0, oy: 0 });
+  const baseMoonImgRef = useRef(null);
+  const [baseMoonReady, setBaseMoonReady] = useState(false);
   const [tPct, setTPct] = useState(50);
   const [imgReady, setImgReady] = useState(false);
   const [moonRenderError, setMoonRenderError] = useState(null);
@@ -3354,12 +3406,16 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
   }, [peak?.getTime?.(), p1?.getTime?.()]);
 
   const hasTrueTotality = useMemo(() => t1 instanceof Date && t4 instanceof Date, [t1?.getTime?.(), t4?.getTime?.()]);
+  const nearReferenceLocation = useMemo(
+    () => isNearStellariumReferenceLocation(observerLat, observerLon),
+    [observerLat, observerLon]
+  );
   const activeReferenceSet = useMemo(() => {
+    if (!nearReferenceLocation) return null;
     if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey];
     if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey];
-    if (hasTrueTotality) return { label: "generic total lunar eclipse", keyframes: ECLIPSE_VIDEO_KEYFRAMES };
     return null;
-  }, [eclipseDateKey, eclipseLocalDateKey, hasTrueTotality]);
+  }, [eclipseDateKey, eclipseLocalDateKey, nearReferenceLocation]);
   const activeKeyframes = activeReferenceSet?.keyframes || [];
   const activeCrop = activeReferenceSet?.crop || null;
   const useReferenceFrames = activeKeyframes.length > 0;
@@ -3479,6 +3535,27 @@ let loaded = 0;
     };
   }, [activeKeyframes, useReferenceFrames]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setBaseMoonReady(false);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      baseMoonImgRef.current = img;
+      setBaseMoonReady(true);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      baseMoonImgRef.current = null;
+      setBaseMoonReady(false);
+    };
+    img.src = "/images/eclipse-moon/base-texture.png";
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // --- Helpers (geocentric; north-up, east-left) ---
   const getLightDir = (astroT) => {
     // Returns unit vector (lx, ly) in canvas coords: +x right, +y down.
@@ -3566,7 +3643,40 @@ let loaded = 0;
     return x * x * (3 - 2 * x);
   };
 
+  const totalityBlendAt = (d) => {
+    if (!(d instanceof Date) || !(u1 instanceof Date) || !(u4 instanceof Date) || !(t1 instanceof Date) || !(t4 instanceof Date)) return 0;
+    const ms = d.getTime();
+    const u1ms = u1.getTime();
+    const u4ms = u4.getTime();
+    const t1ms = t1.getTime();
+    const t4ms = t4.getTime();
+    if (ms < u1ms || ms > u4ms) return 0;
 
+    const preDur = Math.max(1, t1ms - u1ms);
+    const postDur = Math.max(1, u4ms - t4ms);
+    const totalDur = Math.max(1, t4ms - t1ms);
+
+    if (ms < t1ms) {
+      const pre = (ms - u1ms) / preDur;
+      return Math.pow(smoothstep01((pre - 0.62) / 0.38), 1.15);
+    }
+    if (ms > t4ms) {
+      const post = 1 - (ms - t4ms) / postDur;
+      return Math.pow(smoothstep01((post - 0.62) / 0.38), 1.15);
+    }
+
+    const within = (ms - t1ms) / totalDur;
+    const ramp = Math.min(within / 0.16, (1 - within) / 0.16, 1);
+    const plateau = smoothstep01(ramp);
+    return 0.72 + 0.28 * plateau;
+  };
+
+  const totalityWarmthAt = (d) => {
+    const umbra = clampNum(umbraFractionAt(d), 0, 1);
+    const totalBlend = totalityBlendAt(d);
+    const nearTotal = Math.pow(smoothstep01((umbra - 0.84) / 0.16), 1.2);
+    return clampNum(Math.max(totalBlend, nearTotal * 0.72), 0, 1);
+  };
 
   const maxUmbralFraction = useMemo(() => {
     // Prefer raw umbral magnitude if present; otherwise infer from totality presence.
@@ -3648,56 +3758,105 @@ let loaded = 0;
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip();
 
-    const base = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.22, r * 0.08, cx, cy, r * 1.05);
-    base.addColorStop(0, "rgba(232,236,240,1)");
-    base.addColorStop(0.45, "rgba(176,182,188,1)");
-    base.addColorStop(0.78, "rgba(104,110,116,1)");
-    base.addColorStop(1, "rgba(56,60,66,1)");
-    ctx.fillStyle = base;
-    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    const baseMoonImg = baseMoonImgRef.current;
+    if (baseMoonReady && baseMoonImg && (baseMoonImg.naturalWidth || baseMoonImg.width)) {
+      ctx.drawImage(baseMoonImg, cx - r, cy - r, r * 2, r * 2);
+    } else {
+      const base = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.22, r * 0.08, cx, cy, r * 1.05);
+      base.addColorStop(0, "rgba(232,236,240,1)");
+      base.addColorStop(0.45, "rgba(176,182,188,1)");
+      base.addColorStop(0.78, "rgba(104,110,116,1)");
+      base.addColorStop(1, "rgba(56,60,66,1)");
+      ctx.fillStyle = base;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-    for (let i = 0; i < 120; i += 1) {
-      const ang = (i * 137.50776405003785 * Math.PI) / 180;
-      const rr = Math.sqrt((i + 0.5) / 120) * r * 0.92;
-      const px = cx + Math.cos(ang) * rr;
-      const py = cy + Math.sin(ang) * rr;
-      const crater = 0.004 + (i % 7) * 0.0015;
-      ctx.fillStyle = i % 3 === 0 ? "rgba(70,74,80,0.10)" : "rgba(245,248,252,0.05)";
-      ctx.beginPath();
-      ctx.arc(px, py, r * crater, 0, Math.PI * 2);
-      ctx.fill();
+      for (let i = 0; i < 120; i += 1) {
+        const ang = (i * 137.50776405003785 * Math.PI) / 180;
+        const rr = Math.sqrt((i + 0.5) / 120) * r * 0.92;
+        const px = cx + Math.cos(ang) * rr;
+        const py = cy + Math.sin(ang) * rr;
+        const crater = 0.004 + (i % 7) * 0.0015;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(70,74,80,0.10)" : "rgba(245,248,252,0.05)";
+        ctx.beginPath();
+        ctx.arc(px, py, r * crater, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    const earthR = r * 1.24;
-    const overlapD = solveDistanceForFraction(r, earthR, umbra);
-    const earthDx = -overlapD;
+    const altAz = tryMoonAltAz(observerLat, observerLon, observerHeightM, moonTime);
+    const shadowAngleRad = altAz && Number.isFinite(altAz.az) ? ((altAz.az - 90) * Math.PI) / 180 : 0;
+    const totalBlend = clampNum(totalityBlendAt(moonTime), 0, 1);
+    const totalWarmth = clampNum(totalityWarmthAt(moonTime), 0, 1);
+    const penEarthR = r * 1.62;
+    const penCoverage = clampNum(penumbra * 0.16, 0, 0.16);
+    const penDx = -solveDistanceForFraction(r, penEarthR, penCoverage);
+    const umbEarthR = r * 1.24;
+    const umbDx = -solveDistanceForFraction(r, umbEarthR, umbra);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(shadowAngleRad);
+    ctx.translate(-cx, -cy);
+
     if (penumbra > 0.001) {
-      const pAlpha = 0.10 + 0.42 * penumbra;
-      const pg = ctx.createRadialGradient(cx + earthDx, cy, earthR * 0.58, cx + earthDx, cy, earthR);
-      pg.addColorStop(0, `rgba(18,22,30,${Math.min(0.85, pAlpha + 0.12)})`);
-      pg.addColorStop(1, `rgba(18,22,30,${Math.max(0, pAlpha - 0.08)})`);
+      const pAlpha = 0.022 + 0.11 * penumbra;
+      const pg = ctx.createRadialGradient(cx + penDx, cy, penEarthR * 0.62, cx + penDx, cy, penEarthR);
+      pg.addColorStop(0, `rgba(18,22,30,${Math.min(0.18, pAlpha + 0.03)})`);
+      pg.addColorStop(1, `rgba(18,22,30,${Math.max(0, pAlpha - 0.02)})`);
       ctx.fillStyle = pg;
       ctx.beginPath();
-      ctx.arc(cx + earthDx, cy, earthR, 0, Math.PI * 2);
+      ctx.arc(cx + penDx, cy, penEarthR, 0, Math.PI * 2);
       ctx.fill();
     }
 
     if (umbra > 0.001) {
-      const uAlpha = isTotal ? 0.58 : 0.18 + 0.52 * Math.pow(umbra, 0.85);
-      const ug = ctx.createRadialGradient(cx + earthDx, cy, earthR * 0.48, cx + earthDx, cy, earthR);
-      if (isTotal) {
-        ug.addColorStop(0, "rgba(106,34,24,0.74)");
-        ug.addColorStop(0.65, "rgba(66,20,16,0.58)");
-        ug.addColorStop(1, "rgba(20,12,16,0.42)");
-      } else {
-        ug.addColorStop(0, `rgba(26,28,34,${Math.min(0.92, uAlpha + 0.12)})`);
-        ug.addColorStop(1, `rgba(10,12,18,${Math.max(0.18, uAlpha)})`);
-      }
+      const darkCore = isTotal
+        ? 0.26 + 0.20 * Math.pow(umbra, 0.9) * (1 - 0.30 * totalBlend)
+        : 0.15 + 0.44 * Math.pow(umbra, 0.9);
+      const ug = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.46, cx + umbDx, cy, umbEarthR);
+      ug.addColorStop(0, `rgba(18,18,24,${Math.min(0.78, darkCore + 0.08)})`);
+      ug.addColorStop(0.72, `rgba(10,10,16,${Math.min(0.70, darkCore)})`);
+      ug.addColorStop(1, `rgba(4,4,10,${Math.max(0.10, darkCore - 0.08)})`);
       ctx.fillStyle = ug;
       ctx.beginPath();
-      ctx.arc(cx + earthDx, cy, earthR, 0, Math.PI * 2);
+      ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
       ctx.fill();
+
+      if (totalWarmth > 0.001) {
+        const copper = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.10, cx + umbDx, cy, umbEarthR * 0.98);
+        copper.addColorStop(0, `rgba(154,76,42,${0.08 + 0.16 * totalWarmth})`);
+        copper.addColorStop(0.55, `rgba(132,52,30,${0.06 + 0.22 * totalWarmth})`);
+        copper.addColorStop(1, `rgba(34,10,10,${0.02 + 0.10 * totalWarmth})`);
+        ctx.fillStyle = copper;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (totalBlend > 0.001) {
+        const redCore = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.18, cx + umbDx, cy, umbEarthR * 0.92);
+        redCore.addColorStop(0, `rgba(188,82,52,${0.10 + 0.20 * totalBlend})`);
+        redCore.addColorStop(0.45, `rgba(150,44,28,${0.08 + 0.26 * totalBlend})`);
+        redCore.addColorStop(0.82, `rgba(86,18,18,${0.05 + 0.18 * totalBlend})`);
+        redCore.addColorStop(1, `rgba(22,6,10,${0.01 + 0.08 * totalBlend})`);
+        ctx.fillStyle = redCore;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalCompositeOperation = "screen";
+        const emberLift = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.06, cx + umbDx, cy, umbEarthR * 0.82);
+        emberLift.addColorStop(0, `rgba(198,112,76,${0.05 + 0.10 * totalBlend})`);
+        emberLift.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = emberLift;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
     }
+
+    ctx.restore();
 
     const rim = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r);
     rim.addColorStop(0, "rgba(0,0,0,0)");
@@ -3823,6 +3982,7 @@ let loaded = 0;
     activeKeyframes,
     activeCrop,
     useReferenceFrames,
+    baseMoonReady,
   ]);
 
   const altAtT = useMemo(() => {
@@ -3837,7 +3997,10 @@ return (
         <div>
           <div className="text-lg font-semibold">Moon appearance (physically shaded)</div>
           <div className="mt-1 text-xs text-white/70">
-            Uses a real lunar texture + illumination geometry and a shadow model tied to contact times.
+            Uses exact Stellarium reference frames only for eclipses you have calibrated at Jake’s observing location. All other eclipses and locations use a dynamic viewer-dependent simulation with a smoother totality transition modeled from the Stellarium reference behavior.
+          </div>
+          <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[#f5d46c]/80">
+            {useReferenceFrames ? "Reference-calibrated at Jake’s location" : "Simulated for your location"}
           </div>
         </div>
         <div className="text-xs text-white/70">{fmtDateTime(tDate, useLocalTime)}</div>
@@ -3879,13 +4042,47 @@ return (
               <div className="mt-1 text-lg font-semibold">{altAtT == null ? "—" : altAtT > 0 ? "Yes" : "No"}</div>
             </div>
           </div>
+          <div className="mt-3 text-xs text-white/55">
+            Reference-frame mode is used only when both the eclipse and the observer location match a calibrated Jake-location Stellarium reference. All other cases use the dynamic viewer-dependent simulation so the Moon orientation stays correct for the selected location.
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }) {
+function smoothRasterCanvas(sourceCanvas, width, height, blurPx = 2.2) {
+  try {
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const octx = out.getContext("2d", { willReadFrequently: false });
+    if (!octx) return sourceCanvas;
+
+    const tmp = document.createElement("canvas");
+    tmp.width = width;
+    tmp.height = height;
+    const tctx = tmp.getContext("2d", { willReadFrequently: false });
+    if (!tctx) return sourceCanvas;
+
+    tctx.clearRect(0, 0, width, height);
+    tctx.filter = `blur(${blurPx}px)`;
+    tctx.drawImage(sourceCanvas, 0, 0, width, height);
+    tctx.filter = "none";
+
+    octx.clearRect(0, 0, width, height);
+    octx.globalAlpha = 0.92;
+    octx.drawImage(tmp, 0, 0, width, height);
+    octx.globalAlpha = 0.50;
+    octx.drawImage(sourceCanvas, 0, 0, width, height);
+    octx.globalAlpha = 1;
+    return out;
+  } catch (e) {
+    return sourceCanvas;
+  }
+}
+
+function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }) {
   // "Time scrubber" view: where the eclipse is visible at THIS instant (Moon above horizon + eclipse in progress).
   // Returns { url, legend } where url is a dataURL (PNG) in equirectangular projection.
   try {
@@ -3904,7 +4101,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
       canvas.width = width;
       canvas.height = height;
       return {
-        url: canvas.toDataURL("image/png"),
+        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3943,7 +4140,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
     if (!rgba) {
       ctx.putImageData(img, 0, 0);
       return {
-        url: canvas.toDataURL("image/png"),
+        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3976,7 +4173,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
     ctx.putImageData(img, 0, 0);
 
     return {
-      url: canvas.toDataURL("image/png"),
+      url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
       legend: [
         { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
         { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3989,7 +4186,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
 }
 
 
-function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
+function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
   // App-style "maximum visibility class" map:
   //  - Entire eclipse visible (all penumbral from P1..P4 above horizon)
   //  - Entire total & partial phases visible (all umbral from U1..U4 above horizon)
@@ -4033,25 +4230,17 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
     const eqUmb = umbTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
     const eqTot = totTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
 
-    // Colors tuned toward the Eclipse Guide app look (stacked red bands).
+    // Colors tuned toward a smoother, app-like eclipse visibility overlay.
     const COLORS = {
-      entire: [90, 0, 0, 140],      // entire eclipse visible
-      umbAll: [140, 30, 30, 120],   // all umbral (partial+total) visible
-      totAll: [190, 55, 55, 110],   // all total visible
-      totSome: [225, 95, 80, 105],  // some total visible
-      umbSome: [245, 135, 105, 95], // some partial visible
-      penSome: [255, 190, 170, 85], // some penumbral visible
-      none: [0, 0, 0, 0],
+      total: [124, 18, 18],
+      umbral: [210, 88, 68],
+      penumbral: [255, 196, 170],
     };
 
     const legend = [
-      { key: "entire", label: "Entire eclipse is visible", color: "rgba(90,0,0,0.55)" },
-      { key: "umbAll", label: "Entire total & partial phases are visible", color: "rgba(140,30,30,0.47)" },
-      { key: "totAll", label: "Entire total phase is visible", color: "rgba(190,55,55,0.43)" },
-      { key: "totSome", label: "Some of total phase is visible", color: "rgba(225,95,80,0.41)" },
-      { key: "umbSome", label: "Some of partial phase is visible", color: "rgba(245,135,105,0.37)" },
-      { key: "penSome", label: "Some of penumbral phase is visible", color: "rgba(255,190,170,0.33)" },
-      { key: "none", label: "Eclipse is not visible at all", color: "rgba(160,160,160,0.25)" },
+      { key: "total", label: "Total visibility strongest", color: "rgba(124,18,18,0.52)" },
+      { key: "umbral", label: "Umbral / partial visibility", color: "rgba(210,88,68,0.42)" },
+      { key: "penumbral", label: "Penumbral visibility", color: "rgba(255,196,170,0.28)" },
     ];
 
     const canvas = document.createElement("canvas");
@@ -4081,33 +4270,36 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
           continue;
         }
 
-        const penAll = eqPen.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0);
+        const penFrac = eqPen.length ? eqPen.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqPen.length : 0;
+        const umbFrac = eqUmb.length ? eqUmb.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqUmb.length : 0;
+        const totFrac = eqTot.length ? eqTot.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqTot.length : 0;
 
-        const umbAny = eqUmb.length ? eqUmb.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
-        const umbAll = eqUmb.length ? eqUmb.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const totalWeight = clampNum(totFrac, 0, 1);
+        const umbralWeight = Math.max(clampNum(umbFrac - totalWeight * 0.45, 0, 1), 0);
+        const penWeight = Math.max(clampNum(penFrac - Math.max(umbFrac, totalWeight) * 0.55, 0, 1), 0);
 
-        const totAny = eqTot.length ? eqTot.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
-        const totAll = eqTot.length ? eqTot.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const totalAlpha = 148 * Math.pow(totalWeight, 0.9);
+        const umbralAlpha = 118 * Math.pow(umbralWeight, 0.85);
+        const penAlpha = 78 * Math.pow(penWeight, 0.8);
+        const alpha = Math.round(Math.max(totalAlpha, umbralAlpha, penAlpha));
+        if (alpha <= 0) continue;
 
-        let c = COLORS.penSome;
-        if (penAll) c = COLORS.entire;
-        else if (umbAll) c = COLORS.umbAll;
-        else if (totAll) c = COLORS.totAll; // (only possible if totAll true but umbAll false in grazing cases)
-        else if (totAny) c = COLORS.totSome;
-        else if (umbAny) c = COLORS.umbSome;
-        else c = COLORS.penSome;
+        const weightSum = totalAlpha + umbralAlpha + penAlpha || 1;
+        const r = (COLORS.total[0] * totalAlpha + COLORS.umbral[0] * umbralAlpha + COLORS.penumbral[0] * penAlpha) / weightSum;
+        const g = (COLORS.total[1] * totalAlpha + COLORS.umbral[1] * umbralAlpha + COLORS.penumbral[1] * penAlpha) / weightSum;
+        const b = (COLORS.total[2] * totalAlpha + COLORS.umbral[2] * umbralAlpha + COLORS.penumbral[2] * penAlpha) / weightSum;
 
         const idx = (y * width + x) * 4;
-        data[idx + 0] = c[0];
-        data[idx + 1] = c[1];
-        data[idx + 2] = c[2];
-        data[idx + 3] = c[3];
+        data[idx + 0] = Math.round(r);
+        data[idx + 1] = Math.round(g);
+        data[idx + 2] = Math.round(b);
+        data[idx + 3] = alpha;
       }
     }
 
     ctx.putImageData(img, 0, 0);
 
-    return { url: canvas.toDataURL("image/png"), legend };
+    return { url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"), legend };
   } catch (e) {
     return null;
   }
@@ -4276,7 +4468,7 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         <div>
           <div className="text-lg font-semibold">Lunar visibility map</div>
           <div className="mt-1 text-xs text-white/70">
-            Shows where the eclipse is visible (Moon above horizon). Toggle between maximum class and time-scrubbed view.
+            Shows where the eclipse is visible (Moon above horizon) with a smoother, app-style shadow overlay. Toggle between maximum class and time-scrubbed view.
           </div>
         </div>
 
@@ -4320,7 +4512,7 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         </div>
       )}
 
-      <div ref={mapWrapRef} className="mt-3 h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-black/30 cursor-grab active:cursor-grabbing">
+      <div ref={mapWrapRef} className="mt-3 h-[380px] overflow-hidden rounded-2xl border border-white/10 bg-black/30 cursor-grab active:cursor-grabbing">
         <MapContainer
           center={center}
           zoom={2}
@@ -4372,7 +4564,7 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
           <div className="text-white/60">Legend</div>
           <div className="mt-1 leading-relaxed">
-            Purple = total visible • Orange = umbral/partial visible • Cyan = penumbral visible (Moon above horizon).
+            Deep red = strongest total visibility • Copper = umbral / partial visibility • Soft glow = penumbral visibility (Moon above horizon).
           </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
@@ -4822,20 +5014,32 @@ function EclipseGuidePage({ navigate }) {
   const observerHeightM = useMemo(() => Number(elevStr), [elevStr]);
 
   const catalog = useMemo(() => buildEclipseCatalog(new Date()), []);
+  const upcomingLunarEclipses = useMemo(() => catalog?.upcoming?.lunar?.slice(0, 10) || [], [catalog]);
+  const [selectedLunarUtc, setSelectedLunarUtc] = useState("");
 
-  // Default: next upcoming eclipse, preferring the March 3 lunar eclipse if it is indeed next.
-  const defaultEclipse = useMemo(() => {
-    const nextLunar = catalog?.upcoming?.lunar?.[0] || null;
-    const nextSolar = catalog?.upcoming?.solar?.[0] || null;
-    if (nextLunar && nextSolar) return nextLunar.peak <= nextSolar.peak ? nextLunar : nextSolar;
-    return nextLunar || nextSolar || null;
-  }, [catalog]);
+  useEffect(() => {
+    if (!selectedLunarUtc && upcomingLunarEclipses[0]?.peak instanceof Date) {
+      setSelectedLunarUtc(upcomingLunarEclipses[0].peak.toISOString());
+    }
+  }, [selectedLunarUtc, upcomingLunarEclipses]);
 
-  const selectedType = "lunar";
-const selectedEclipse = useMemo(() => catalog?.upcoming?.lunar?.[0] || null, [catalog]);
+  const selectedEclipse = useMemo(() => {
+    if (!upcomingLunarEclipses.length) return null;
+    if (!selectedLunarUtc) return upcomingLunarEclipses[0] || null;
+    return (
+      upcomingLunarEclipses.find((e) => e?.peak instanceof Date && e.peak.toISOString() === selectedLunarUtc) ||
+      upcomingLunarEclipses[0] ||
+      null
+    );
+  }, [upcomingLunarEclipses, selectedLunarUtc]);
 
-const [moonSeekTime, setMoonSeekTime] = useState(null);
-const [moonSeekKey, setMoonSeekKey] = useState(null);
+  const [moonSeekTime, setMoonSeekTime] = useState(null);
+  const [moonSeekKey, setMoonSeekKey] = useState(null);
+
+  useEffect(() => {
+    setMoonSeekTime(null);
+    setMoonSeekKey(null);
+  }, [selectedLunarUtc]);
 
   const shareHref = useMemo(() => {
     const base =
@@ -4858,12 +5062,16 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pt-12">
+      <HomepageObservingConditionsCard
+        sectionClassName="mb-6 mt-0 max-w-none px-0 sm:mt-0 sm:px-0 lg:px-0"
+      />
+
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold sm:text-4xl">Eclipse Guide</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/75">
-              Extremely accurate eclipse timing + realistic Moon appearance + global visibility maps. Choose any location and scrub through the event.
+              Choose from the next 10 upcoming lunar eclipses, then inspect accurate timing, a location-aware Moon appearance, and a stable global visibility map for any observer location. Exact Stellarium frame references are used only for eclipses you have explicitly calibrated from Jake’s site.
             </p>
           </div>
 
@@ -4894,13 +5102,35 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
                     <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
             <div className="text-sm font-semibold">Upcoming eclipses</div>
             <div className="mt-2 text-sm text-white/75">
-              {selectedEclipse ? (
-                <>
-                  Next eclipse: <span className="font-semibold">{eclipseLabel(selectedEclipse)}</span>
-                </>
-              ) : (
-                <>Loading eclipse data…</>
-              )}
+              Select any of the next 10 upcoming lunar eclipses. All timing, Moon rendering, and map content below update to the eclipse and observer location you choose.
+            </div>
+
+            <div className="mt-4 pointer-events-auto">
+              <label className="block">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8b54a]">Choose lunar eclipse</div>
+                <select
+                  value={selectedLunarUtc}
+                  onChange={(e) => setSelectedLunarUtc(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8b54a]/60"
+                >
+                  {upcomingLunarEclipses.map((e) => {
+                    const value = e?.peak instanceof Date ? e.peak.toISOString() : '';
+                    return (
+                      <option key={value || eclipseLabel(e)} value={value}>
+                        {eclipseLabel(e)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-white/55">Selected lunar eclipse</div>
+              <div className="mt-1 text-base font-semibold text-white">{selectedEclipse ? eclipseLabel(selectedEclipse) : 'Loading eclipse data…'}</div>
+              <div className="mt-1 text-sm text-white/70">
+                {selectedEclipse ? `${(selectedEclipse.kind || 'lunar').toString()} lunar eclipse` : '—'}
+              </div>
             </div>
 
             <UpcomingEclipseCountdown
@@ -4970,6 +5200,14 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
         <div className="mt-6 grid gap-4">
           {selectedEclipse?.type === "lunar" ? (
             <>
+              <RealisticLunarMoonView
+                eclipse={selectedEclipse}
+                observerLat={observerLat}
+                observerLon={observerLon}
+                observerHeightM={observerHeightM}
+                useLocalTime={useLocalTime}
+                seekTime={moonSeekTime}
+              />
               <EclipseTimesPanel
                 eclipse={selectedEclipse}
                 observerLat={observerLat}
@@ -4978,14 +5216,6 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
                 useLocalTime={useLocalTime}
                 onSelectTime={handleSeekMoonToPhase}
                 activeKey={moonSeekKey}
-              />
-              <RealisticLunarMoonView
-                eclipse={selectedEclipse}
-                observerLat={observerLat}
-                observerLon={observerLon}
-                observerHeightM={observerHeightM}
-                useLocalTime={useLocalTime}
-                seekTime={moonSeekTime}
               />
               <LunarVisibilityMapV2
                 eclipse={selectedEclipse}
@@ -5000,7 +5230,7 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
               <div className="text-lg font-semibold">Solar eclipse support</div>
               <div className="mt-2 text-sm text-white/75">
                 Solar eclipse path-of-totality mapping is implemented next (umbra/penumbra ground tracks, local circumstances, and time scrubber).  
-                The selector above already loads solar eclipses and their global times; the full map model is the next iteration.
+                The selector above now focuses on the next 10 upcoming lunar eclipses.
               </div>
               <div className="mt-4 text-xs text-white/60">
                 If you want, I can prioritize:
@@ -5409,6 +5639,8 @@ function LiveTelescopePage({ liveConfig }) {
         <iframe
           title="Jake Schultz Astrophotography live telescope stream"
           src={liveEmbedSrc}
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           className="h-full w-full border-0"
@@ -5465,13 +5697,26 @@ function LiveTelescopePage({ liveConfig }) {
           </div>
           <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Watch the telescope live.</h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-white/70 sm:text-base">
-            This page embeds my YouTube Live feed from OBS so you can watch deep-sky sessions directly from the website whenever I go live.
+            Watch live deep-sky imaging sessions, telescope views, and live processing here whenever I’m streaming.
           </p>
         </div>
 
-        <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.78fr)]">
           <div className="space-y-4">
             {heroCard}
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Live chat</div>
+              {liveChatSrc ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+                  <iframe title="YouTube live chat" src={liveChatSrc} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" className="h-[420px] w-full border-0" />
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-7 text-white/74">
+                  Add the current live video ID to the Live Telescope page URL to display chat during a stream.
+                </p>
+              )}
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -5540,19 +5785,10 @@ function LiveTelescopePage({ liveConfig }) {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="text-lg font-semibold text-white">Live chat</div>
-              {liveChatSrc ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
-                  <iframe title="YouTube live chat" src={liveChatSrc} className="h-[420px] w-full border-0" />
-                </div>
-              ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/68">
-                  Add the current YouTube live video ID to the page URL to show embedded live chat during a stream.
-                  <div className="mt-2 text-white/50">Example: <span className="font-mono text-[12px] text-white/70">/live-telescope?liveVideo=YOUR_VIDEO_ID</span></div>
-                </div>
-              )}
-            </div>
+            <ObservingConditionsWidget
+              variant="stream"
+              className="border-white/8 bg-white/[0.02]"
+            />
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
               <div className="text-lg font-semibold text-white">Projected next stream</div>
@@ -5620,9 +5856,7 @@ function LiveTelescopePage({ liveConfig }) {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="mt-3 text-sm leading-7 text-white/60">Select tonight’s setup in the Live Telescope tab inside the builder.</p>
-              )}
+              ) : null}
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -6271,22 +6505,46 @@ function AstrophotographySite() {
 
 // Jake-only admin tools (not linked in UI)
 if (path === "/admin") {
-  return <DashboardHome navigate={navigate} />;
+  return (
+    <Suspense fallback={null}>
+      <DashboardHome navigate={navigate} />
+    </Suspense>
+  );
 }
 if (path === "/admin/editor") {
-  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="canvas" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="canvas" />
+    </Suspense>
+  );
 }
 if (path === "/admin/news") {
-  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="news" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="news" />
+    </Suspense>
+  );
 }
 if (path === "/admin/theme") {
-  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="theme" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="theme" />
+    </Suspense>
+  );
 }
 if (path === "/admin/sections") {
-  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="sections" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="sections" />
+    </Suspense>
+  );
 }
 if (path === "/admin/persistence") {
-  return <AdminDashboard onExit={() => navigate("/admin")} initialTab="persistence" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="persistence" />
+    </Suspense>
+  );
 }
 
 
@@ -6489,7 +6747,7 @@ const onHome = path === "/";
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
-            <Starcast navigate={navigate} embedded />
+            <Suspense fallback={null}><Starcast navigate={navigate} embedded /></Suspense>
           ) : onLiveTelescope ? (
             <LiveTelescopePage liveConfig={{
               ...DEFAULT_LIVE_TELESCOPE,

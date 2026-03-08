@@ -28,10 +28,73 @@ import {
   Sparkles,
   Star,
   AlertTriangle,
+  Camera,
+  Compass,
 } from "lucide-react";
 import { SITE_VERSION, RELEASE_NAME, RELEASE_DATE } from "./siteVersion";
 
 const STORAGE_KEY = "jake_site_builder_v2";
+const PREVIEW_EVENT = "jake-site-config-updated";
+const PREVIEW_CHANNEL = "jake-site-config";
+const YOUTUBE_LIVE_CHANNEL_ID = "UCNG0QTu2_0LYwTmYHHMVXXA";
+const YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@JakeSchultzAstrophotography";
+const YOUTUBE_LIVE_EMBED_URL = `https://www.youtube.com/embed/live_stream?channel=${YOUTUBE_LIVE_CHANNEL_ID}&autoplay=0&mute=1`;
+const STREAM_GEAR_OPTIONS = {
+  telescope: ["", "Redcat 51", "Apertura 6\" Astrograph", "Celestron C11", "Other"],
+  mount: ["", "Skywatcher Star Adventurer 2i pro", "Skywatcher EQM-35 Pro", "Skywatcher EQ6-R Pro", "Other"],
+  mainCamera: ["", "Canon 800D", "ASI294mc", "ASI224 planetary cam", "Other"],
+  guideCamera: ["", "ASI120 mini", "Other"],
+  filter: ["", "Optlong L-Extreme filter", "None", "Other"],
+  software: ["", "ASIAIR mini", "Other"],
+};
+
+function makeDefaultLiveTelescope() {
+  return {
+    status: "offline",
+    projectedNextStream: "Clear evenings after dark, weather permitting.",
+    askJakeText: "Have a question while I am live? Drop it into YouTube chat and I will answer as many as I can during the session.",
+    currentTarget: { name: "", constellation: "", objectType: "", description: "" },
+    targetInfo: { title: "", summary: "", astrobinUrl: "" },
+    skyConditions: { cloudCover: "", transparency: "", seeing: "", moonPhase: "", wind: "" },
+    whereToLook: { pointedNear: "", direction: "", altitude: "", constellation: "", note: "" },
+    imageProgress: { subsCaptured: "", exposureLength: "", totalIntegration: "", currentFilter: "", guidingStable: "" },
+    equipment: {
+      telescope: "", telescopeCustom: "",
+      mount: "", mountCustom: "",
+      mainCamera: "", mainCameraCustom: "",
+      guideCamera: "", guideCameraCustom: "",
+      filter: "", filterCustom: "",
+      software: "", softwareCustom: "",
+    },
+  };
+}
+
+function withLiveTelescope(cfg) {
+  const base = makeDefaultLiveTelescope();
+  const source = cfg || {};
+  return {
+    ...source,
+    liveTelescope: {
+      ...base,
+      ...(source.liveTelescope || {}),
+      currentTarget: { ...base.currentTarget, ...(source.liveTelescope?.currentTarget || {}) },
+      targetInfo: { ...base.targetInfo, ...(source.liveTelescope?.targetInfo || {}) },
+      skyConditions: { ...base.skyConditions, ...(source.liveTelescope?.skyConditions || {}) },
+      whereToLook: { ...base.whereToLook, ...(source.liveTelescope?.whereToLook || {}) },
+      imageProgress: { ...base.imageProgress, ...(source.liveTelescope?.imageProgress || {}) },
+      equipment: { ...base.equipment, ...(source.liveTelescope?.equipment || {}) },
+    },
+  };
+}
+
+function writeDashboardSnapshot(next) {
+  if (typeof window === "undefined") return;
+  const payload = { ...next, updatedAt: new Date().toISOString() };
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch {}
+  try { window.dispatchEvent(new CustomEvent(PREVIEW_EVENT, { detail: payload })); } catch {}
+  try { const channel = new BroadcastChannel(PREVIEW_CHANNEL); channel.postMessage(payload); channel.close(); } catch {}
+}
+
 const HOOK_KEY = "jake_cc_netlify_build_hook";
 const SITE_KEY = "jake_cc_public_site_url";
 const BRANCH_KEY = "jake_cc_branch_label";
@@ -157,6 +220,30 @@ function MiniStatus({ label, value }) {
   );
 }
 
+function FieldLabel({ children }) {
+  return <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">{children}</div>;
+}
+
+function SoftInput(props) {
+  return <input {...props} className={`w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 ${props.className || ""}`} />;
+}
+
+function SoftTextarea(props) {
+  return <textarea {...props} className={`w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 ${props.className || ""}`} />;
+}
+
+function SoftSelect({ options, ...props }) {
+  return (
+    <select {...props} className={`w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white outline-none ${props.className || ""}`}>
+      {options.map((option) => <option key={option || "blank"} value={option}>{option || "Select…"}</option>)}
+    </select>
+  );
+}
+
+function SelectedOrCustom(value, customValue) {
+  return value === "Other" ? (customValue || "Other") : value;
+}
+
 export default function DashboardHome({ navigate }) {
   const [mode, setMode] = useState("command");
   const [snapshot, setSnapshot] = useState(null);
@@ -172,13 +259,23 @@ export default function DashboardHome({ navigate }) {
   const deployRef = useRef(null);
   const toolsRef = useRef(null);
 
+  const updateSnapshot = (mutate) => {
+    setSnapshot((prev) => {
+      const next = withLiveTelescope(safeJsonParse(JSON.stringify(prev || {})));
+      mutate(next);
+      writeDashboardSnapshot(next);
+      return next;
+    });
+    setNow(new Date());
+  };
+
   useEffect(() => save(HOOK_KEY, buildHook), [buildHook]);
   useEffect(() => save(SITE_KEY, publicSiteUrl), [publicSiteUrl]);
   useEffect(() => save(BRANCH_KEY, branchLabel), [branchLabel]);
   useEffect(() => saveHistory(history), [history]);
 
   const refreshSnapshot = () => {
-    setSnapshot(readDashboardSnapshot());
+    setSnapshot(withLiveTelescope(readDashboardSnapshot()));
     setNow(new Date());
     setHistory(loadHistory());
   };
@@ -225,6 +322,26 @@ export default function DashboardHome({ navigate }) {
       configLoaded: !!cfg,
     };
   }, [snapshot, now]);
+
+  const liveCfg = withLiveTelescope(snapshot).liveTelescope;
+  const liveTarget = liveCfg.currentTarget || {};
+  const liveEquipment = liveCfg.equipment || {};
+  const liveStatus = liveCfg.status || "offline";
+  const liveTargetInfo = liveCfg.targetInfo || {};
+  const liveSky = liveCfg.skyConditions || {};
+  const liveWhere = liveCfg.whereToLook || {};
+  const liveProgress = liveCfg.imageProgress || {};
+  const targetActive = Boolean((liveTarget.name || liveTarget.constellation || liveTarget.objectType || liveTarget.description || "").trim());
+  const equipmentSummary = [
+    SelectedOrCustom(liveEquipment.telescope, liveEquipment.telescopeCustom),
+    SelectedOrCustom(liveEquipment.mount, liveEquipment.mountCustom),
+    SelectedOrCustom(liveEquipment.mainCamera, liveEquipment.mainCameraCustom),
+  ].filter(Boolean).join(" • ");
+  const whereToLookSummary = [
+    liveWhere.pointedNear ? `Currently pointed near ${liveWhere.pointedNear}` : "",
+    liveWhere.direction ? `toward the ${liveWhere.direction}` : "",
+    liveWhere.altitude ? `at about ${liveWhere.altitude}` : "",
+  ].filter(Boolean).join(" ") || "Add a target area, direction, and altitude to preview where viewers should look.";
 
   const scrollToRef = (ref) => ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -431,6 +548,200 @@ This rebuilds the code already on your ${branchLabel} branch. Make sure your lat
                 </div>
               </Panel>
             </section>
+
+            {mode === "studio" ? (
+              <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+                <Panel title="Live Telescope Studio HUD" icon={Camera}>
+                  <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1.1fr)_380px]">
+                    <div className="space-y-4">
+                      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+                        <div className="aspect-video w-full">
+                          <iframe
+                            title="Jake Schultz Astrophotography live telescope stream"
+                            src={YOUTUBE_LIVE_EMBED_URL}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                            className="h-full w-full border-0"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-4">
+                        <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Status</div>
+                          <div className="mt-2 text-sm leading-6 text-white/85">{liveStatus === "live" ? "Live now" : liveStatus === "startingSoon" ? "Starting soon" : "Offline"}</div>
+                        </div>
+                        <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Projected next stream</div>
+                          <div className="mt-2 text-sm leading-6 text-white/85">{liveCfg.projectedNextStream || "—"}</div>
+                        </div>
+                        <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Current target</div>
+                          <div className="mt-2 text-sm leading-6 text-white/85">{targetActive ? `${liveTarget.name || "Untitled target"}${liveTarget.constellation ? ` • ${liveTarget.constellation}` : ""}` : "Blank until you set a live target."}</div>
+                        </div>
+                        <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Equipment tonight</div>
+                          <div className="mt-2 text-sm leading-6 text-white/85">{equipmentSummary || "Select gear below."}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button onClick={() => navigate("/live-telescope")} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15"><Eye className="h-4 w-4" /> Open live page</button>
+                        <button onClick={() => window.open(YOUTUBE_CHANNEL_URL, "_blank") } className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"><ExternalLink className="h-4 w-4" /> Open YouTube channel</button>
+                        <button onClick={() => navigate("/admin/live")} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"><PencilRuler className="h-4 w-4" /> Open full live editor</button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="rounded-[26px] border border-white/10 bg-black/20 p-4">
+                        <FieldLabel>Stream status</FieldLabel>
+                        <SoftSelect
+                          value={liveStatus}
+                          options={["offline", "startingSoon", "live"]}
+                          onChange={(e) => updateSnapshot((next) => {
+                            next.liveTelescope = next.liveTelescope || makeDefaultLiveTelescope();
+                            next.liveTelescope.status = e.target.value;
+                          })}
+                        />
+                      </div>
+
+                      <div className="rounded-[26px] border border-white/10 bg-black/20 p-4">
+                        <FieldLabel>Projected next stream</FieldLabel>
+                        <SoftInput
+                          value={liveCfg.projectedNextStream || ""}
+                          onChange={(e) => updateSnapshot((next) => {
+                            next.liveTelescope = next.liveTelescope || makeDefaultLiveTelescope();
+                            next.liveTelescope.projectedNextStream = e.target.value;
+                          })}
+                          placeholder="Clear evenings after dark, weather permitting."
+                        />
+                      </div>
+
+                      <div className="rounded-[26px] border border-white/10 bg-black/20 p-4">
+                        <FieldLabel>Ask Jake text</FieldLabel>
+                        <SoftTextarea rows={3} value={liveCfg.askJakeText || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.askJakeText = e.target.value; })} placeholder="Invite viewers to ask questions in chat." />
+                      </div>
+
+                      <div className="rounded-[26px] border border-white/10 bg-black/20 p-4">
+                        <div className="mb-3 text-sm font-semibold text-white">Current Target</div>
+                        <div className="grid gap-3">
+                          <div>
+                            <FieldLabel>Target name</FieldLabel>
+                            <SoftInput value={liveTarget.name || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.currentTarget.name = e.target.value; })} placeholder="M42, Jupiter, Rosette Nebula…" />
+                          </div>
+                          <div>
+                            <FieldLabel>Constellation</FieldLabel>
+                            <SoftInput value={liveTarget.constellation || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.currentTarget.constellation = e.target.value; })} placeholder="Orion" />
+                          </div>
+                          <div>
+                            <FieldLabel>Object type</FieldLabel>
+                            <SoftInput value={liveTarget.objectType || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.currentTarget.objectType = e.target.value; })} placeholder="Nebula, galaxy, planet…" />
+                          </div>
+                          <div>
+                            <FieldLabel>Short description</FieldLabel>
+                            <SoftTextarea rows={3} value={liveTarget.description || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.currentTarget.description = e.target.value; })} placeholder="Optional note about tonight's session." />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+
+                <Panel title="Equipment Tonight" icon={Database}>
+                  <div className="grid gap-4 p-5 md:grid-cols-2">
+                    {[
+                      ["telescope", "Telescope"],
+                      ["mount", "Mount"],
+                      ["mainCamera", "Main Camera"],
+                      ["guideCamera", "Guide Camera"],
+                      ["filter", "Filter"],
+                      ["software", "Software"],
+                    ].map(([key, label]) => {
+                      const customKey = `${key}Custom`;
+                      return (
+                        <div key={key} className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                          <FieldLabel>{label}</FieldLabel>
+                          <SoftSelect
+                            value={liveEquipment[key] || ""}
+                            options={STREAM_GEAR_OPTIONS[key] || [""]}
+                            onChange={(e) => updateSnapshot((next) => {
+                              next.liveTelescope.equipment[key] = e.target.value;
+                              next.liveTelescope.equipment[customKey] = e.target.value === "Other" ? (next.liveTelescope.equipment[customKey] || "") : "";
+                            })}
+                          />
+                          {(liveEquipment[key] || "") === "Other" ? (
+                            <div className="mt-3">
+                              <SoftInput
+                                value={liveEquipment[customKey] || ""}
+                                onChange={(e) => updateSnapshot((next) => { next.liveTelescope.equipment[customKey] = e.target.value; })}
+                                placeholder={`Custom ${String(label).toLowerCase()}`}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Panel>
+
+                <Panel title="Where to Look in the Sky" icon={Compass}>
+                  <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4 space-y-3">
+                      <div className="text-sm font-semibold text-white">Mini sky pointer</div>
+                      <SoftInput value={liveWhere.pointedNear || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.whereToLook.pointedNear = e.target.value; })} placeholder="Currently pointed near" />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <SoftSelect value={liveWhere.direction || ""} options={["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.whereToLook.direction = e.target.value; })} />
+                        <SoftInput value={liveWhere.altitude || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.whereToLook.altitude = e.target.value; })} placeholder="Altitude" />
+                      </div>
+                      <SoftInput value={liveWhere.constellation || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.whereToLook.constellation = e.target.value; })} placeholder="Constellation" />
+                      <SoftTextarea rows={3} value={liveWhere.note || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.whereToLook.note = e.target.value; })} placeholder="Viewer note" />
+                    </div>
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-white">Preview</div>
+                          <div className="mt-1 text-xs text-white/55">Quick summary for the public live page.</div>
+                        </div>
+                        <Compass className="h-5 w-5 text-white/45" />
+                      </div>
+                      <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/40">Where to look</div>
+                        <div className="mt-2 text-sm leading-6 text-white/85">{whereToLookSummary}</div>
+                        {liveWhere.constellation ? <div className="mt-3 text-xs text-white/55">Constellation: <span className="text-white/80">{liveWhere.constellation}</span></div> : null}
+                        {liveWhere.note ? <div className="mt-3 text-sm leading-6 text-white/70">{liveWhere.note}</div> : null}
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+
+                <Panel title="Sky + Progress" icon={BarChart3}>
+                  <div className="grid gap-4 p-5 md:grid-cols-2">
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4 space-y-3">
+                      <div className="text-sm font-semibold text-white">Sky conditions</div>
+                      <SoftInput value={liveSky.cloudCover || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.skyConditions.cloudCover = e.target.value; })} placeholder="Cloud cover" />
+                      <SoftInput value={liveSky.transparency || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.skyConditions.transparency = e.target.value; })} placeholder="Transparency" />
+                      <SoftInput value={liveSky.seeing || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.skyConditions.seeing = e.target.value; })} placeholder="Seeing" />
+                      <SoftInput value={liveSky.moonPhase || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.skyConditions.moonPhase = e.target.value; })} placeholder="Moon phase" />
+                      <SoftInput value={liveSky.wind || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.skyConditions.wind = e.target.value; })} placeholder="Wind" />
+                    </div>
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4 space-y-3">
+                      <div className="text-sm font-semibold text-white">Image progress</div>
+                      <SoftInput value={liveProgress.subsCaptured || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.imageProgress.subsCaptured = e.target.value; })} placeholder="Subs captured" />
+                      <SoftInput value={liveProgress.exposureLength || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.imageProgress.exposureLength = e.target.value; })} placeholder="Exposure length" />
+                      <SoftInput value={liveProgress.totalIntegration || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.imageProgress.totalIntegration = e.target.value; })} placeholder="Total integration" />
+                      <SoftInput value={liveProgress.currentFilter || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.imageProgress.currentFilter = e.target.value; })} placeholder="Current filter" />
+                      <SoftInput value={liveProgress.guidingStable || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.imageProgress.guidingStable = e.target.value; })} placeholder="Guiding stable" />
+                    </div>
+                  </div>
+                </Panel>
+
+                <Panel title="Target Info Card" icon={Star}>
+                  <div className="grid gap-4 p-5">
+                    <SoftInput value={liveTargetInfo.title || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.targetInfo.title = e.target.value; })} placeholder="Card title" />
+                    <SoftTextarea rows={4} value={liveTargetInfo.summary || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.targetInfo.summary = e.target.value; })} placeholder="Educational note about the target" />
+                    <SoftInput value={liveTargetInfo.astrobinUrl || ""} onChange={(e) => updateSnapshot((next) => { next.liveTelescope.targetInfo.astrobinUrl = e.target.value; })} placeholder="Optional AstroBin or related URL" />
+                  </div>
+                </Panel>
+              </section>
+            ) : null}
 
             <section ref={deployRef} className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
               <Panel title="Deploy Center" icon={Rocket}>

@@ -2026,12 +2026,6 @@ try {
                   We’re validating accuracy, performance, and mobile UX before making Starcast public.
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-sm font-medium">Beta access</div>
-                <div className="mt-2 text-sm text-white/60">
-                  Tap the <span className="text-white/80">Starcast</span> title 7 times to unlock.
-                </div>
-              </div>
             </div>
           </div>
         </main>

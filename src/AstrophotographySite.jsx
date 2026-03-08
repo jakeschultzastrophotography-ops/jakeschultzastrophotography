@@ -1,30 +1,3 @@
-
-function useContainerWidth(ref) {
-  const [w, setW] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const measure = () => setW(Math.max(0, Math.floor(el.getBoundingClientRect().width)));
-    measure();
-
-    let ro;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => measure());
-      ro.observe(el);
-    } else {
-      window.addEventListener("resize", measure);
-    }
-
-    return () => {
-      if (ro) ro.disconnect();
-      else window.removeEventListener("resize", measure);
-    };
-  }, [ref]);
-
-  return w;
-}
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -70,6 +43,34 @@ import {
 import * as AstronomyImport from "astronomy-engine";
 
 
+function useContainerWidth(ref) {
+  const [w, setW] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const measure = () => setW(Math.max(0, Math.floor(el.getBoundingClientRect().width)));
+    measure();
+
+    let ro;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => measure());
+      ro.observe(el);
+    } else {
+      window.addEventListener("resize", measure);
+    }
+
+    return () => {
+      if (ro) ro.disconnect();
+      else window.removeEventListener("resize", measure);
+    };
+  }, [ref]);
+
+  return w;
+}
+
+
 /** Prevent horizontal scrolling (mobile + desktop) without blocking vertical scroll */
 function useNoHorizontalScroll() {
   useEffect(() => {
@@ -101,6 +102,66 @@ function useNoHorizontalScroll() {
 ============================ */
 
 const SITE_CONFIG_URL = "/site-config.json";
+const SITE_CONFIG_STORAGE_KEY = "jake_site_builder_v2";
+const SITE_CONFIG_PREVIEW_EVENT = "jake-site-config-updated";
+const SITE_CONFIG_PREVIEW_CHANNEL = "jake-site-config";
+
+const YOUTUBE_LIVE_CHANNEL_ID = "UCNG0QTu2_0LYwTmYHHMVXXA";
+const YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@JakeSchultzAstrophotography";
+const YOUTUBE_LIVE_EMBED_URL = `https://www.youtube.com/embed/live_stream?channel=${YOUTUBE_LIVE_CHANNEL_ID}&autoplay=0&mute=0`;
+const YOUTUBE_STREAMS_URL = "https://www.youtube.com/@JakeSchultzAstrophotography/streams";
+
+const DEFAULT_LIVE_TELESCOPE = {
+  status: "offline",
+  projectedNextStream: "Clear evenings after dark, weather permitting.",
+  askJakeText: "Have a question while I am live? Drop it into YouTube chat and I will answer as many as I can during the session.",
+  currentTarget: {
+    name: "",
+    constellation: "",
+    objectType: "",
+    description: "",
+  },
+  targetInfo: {
+    title: "",
+    summary: "",
+    astrobinUrl: "",
+  },
+  skyConditions: {
+    cloudCover: "",
+    transparency: "",
+    seeing: "",
+    moonPhase: "",
+    wind: "",
+  },
+  whereToLook: {
+    pointedNear: "",
+    direction: "",
+    altitude: "",
+    constellation: "",
+    note: "",
+  },
+  imageProgress: {
+    subsCaptured: "",
+    exposureLength: "",
+    totalIntegration: "",
+    currentFilter: "",
+    guidingStable: "",
+  },
+  equipment: {
+    telescope: "",
+    telescopeCustom: "",
+    mount: "",
+    mountCustom: "",
+    mainCamera: "",
+    mainCameraCustom: "",
+    guideCamera: "",
+    guideCameraCustom: "",
+    filter: "",
+    filterCustom: "",
+    software: "",
+    softwareCustom: "",
+  },
+};
 
 function isObj(x) {
   return x && typeof x === "object" && !Array.isArray(x);
@@ -174,6 +235,45 @@ function applyThemeTokens(tokens) {
   set("--site-font-display", tokens.fontDisplay);
 }
 
+function getLocalPreviewConfig() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return normalizeConfig(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function shouldUseLocalPreview() {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  const params = new URLSearchParams(window.location.search);
+  return host === "localhost" || host === "127.0.0.1" || params.get("builderPreview") === "1";
+}
+
+function sectionConfigFor(siteConfig, id) {
+  return siteConfig?.sections?.[id] || null;
+}
+
+function sectionPresetClassName(section) {
+  const preset = section?.stylePreset || "default";
+  if (preset === "nebulaGlass") return "overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.04] backdrop-blur-sm";
+  if (preset === "stellarium") return "overflow-hidden rounded-[1.75rem] border border-sky-300/10 bg-[linear-gradient(180deg,rgba(10,25,45,0.28),rgba(4,8,18,0.16))]";
+  return "";
+}
+
+function sectionInlineStyle(section) {
+  if (!section?.backgroundImage) return undefined;
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)), url(${section.backgroundImage})`,
+    backgroundSize: section?.backgroundFit || "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
 function useSiteConfig() {
   const [config, setConfig] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | missing | error
@@ -181,37 +281,85 @@ function useSiteConfig() {
   useEffect(() => {
     let alive = true;
 
-    async function load() {
+    const applyConfig = (raw, nextStatus = "ready") => {
+      const norm = normalizeConfig(raw);
+      if (!alive) return false;
+      if (norm) {
+        setConfig(norm);
+        setStatus(nextStatus);
+        if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
+        return true;
+      }
+      return false;
+    };
+
+    const load = async () => {
       try {
         setStatus("loading");
+
+        if (shouldUseLocalPreview()) {
+          const local = getLocalPreviewConfig();
+          if (local) {
+            applyConfig(local, "ready");
+            return;
+          }
+        }
+
         const res = await fetch(SITE_CONFIG_URL, { cache: "no-store" });
         if (!res.ok) {
           if (!alive) return;
-          setStatus("missing");
-          setConfig(null);
+          const fallback = getLocalPreviewConfig();
+          if (fallback) {
+            applyConfig(fallback, "ready");
+          } else {
+            setStatus("missing");
+            setConfig(null);
+          }
           return;
         }
         const raw = await res.json();
-        const norm = normalizeConfig(raw);
-        if (!alive) return;
-        if (norm) {
-          setConfig(norm);
-          setStatus("ready");
-          if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
-        } else {
+        if (!applyConfig(raw, "ready") && alive) {
           setConfig(null);
           setStatus("error");
         }
-      } catch (e) {
+      } catch {
         if (!alive) return;
-        setStatus("error");
-        setConfig(null);
+        const fallback = getLocalPreviewConfig();
+        if (fallback) {
+          applyConfig(fallback, "ready");
+        } else {
+          setStatus("error");
+          setConfig(null);
+        }
       }
-    }
+    };
 
     load();
+
+    const handlePreviewUpdate = (event) => {
+      const next = event?.detail || getLocalPreviewConfig();
+      applyConfig(next, "ready");
+    };
+    const handleStorage = (event) => {
+      if (event.key && event.key !== SITE_CONFIG_STORAGE_KEY) return;
+      const next = getLocalPreviewConfig();
+      if (next) applyConfig(next, "ready");
+    };
+
+    let channel = null;
+    try {
+      channel = new BroadcastChannel(SITE_CONFIG_PREVIEW_CHANNEL);
+      channel.onmessage = (event) => applyConfig(event?.data, "ready");
+    } catch {}
+
+    window.addEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
+    window.addEventListener("storage", handleStorage);
+
     return () => {
       alive = false;
+      window.removeEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
+      window.removeEventListener("storage", handleStorage);
+      if (channel) channel.close();
     };
   }, []);
 
@@ -577,6 +725,9 @@ function ShareBar({ title, shareHref, text }) {
 function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sectionEnabled, breakpoint, siteConfig }) {
   const year = new Date().getFullYear();
   const heroSrc = "/images/gallery/hero/hero.jpg";
+  const getSectionConfig = (id) => sectionConfigFor(siteConfig, id);
+  const getSectionClassName = (id) => sectionPresetClassName(getSectionConfig(id));
+  const getSectionStyle = (id) => sectionInlineStyle(getSectionConfig(id));
 
   const gallery = useMemo(
     () => [
@@ -750,7 +901,8 @@ const renderGridSection = (id) => {
 {/* HERO */}
       <section
         id="top"
-        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin} ${getSectionClassName("hero")}`}
+        style={getSectionStyle("hero")}
       >
         <div className="grid items-center gap-8 lg:grid-cols-2">
           <div>
@@ -847,7 +999,8 @@ case "calendar":
       {enabled("calendar") ? (
       <section
         id="calendar"
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("calendar")}`}
+        style={getSectionStyle("calendar")}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -912,7 +1065,8 @@ case "latestNews":
 {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("latestNews")}`}
+        style={getSectionStyle("latestNews")}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
@@ -1028,7 +1182,8 @@ case "gallery":
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
+        style={getSectionStyle("gallery")}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -1038,12 +1193,6 @@ case "gallery":
             </p>
           </div>
 
-          <a
-            href="#calendar"
-            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
-          >
-            Calendar
-          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1093,7 +1242,7 @@ case "gallery":
 case "footer":
   return (
     <div className="h-full w-full">
-<footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+<footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1107,7 +1256,7 @@ case "footer":
   }
 };
 
-if (!gridMode) {
+if (!gridMode || !layouts || gridWidth <= 0) {
 return (
     <>
       {/* HERO */}
@@ -1370,7 +1519,8 @@ return (
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
+        style={getSectionStyle("gallery")}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -1380,12 +1530,6 @@ return (
             </p>
           </div>
 
-          <a
-            href="#calendar"
-            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
-          >
-            Calendar
-          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1428,7 +1572,7 @@ return (
       </section>
       ) : null}
 
-      <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+      <footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1537,6 +1681,8 @@ function PhoneBackgroundsPage({ heroFallback }) {
 
             <div className="flex gap-2">
               <input
+                id="phone-background-search"
+                name="phone-background-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
@@ -1615,7 +1761,6 @@ function PhoneBackgroundsPage({ heroFallback }) {
           })}
         </div>
       </section>
-      ) : null}
 
       <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
@@ -4625,7 +4770,565 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
 
 
-function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
+function GalleryPage({ heroFallback }) {
+  const gallery = useMemo(
+    () => [
+      {
+        title: "M31 Andromeda Galaxy",
+        src: "/images/gallery/M31-andromeda-galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
+      },
+      {
+        title: "M33 Triangulum Galaxy",
+        src: "/images/gallery/M33-Triangulum-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=s2kavm#gallery",
+      },
+      {
+        title: "M42 Orion Nebula",
+        src: "/images/gallery/M42-orion-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=v04416#gallery",
+      },
+      {
+        title: "M45 Pleiades",
+        src: "/images/gallery/M45-pleiades.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=07i1mm#gallery",
+      },
+      {
+        title: "M3 Star Cluster",
+        src: "/images/gallery/M3-star-cluster.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
+      },
+      {
+        title: "Crescent Nebula",
+        src: "/images/gallery/crescent-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
+      },
+      {
+        title: "Cygnus Loop",
+        src: "/images/gallery/cygnus-loop.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=iuprk1#gallery",
+      },
+      {
+        title: "Eastern Veil Nebula",
+        src: "/images/gallery/eastern-veil-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ckddjp#gallery",
+      },
+      {
+        title: "Flame and Horsehead Nebula",
+        src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
+      },
+      {
+        title: "North American Nebula",
+        src: "/images/gallery/north-american-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+      },
+      {
+        title: "Pacman Nebula",
+        src: "/images/gallery/pacman-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=0petis#gallery",
+      },
+      {
+        title: "Pelican Nebula",
+        src: "/images/gallery/pelican-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=rfg4iu#gallery",
+      },
+      {
+        title: "Rosette Nebula",
+        src: "/images/gallery/rosette-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ql9o7q#gallery",
+      },
+      {
+        title: "California Nebula",
+        src: "/images/gallery/California-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=kep4o2#gallery",
+      },
+      {
+        title: "Comet C/2023 A3 (Tsuchinshan-ATLAS)",
+        src: "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=gua7l8#gallery",
+      },
+      {
+        title: "Milky Way at Jubilee",
+        src: "/images/gallery/milky-way-at-jubilee.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jomm01#gallery",
+      },
+      {
+        title: "Auroras",
+        src: "/images/gallery/auroras.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7v0n71#gallery",
+      },
+      {
+        title: "Auroras at Jubilee Observatory",
+        src: "/images/gallery/auroras-at-jubilee-observatory.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ro5i8r#gallery",
+      },
+      {
+        title: "Harvest Moon",
+        src: "/images/gallery/harvest-moon.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=3ntchk#gallery",
+      },
+      {
+        title: "Venus and Crescent Moon",
+        src: "/images/gallery/venus-and-crescent-moon.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=nbzfce#gallery",
+      },
+      {
+        title: "Totality",
+        src: "/images/gallery/totality.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jikvvk#gallery",
+      },
+      {
+        title: "Moon",
+        src: "/images/gallery/moon-1.png",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=52ev9v#gallery",
+      },
+      {
+        title: "Moon Close-Up",
+        src: "/images/gallery/moon-2.png",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=tecn9s#gallery",
+      },
+    ],
+    []
+  );
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Gallery
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Featured Astrophotography</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/74 sm:text-base">
+                Explore the dedicated gallery page for deep-sky work, lunar images, aurora captures, and wide-field scenes. Click any image to open it on AstroBin.
+              </p>
+            </div>
+            <a
+              href="#calendar"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Shop Calendar
+            </a>
+          </div>
+        </div>
+
+        <div className="px-6 py-6 sm:px-8 sm:py-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {gallery.map((item) => (
+              <motion.a
+                key={item.title}
+                href={item.astrobin}
+                target="_blank"
+                rel="noreferrer"
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.35 }}
+                className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
+                title={`Open on AstroBin: ${item.title}`}
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={item.src}
+                    alt={item.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.src = heroFallback;
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <div className="text-base font-semibold">{item.title}</div>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>View on AstroBin →</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LiveTelescopePage({ liveConfig }) {
+  const status = liveConfig?.status || DEFAULT_LIVE_TELESCOPE.status;
+  const projectedNextStream = liveConfig?.projectedNextStream || DEFAULT_LIVE_TELESCOPE.projectedNextStream;
+  const askJakeText = liveConfig?.askJakeText || DEFAULT_LIVE_TELESCOPE.askJakeText;
+  const currentTarget = { ...DEFAULT_LIVE_TELESCOPE.currentTarget, ...(liveConfig?.currentTarget || {}) };
+  const targetInfo = { ...DEFAULT_LIVE_TELESCOPE.targetInfo, ...(liveConfig?.targetInfo || {}) };
+  const skyConditions = { ...DEFAULT_LIVE_TELESCOPE.skyConditions, ...(liveConfig?.skyConditions || {}) };
+  const whereToLook = { ...DEFAULT_LIVE_TELESCOPE.whereToLook, ...(liveConfig?.whereToLook || {}) };
+  const imageProgress = { ...DEFAULT_LIVE_TELESCOPE.imageProgress, ...(liveConfig?.imageProgress || {}) };
+  const equipment = { ...DEFAULT_LIVE_TELESCOPE.equipment, ...(liveConfig?.equipment || {}) };
+
+  const currentTargetVisible = Boolean(currentTarget.name || currentTarget.constellation || currentTarget.objectType || currentTarget.description);
+  const targetInfoVisible = Boolean(targetInfo.title || targetInfo.summary || targetInfo.astrobinUrl);
+  const imageProgressVisible = Boolean(imageProgress.subsCaptured || imageProgress.exposureLength || imageProgress.totalIntegration || imageProgress.currentFilter || imageProgress.guidingStable);
+  const skyVisible = Boolean(skyConditions.cloudCover || skyConditions.transparency || skyConditions.seeing || skyConditions.moonPhase || skyConditions.wind);
+  const whereToLookVisible = Boolean(whereToLook.pointedNear || whereToLook.direction || whereToLook.altitude || whereToLook.constellation || whereToLook.note);
+
+  const displayEquipment = (key) => {
+    const value = equipment?.[key] || "";
+    const customValue = equipment?.[`${key}Custom`] || "";
+    return value === "Other" ? (customValue || "Other") : value;
+  };
+
+  const equipmentItems = [
+    ["Telescope", displayEquipment("telescope")],
+    ["Mount", displayEquipment("mount")],
+    ["Main Camera", displayEquipment("mainCamera")],
+    ["Guide Camera", displayEquipment("guideCamera")],
+    ["Filter", displayEquipment("filter")],
+    ["Software", displayEquipment("software")],
+  ].filter(([, value]) => Boolean(value));
+
+  const skyItems = [
+    ["Cloud cover", skyConditions.cloudCover],
+    ["Transparency", skyConditions.transparency],
+    ["Seeing", skyConditions.seeing],
+    ["Moon phase", skyConditions.moonPhase],
+    ["Wind", skyConditions.wind],
+  ].filter(([, value]) => Boolean(value));
+  const whereToLookItems = [
+    ["Pointed near", whereToLook.pointedNear],
+    ["Direction", whereToLook.direction],
+    ["Altitude", whereToLook.altitude],
+    ["Constellation", whereToLook.constellation],
+  ].filter(([, value]) => Boolean(value));
+
+  const progressItems = [
+    ["Subs captured", imageProgress.subsCaptured],
+    ["Exposure length", imageProgress.exposureLength],
+    ["Total integration", imageProgress.totalIntegration],
+    ["Current filter", imageProgress.currentFilter],
+    ["Guiding", imageProgress.guidingStable],
+  ].filter(([, value]) => Boolean(value));
+
+  let liveVideoId = "";
+  const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "/live-telescope";
+  try {
+    liveVideoId = new URLSearchParams(window.location.search).get("liveVideo") || "";
+  } catch {}
+
+  const liveEmbedSrc = liveVideoId
+    ? `https://www.youtube.com/embed/${liveVideoId}?autoplay=0&mute=0`
+    : YOUTUBE_LIVE_EMBED_URL;
+  const liveChatSrc = liveVideoId
+    ? `https://www.youtube.com/live_chat?v=${liveVideoId}&embed_domain=${host}`
+    : "";
+
+  const statusMeta = {
+    live: {
+      label: "Live now",
+      dot: "bg-emerald-400",
+      shell: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
+      headline: "The telescope is live.",
+      body: "Join the feed, ask questions in chat, and follow tonight’s session in real time.",
+    },
+    startingSoon: {
+      label: "Starting soon",
+      dot: "bg-amber-300",
+      shell: "border-amber-300/25 bg-amber-300/10 text-amber-50",
+      headline: "Starting soon.",
+      body: "I am getting the telescope, capture software, and framing ready for tonight’s stream.",
+    },
+    offline: {
+      label: "Offline",
+      dot: "bg-white/40",
+      shell: "border-white/10 bg-white/5 text-white/80",
+      headline: "Offline right now.",
+      body: "The live page automatically becomes a planning hub between sessions so you can still see the next window, featured content, and support links.",
+    },
+  }[status] || {
+    label: "Offline",
+    dot: "bg-white/40",
+    shell: "border-white/10 bg-white/5 text-white/80",
+    headline: "Offline right now.",
+    body: "The live page automatically becomes a planning hub between sessions.",
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      alert("Live stream page link copied.");
+    } catch {
+      window.prompt("Copy this link:", currentUrl);
+    }
+  };
+
+  const handleShare = async () => {
+    const payload = {
+      title: "Jake Schultz Astrophotography — Live Telescope",
+      text: "Watch the telescope live on Jake Schultz Astrophotography.",
+      url: currentUrl,
+    };
+    try {
+      if (navigator.share) await navigator.share(payload);
+      else await handleCopyLink();
+    } catch {}
+  };
+
+  const heroCard = status === "live" ? (
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+      <div className="aspect-video w-full">
+        <iframe
+          title="Jake Schultz Astrophotography live telescope stream"
+          src={liveEmbedSrc}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(138,180,255,0.18),_transparent_42%),linear-gradient(180deg,rgba(8,12,28,0.95),rgba(5,7,16,0.98))] px-6 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.45)] sm:px-8 sm:py-10">
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, transparent 2px), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.25) 0, transparent 1.5px), radial-gradient(circle at 60% 72%, rgba(255,255,255,0.25) 0, transparent 2px)" }} />
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/75">
+          <Camera className="h-3.5 w-3.5" />
+          {status === "startingSoon" ? "Starting soon screen" : "Offline mode"}
+        </div>
+        <h2 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{statusMeta.headline}</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/74 sm:text-base">{statusMeta.body}</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Projected next stream</div>
+            <div className="mt-2 text-sm leading-6 text-white/85">{projectedNextStream}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Featured while offline</div>
+            <div className="mt-2 text-sm leading-6 text-white/85">Browse the gallery, Starcast, and the latest site updates while the scope is down.</div>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+            <ExternalLink className="h-4 w-4" />
+            Open YouTube Channel
+          </a>
+          <a href="/gallery" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+            <ImageIcon className="h-4 w-4" />
+            Featured astrophotography
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+              <Camera className="h-3.5 w-3.5" />
+              Live Telescope
+            </div>
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${statusMeta.shell}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${statusMeta.dot} ${status === "live" ? "animate-pulse" : ""}`} />
+              {statusMeta.label}
+            </div>
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Watch the telescope live.</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-white/70 sm:text-base">
+            This page embeds my YouTube Live feed from OBS so you can watch deep-sky sessions directly from the website whenever I go live.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
+          <div className="space-y-4">
+            {heroCard}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-white">Ask Jake</div>
+                    <p className="mt-2 text-sm leading-7 text-white/74">{askJakeText}</p>
+                  </div>
+                  <MessageCircle className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-lg font-semibold text-white">Share this stream</div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button onClick={handleCopyLink} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+                    <LinkIcon className="h-4 w-4" />
+                    Copy link
+                  </button>
+                  <button onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </button>
+                  <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                    <ExternalLink className="h-4 w-4" />
+                    YouTube
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {targetInfoVisible ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-lg font-semibold text-white">Target info</div>
+                      {targetInfo.title ? <div className="mt-2 text-sm font-medium text-white">{targetInfo.title}</div> : null}
+                    </div>
+                    <Target className="mt-1 h-5 w-5 text-white/55" />
+                  </div>
+                  {targetInfo.summary ? <p className="mt-3 text-sm leading-7 text-white/74">{targetInfo.summary}</p> : null}
+                  {targetInfo.astrobinUrl ? (
+                    <a href={targetInfo.astrobinUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-cyan-200 hover:text-cyan-100">
+                      <ExternalLink className="h-4 w-4" />
+                      Open related image / AstroBin
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {imageProgressVisible ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="text-lg font-semibold text-white">Image progress</div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {progressItems.map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                        <div className="mt-1 text-white">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Live chat</div>
+              {liveChatSrc ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+                  <iframe title="YouTube live chat" src={liveChatSrc} className="h-[420px] w-full border-0" />
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/68">
+                  Add the current YouTube live video ID to the page URL to show embedded live chat during a stream.
+                  <div className="mt-2 text-white/50">Example: <span className="font-mono text-[12px] text-white/70">/live-telescope?liveVideo=YOUR_VIDEO_ID</span></div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Projected next stream</div>
+              <p className="mt-3 text-sm leading-7 text-white/74">{projectedNextStream}</p>
+            </div>
+
+            {currentTargetVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-lg font-semibold text-white">Current target</div>
+                <div className="mt-3 space-y-2 text-sm text-white/74">
+                  {currentTarget.name ? <div><span className="text-white/48">Target:</span> <span className="text-white">{currentTarget.name}</span></div> : null}
+                  {currentTarget.constellation ? <div><span className="text-white/48">Constellation:</span> <span className="text-white">{currentTarget.constellation}</span></div> : null}
+                  {currentTarget.objectType ? <div><span className="text-white/48">Object type:</span> <span className="text-white">{currentTarget.objectType}</span></div> : null}
+                  {currentTarget.description ? <p className="pt-1 leading-7">{currentTarget.description}</p> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {whereToLookVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-white">Where to look in the sky</div>
+                    <p className="mt-2 text-sm leading-7 text-white/68">A quick pointer for where the scope is aimed tonight.</p>
+                  </div>
+                  <Compass className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {whereToLookItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                {whereToLook.note ? <p className="mt-4 text-sm leading-7 text-white/70">{whereToLook.note}</p> : null}
+              </div>
+            ) : null}
+
+            {skyVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="text-lg font-semibold text-white">Live sky conditions</div>
+                  <Compass className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {skyItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Equipment tonight</div>
+              {equipmentItems.length ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {equipmentItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-7 text-white/60">Select tonight’s setup in the Live Telescope tab inside the builder.</p>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-white">Support the stream</div>
+                  <p className="mt-2 text-sm leading-7 text-white/74">If you enjoy the live sessions, supporting the prints, calendar, and future member features helps keep the observatory side of the site growing.</p>
+                </div>
+                <ShoppingBag className="mt-1 h-5 w-5 text-white/55" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a href="/#calendar" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+                  <ShoppingBag className="h-4 w-4" />
+                  Shop calendar
+                </a>
+                <a href="https://dot.cards/jakeschultzastrophotography" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                  <ExternalLink className="h-4 w-4" />
+                  Support Jake
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   const [orbOpen, setOrbOpen] = useState(false);
   const ORB_ANIMS = ["bloom","bloomSoft","bloomNeon","bloomRipple","bloomGlitch","bloomStardust","bloomOrbit","bloomMagnetic"];
   const isDev = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"));
@@ -4971,7 +5674,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 type="button"
                 onClick={() => {
                   setOrbOpen(false);
-                  goSection("gallery");
+                  navigate("/gallery");
                 }}
                 className={`${orbItemBase} bg-white/5`}
               >
@@ -4994,6 +5697,21 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 <div className="min-w-0">
                   <div className="truncate leading-snug">Starcast</div>
                   <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Forecast & best targets</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbOpen(false);
+                  navigate("/live-telescope");
+                }}
+                className={`${orbItemBase} ${path === "/live-telescope" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Camera className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Live Telescope</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Watch live sessions</div>
                 </div>
               </button>
 
@@ -5115,8 +5833,8 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               label: "Gallery",
               subtitle: "Deep-sky images",
               icon: ImageIcon,
-              active: false,
-              onClick: () => goSection("gallery"),
+              active: path === "/gallery",
+              onClick: () => navigate("/gallery"),
             },
             {
               key: "starcast",
@@ -5125,6 +5843,14 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               icon: Star,
               active: path === "/starcast" || path === "/astrocast",
               onClick: () => navigate("/starcast"),
+            },
+            {
+              key: "live-telescope",
+              label: "Live Telescope",
+              subtitle: "Watch live sessions",
+              icon: Camera,
+              active: path === "/live-telescope",
+              onClick: () => navigate("/live-telescope"),
             },
             {
               key: "eclipse",
@@ -5243,10 +5969,12 @@ if (path === "/admin/persistence") {
 
 const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
+  const onGallery = path === "/gallery";
   const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
   const onStarcast = path === "/starcast";
+  const onLiveTelescope = path === "/live-telescope";
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -5278,7 +6006,7 @@ const onHome = path === "/";
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onPlanetarium || onEclipseGuide || onStarcast) ? (
+            {(onWallpapers || onGallery || onPlanetarium || onEclipseGuide || onStarcast || onLiveTelescope) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -5336,6 +6064,18 @@ const onHome = path === "/";
             </button>
 
 
+
+            <button
+              type="button"
+              onClick={() => navigate("/live-telescope")}
+              className={`hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 ${
+                onLiveTelescope ? "bg-white/15" : "bg-white/5"
+              }`}
+              title="Live Telescope"
+            >
+              <Camera className="h-4 w-4" />
+              Live Telescope
+            </button>
 
             <button
               type="button"
@@ -5415,16 +6155,47 @@ const onHome = path === "/";
       </header>
 
       <div className="relative">
-        <SideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
+        <SiteSideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
+          ) : onGallery ? (
+            <GalleryPage heroFallback={heroFallback} />
           ) : onPlanetarium ? (
             <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
             <Starcast navigate={navigate} embedded />
+          ) : onLiveTelescope ? (
+            <LiveTelescopePage liveConfig={{
+              ...DEFAULT_LIVE_TELESCOPE,
+              ...(siteConfig?.liveTelescope || {}),
+              currentTarget: {
+                ...DEFAULT_LIVE_TELESCOPE.currentTarget,
+                ...(siteConfig?.liveTelescope?.currentTarget || {}),
+              },
+              targetInfo: {
+                ...DEFAULT_LIVE_TELESCOPE.targetInfo,
+                ...(siteConfig?.liveTelescope?.targetInfo || {}),
+              },
+              skyConditions: {
+                ...DEFAULT_LIVE_TELESCOPE.skyConditions,
+                ...(siteConfig?.liveTelescope?.skyConditions || {}),
+              },
+              whereToLook: {
+                ...DEFAULT_LIVE_TELESCOPE.whereToLook,
+                ...(siteConfig?.liveTelescope?.whereToLook || {}),
+              },
+              imageProgress: {
+                ...DEFAULT_LIVE_TELESCOPE.imageProgress,
+                ...(siteConfig?.liveTelescope?.imageProgress || {}),
+              },
+              equipment: {
+                ...DEFAULT_LIVE_TELESCOPE.equipment,
+                ...(siteConfig?.liveTelescope?.equipment || {}),
+              },
+            }} />
           ) : (
             <HomePage
               sectionScrollMargin={sectionScrollMargin}
@@ -5432,6 +6203,8 @@ const onHome = path === "/";
               navigate={navigate}
               latestNews={latestNewsOverride}
               sectionEnabled={sectionEnabled}
+              breakpoint={breakpoint}
+              siteConfig={siteConfig}
             />
           )}
         </main>

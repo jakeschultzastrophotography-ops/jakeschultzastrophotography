@@ -22,6 +22,9 @@ import {
   CloudUpload,
   FileDown,
   SlidersHorizontal,
+  Camera,
+  Compass,
+  Target,
 } from "lucide-react";
 
 /**
@@ -58,6 +61,17 @@ const STORAGE_KEY = "jake_site_builder_v2";
 const DEFAULT_SECRET = "saturn"; // change any time
 
 const DEFAULT_CANONICAL = "https://jakeschultzastrophotography.com"; // used for absolute share URLs
+const PREVIEW_EVENT = "jake-site-config-updated";
+const PREVIEW_CHANNEL = "jake-site-config";
+const STREAM_GEAR_OPTIONS = {
+  telescopes: ["", "Redcat 51", "Apertura 6\" Astrograph", "Celestron C11", "Other"],
+  mounts: ["", "Skywatcher Star Adventurer 2i pro", "Skywatcher EQM-35 Pro", "Skywatcher EQ6-R Pro", "Other"],
+  mainCameras: ["", "Canon 800D", "ASI294mc", "ASI224 planetary cam", "Other"],
+  guideCameras: ["", "ASI120 mini", "Other"],
+  filters: ["", "Optlong L-Extreme filter", "None", "Other"],
+  software: ["", "ASIAIR mini", "Other"],
+};
+
 
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
@@ -219,6 +233,58 @@ function makeDefaultConfig() {
       },
     ],
 
+    liveTelescope: {
+      status: "offline",
+      projectedNextStream: "Clear evenings after dark, weather permitting.",
+      askJakeText: "Have a question while I am live? Drop it into YouTube chat and I will answer as many as I can during the session.",
+      currentTarget: {
+        name: "",
+        constellation: "",
+        objectType: "",
+        description: "",
+      },
+      targetInfo: {
+        title: "",
+        summary: "",
+        astrobinUrl: "",
+      },
+      skyConditions: {
+        cloudCover: "",
+        transparency: "",
+        seeing: "",
+        moonPhase: "",
+        wind: "",
+      },
+      whereToLook: {
+        pointedNear: "",
+        direction: "",
+        altitude: "",
+        constellation: "",
+        note: "",
+      },
+      imageProgress: {
+        subsCaptured: "",
+        exposureLength: "",
+        totalIntegration: "",
+        currentFilter: "",
+        guidingStable: "",
+      },
+      equipment: {
+        telescope: "",
+        telescopeCustom: "",
+        mount: "",
+        mountCustom: "",
+        mainCamera: "",
+        mainCameraCustom: "",
+        guideCamera: "",
+        guideCameraCustom: "",
+        filter: "",
+        filterCustom: "",
+        software: "",
+        softwareCustom: "",
+      },
+    },
+
     // Useful for absolute URLs (share preview)
     canonicalOrigin: DEFAULT_CANONICAL,
   };
@@ -227,14 +293,59 @@ function makeDefaultConfig() {
 function loadLocal() {
   const raw = localStorage.getItem(STORAGE_KEY);
   const j = safeJsonParse(raw || "");
-  if (j && j.version === 2) return j;
+  if (j && j.version === 2) {
+    const fresh = makeDefaultConfig();
+    const merged = {
+      ...fresh,
+      ...j,
+      liveTelescope: {
+        ...fresh.liveTelescope,
+        ...(j.liveTelescope || {}),
+        currentTarget: {
+          ...fresh.liveTelescope.currentTarget,
+          ...(j.liveTelescope?.currentTarget || {}),
+        },
+        targetInfo: {
+          ...fresh.liveTelescope.targetInfo,
+          ...(j.liveTelescope?.targetInfo || {}),
+        },
+        skyConditions: {
+          ...fresh.liveTelescope.skyConditions,
+          ...(j.liveTelescope?.skyConditions || {}),
+        },
+        whereToLook: {
+          ...fresh.liveTelescope.whereToLook,
+          ...(j.liveTelescope?.whereToLook || {}),
+        },
+        imageProgress: {
+          ...fresh.liveTelescope.imageProgress,
+          ...(j.liveTelescope?.imageProgress || {}),
+        },
+        equipment: {
+          ...fresh.liveTelescope.equipment,
+          ...(j.liveTelescope?.equipment || {}),
+        },
+      },
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    return merged;
+  }
   const fresh = makeDefaultConfig();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
   return fresh;
 }
 
 function saveLocal(cfg) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cfg, updatedAt: new Date().toISOString() }));
+  const next = { ...cfg, updatedAt: new Date().toISOString() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  try {
+    window.dispatchEvent(new CustomEvent(PREVIEW_EVENT, { detail: next }));
+  } catch {}
+  try {
+    const channel = new BroadcastChannel(PREVIEW_CHANNEL);
+    channel.postMessage(next);
+    channel.close();
+  } catch {}
 }
 
 function applyDashboardCss(tokens) {
@@ -291,9 +402,12 @@ function Field({ label, children, hint }) {
   );
 }
 
-function TextInput({ value, onChange, placeholder }) {
+function TextInput({ value, onChange, placeholder, id, name, type = "text" }) {
   return (
     <input
+      id={id}
+      name={name || id || "dashboard-text-input"}
+      type={type}
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       className="h-9 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white/80 outline-none focus:ring-2 focus:ring-white/20"
@@ -302,9 +416,11 @@ function TextInput({ value, onChange, placeholder }) {
   );
 }
 
-function TextArea({ value, onChange, placeholder, rows = 4 }) {
+function TextArea({ value, onChange, placeholder, rows = 4, id, name }) {
   return (
     <textarea
+      id={id}
+      name={name || id || "dashboard-textarea"}
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       rows={rows}
@@ -314,16 +430,39 @@ function TextArea({ value, onChange, placeholder, rows = 4 }) {
   );
 }
 
-function ColorInput({ value, onChange }) {
+function SelectInput({ value, onChange, options = [], id, name }) {
+  return (
+    <select
+      id={id}
+      name={name || id || "dashboard-select"}
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-9 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white/80 outline-none focus:ring-2 focus:ring-white/20"
+    >
+      {options.map((option) => (
+        <option key={option || "blank-option"} value={option} className="bg-[#0a0d16]">
+          {option || "Select…"}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ColorInput({ value, onChange, id, name }) {
+  const fieldName = name || id || "dashboard-color-input";
   return (
     <div className="flex items-center gap-2">
       <input
+        id={id ? `${id}-picker` : undefined}
+        name={`${fieldName}-picker`}
         type="color"
         value={value || "#000000"}
         onChange={(e) => onChange(e.target.value)}
         className="h-9 w-12 rounded-xl border border-white/10 bg-transparent"
       />
       <input
+        id={id}
+        name={fieldName}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         className="h-9 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white/80 outline-none focus:ring-2 focus:ring-white/20"
@@ -436,7 +575,7 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
   const cfg = history.stack[history.idx];
   const tokens = cfg?.theme?.tokens || {};
 
-  const [tab, setTab] = useState(initialTab || "canvas"); // canvas | theme | sections | news | persistence
+  const [tab, setTab] = useState(initialTab || "canvas"); // canvas | theme | sections | live | news | persistence
   const [breakpoint, setBreakpoint] = useState("desktop"); // desktop | mobile
   const [filter, setFilter] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState("hero");
@@ -512,6 +651,8 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
           </IconButton>
           <input
             ref={fileInputRef}
+            id="site-config-import"
+            name="site-config-import"
             type="file"
             accept="application/json"
             className="hidden"
@@ -550,6 +691,7 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
                 { value: "canvas", label: "Canvas", icon: LayoutGrid },
                 { value: "sections", label: "Sections", icon: SlidersHorizontal },
                 { value: "theme", label: "Theme", icon: Palette },
+                { value: "live", label: "Live Telescope", icon: Camera },
                 { value: "news", label: "Latest News", icon: Type },
                 { value: "persistence", label: "Save", icon: CloudUpload },
               ]}
@@ -568,6 +710,8 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
             <div className="relative w-full sm:w-72">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
               <input
+                id="dashboard-search"
+                name="dashboard-search"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Search sections / posts…"
@@ -1146,6 +1290,8 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
         <div className="mt-3 space-y-3">
           <Field label="Mode">
             <select
+              id="persistence-mode"
+              name="persistence-mode"
               value={cfg?.persistence?.mode || "localStorage"}
               disabled={locked}
               onChange={(e) => {
@@ -1227,6 +1373,264 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
     </div>
   );
 
+  const liveCfg = cfg?.liveTelescope || makeDefaultConfig().liveTelescope;
+  const liveEquipment = liveCfg.equipment || {};
+  const liveTarget = liveCfg.currentTarget || {};
+  const liveTargetInfo = liveCfg.targetInfo || {};
+  const liveSky = liveCfg.skyConditions || {};
+  const liveWhere = liveCfg.whereToLook || {};
+  const liveProgress = liveCfg.imageProgress || {};
+  const selectedOrCustom = (value, customValue) => (value === "Other" ? (customValue || "Other") : value);
+
+  const liveTab = (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+      <Card title="Live Telescope editor" icon={Camera}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Stream status">
+            <SelectInput
+              id="live-stream-status"
+              name="live-stream-status"
+              value={liveCfg.status || "offline"}
+              options={["offline", "startingSoon", "live"]}
+              onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.status = value;
+                push(next);
+              }}
+            />
+          </Field>
+          <Field label="Projected next stream">
+            <TextInput
+              id="live-projected-next-stream"
+              name="live-projected-next-stream"
+              value={liveCfg.projectedNextStream || ""}
+              onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.projectedNextStream = value;
+                push(next);
+              }}
+              placeholder="Clear evenings after dark, weather permitting."
+            />
+          </Field>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Field label="Ask Jake text">
+            <TextArea id="live-ask-jake" name="live-ask-jake" value={liveCfg.askJakeText || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.askJakeText = value;
+              push(next);
+            }} rows={3} placeholder="Have a question while I am live?" />
+          </Field>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/65">
+            Leave Current Target, Target Info, Sky Conditions, or Image Progress fields blank when you do not want those cards to show on the public page.
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field label="Target name">
+            <TextInput id="live-target-name" name="live-target-name" value={liveTarget.name || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.currentTarget = { ...(next.liveTelescope.currentTarget || {}), name: value };
+              push(next);
+            }} placeholder="M42, Jupiter, Rosette Nebula…" />
+          </Field>
+          <Field label="Constellation">
+            <TextInput id="live-target-constellation" name="live-target-constellation" value={liveTarget.constellation || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.currentTarget = { ...(next.liveTelescope.currentTarget || {}), constellation: value };
+              push(next);
+            }} placeholder="Orion" />
+          </Field>
+          <Field label="Object type">
+            <TextInput id="live-target-type" name="live-target-type" value={liveTarget.objectType || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.currentTarget = { ...(next.liveTelescope.currentTarget || {}), objectType: value };
+              push(next);
+            }} placeholder="Nebula, galaxy, planet…" />
+          </Field>
+          <Field label="Short description">
+            <TextArea id="live-target-description" name="live-target-description" value={liveTarget.description || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.currentTarget = { ...(next.liveTelescope.currentTarget || {}), description: value };
+              push(next);
+            }} rows={3} placeholder="Optional note about what you are imaging tonight." />
+          </Field>
+        </div>
+      </Card>
+
+      <Card title="Where to look in the sky" icon={Compass}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Currently pointed near">
+            <TextInput value={liveWhere.pointedNear || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.whereToLook = { ...(next.liveTelescope.whereToLook || {}), pointedNear: value };
+              push(next);
+            }} placeholder="M42, the Belt stars, eastern Orion…" />
+          </Field>
+          <Field label="Direction">
+            <SelectInput value={liveWhere.direction || ""} options={["", "N", "NE", "E", "SE", "S", "SW", "W", "NW"]} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.whereToLook = { ...(next.liveTelescope.whereToLook || {}), direction: value };
+              push(next);
+            }} />
+          </Field>
+          <Field label="Altitude">
+            <TextInput value={liveWhere.altitude || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.whereToLook = { ...(next.liveTelescope.whereToLook || {}), altitude: value };
+              push(next);
+            }} placeholder="45° up" />
+          </Field>
+          <Field label="Constellation">
+            <TextInput value={liveWhere.constellation || ""} onChange={(value) => {
+              if (locked) return;
+              const next = deepClone(cfg);
+              next.liveTelescope = next.liveTelescope || {};
+              next.liveTelescope.whereToLook = { ...(next.liveTelescope.whereToLook || {}), constellation: value };
+              push(next);
+            }} placeholder="Orion" />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label="Viewer note">
+              <TextArea rows={3} value={liveWhere.note || ""} onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.whereToLook = { ...(next.liveTelescope.whereToLook || {}), note: value };
+                push(next);
+              }} placeholder="Try looking halfway up the southeastern sky above Orion's Belt." />
+            </Field>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Equipment tonight" icon={SlidersHorizontal}>
+        <div className="space-y-4">
+          {[ ["telescope","Telescope",STREAM_GEAR_OPTIONS.telescopes],["mount","Mount",STREAM_GEAR_OPTIONS.mounts],["mainCamera","Main Camera",STREAM_GEAR_OPTIONS.mainCameras],["guideCamera","Guide Camera",STREAM_GEAR_OPTIONS.guideCameras],["filter","Filter",STREAM_GEAR_OPTIONS.filters],["software","Software",STREAM_GEAR_OPTIONS.software] ].map(([key,label,options]) => {
+            const customKey = `${key}Custom`;
+            return (
+              <div key={key} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <Field label={label}>
+                  <SelectInput id={`live-${key}`} name={`live-${key}`} value={liveEquipment[key] || ""} options={options} onChange={(value) => {
+                    if (locked) return;
+                    const next = deepClone(cfg);
+                    next.liveTelescope = next.liveTelescope || {};
+                    next.liveTelescope.equipment = { ...(next.liveTelescope.equipment || {}), [key]: value, [customKey]: value === "Other" ? (next.liveTelescope.equipment?.[customKey] || "") : "" };
+                    push(next);
+                  }} />
+                </Field>
+                {(liveEquipment[key] || "") === "Other" ? (
+                  <div className="mt-3">
+                    <TextInput id={`live-${key}-custom`} name={`live-${key}-custom`} value={liveEquipment[customKey] || ""} onChange={(value) => {
+                      if (locked) return;
+                      const next = deepClone(cfg);
+                      next.liveTelescope = next.liveTelescope || {};
+                      next.liveTelescope.equipment = { ...(next.liveTelescope.equipment || {}), [customKey]: value };
+                      push(next);
+                    }} placeholder={`Custom ${String(label).toLowerCase()}`} />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card title="Target info + image progress" icon={Target} className="xl:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <Field label="Target info title">
+              <TextInput value={liveTargetInfo.title || ""} onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.targetInfo = { ...(next.liveTelescope.targetInfo || {}), title: value };
+                push(next);
+              }} placeholder="Target info title" />
+            </Field>
+            <Field label="Target info summary">
+              <TextArea rows={4} value={liveTargetInfo.summary || ""} onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.targetInfo = { ...(next.liveTelescope.targetInfo || {}), summary: value };
+                push(next);
+              }} placeholder="Short educational note about tonight's object" />
+            </Field>
+            <Field label="Target info link">
+              <TextInput value={liveTargetInfo.astrobinUrl || ""} onChange={(value) => {
+                if (locked) return;
+                const next = deepClone(cfg);
+                next.liveTelescope = next.liveTelescope || {};
+                next.liveTelescope.targetInfo = { ...(next.liveTelescope.targetInfo || {}), astrobinUrl: value };
+                push(next);
+              }} placeholder="Optional AstroBin or related URL" />
+            </Field>
+          </div>
+          <div className="space-y-4">
+            <Field label="Subs captured"><TextInput value={liveProgress.subsCaptured || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.imageProgress = { ...(next.liveTelescope.imageProgress || {}), subsCaptured: value }; push(next); }} placeholder="Number of subs captured" /></Field>
+            <Field label="Exposure length"><TextInput value={liveProgress.exposureLength || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.imageProgress = { ...(next.liveTelescope.imageProgress || {}), exposureLength: value }; push(next); }} placeholder="Exposure length" /></Field>
+            <Field label="Total integration"><TextInput value={liveProgress.totalIntegration || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.imageProgress = { ...(next.liveTelescope.imageProgress || {}), totalIntegration: value }; push(next); }} placeholder="Total integration" /></Field>
+            <Field label="Current filter"><TextInput value={liveProgress.currentFilter || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.imageProgress = { ...(next.liveTelescope.imageProgress || {}), currentFilter: value }; push(next); }} placeholder="Current filter" /></Field>
+            <Field label="Guiding stable"><TextInput value={liveProgress.guidingStable || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.imageProgress = { ...(next.liveTelescope.imageProgress || {}), guidingStable: value }; push(next); }} placeholder="Yes / No / RMS etc." /></Field>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Sky conditions preview" icon={Compass} className="xl:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {[ ["cloudCover","Cloud cover"],["transparency","Transparency"],["seeing","Seeing"],["moonPhase","Moon phase"],["wind","Wind"] ].map(([key,label]) => (
+            <Field key={key} label={label}>
+              <TextInput value={liveSky[key] || ""} onChange={(value) => { if (locked) return; const next = deepClone(cfg); next.liveTelescope = next.liveTelescope || {}; next.liveTelescope.skyConditions = { ...(next.liveTelescope.skyConditions || {}), [key]: value }; push(next); }} placeholder={label} />
+            </Field>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Live page preview text" icon={Type} className="xl:col-span-2">
+        <div className="grid gap-4 md:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Status</div>
+            <div className="mt-2 text-sm text-white/80">{liveCfg.status === "live" ? "Live now" : liveCfg.status === "startingSoon" ? "Starting soon" : "Offline"}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Projected next stream</div>
+            <div className="mt-2 text-sm text-white/80">{liveCfg.projectedNextStream || "—"}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Current target</div>
+            <div className="mt-2 text-sm text-white/80">{liveTarget.name ? `${liveTarget.name}${liveTarget.constellation ? ` • ${liveTarget.constellation}` : ""}` : "Hidden until you set a target."}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Equipment tonight</div>
+            <div className="mt-2 text-sm text-white/80">{[selectedOrCustom(liveEquipment.telescope, liveEquipment.telescopeCustom), selectedOrCustom(liveEquipment.mount, liveEquipment.mountCustom), selectedOrCustom(liveEquipment.mainCamera, liveEquipment.mainCameraCustom)].filter(Boolean).join(" • ") || "Select your gear from the dropdowns."}</div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
   const sectionsTab = (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card title="Section quick controls" icon={SlidersHorizontal}>
@@ -1270,22 +1674,6 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
         </div>
       </Card>
 
-      <Card title="What’s next" icon={Sparkles}>
-        <div className="space-y-3 text-sm text-white/70">
-          <div>
-            <div className="font-semibold text-white/85">You asked for these 4 upgrades:</div>
-            <ul className="mt-1 list-disc space-y-1 pl-5 text-white/65">
-              <li><b>Wire public site to render from config</b> (no design changes)</li>
-              <li><b>True drag/resize canvas editor</b> ✅ (this tab)</li>
-              <li><b>Image + font pickers with presets</b> ✅ (section inspector + theme)</li>
-              <li><b>Save-to-repo or Netlify persistence</b> ✅ (this tab)</li>
-            </ul>
-          </div>
-          <div className="text-[11px] text-white/45">
-            Wiring step is a code change in your main site file. Once done, your exported config becomes the real live source of truth.
-          </div>
-        </div>
-      </Card>
     </div>
   );
 
@@ -1293,6 +1681,7 @@ export default function AdminDashboard({ onExit, initialTab = "canvas" }) {
     <div className="mx-auto max-w-6xl px-4 py-6">
       {tab === "canvas" ? canvas : null}
       {tab === "sections" ? sectionsTab : null}
+      {tab === "live" ? liveTab : null}
       {tab === "theme" ? theme : null}
       {tab === "news" ? news : null}
       {tab === "persistence" ? persistence : null}

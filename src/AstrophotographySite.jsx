@@ -401,7 +401,6 @@ const LOGO_SRC = "/images/brand/logo.png";
 
 
 const ECLIPSE_PHOTO_SRCS = [
-  // Main grid used in the "My eclipse photos" section:
   "/images/eclipse-guide/eclipse-01.jpg",
   "/images/eclipse-guide/eclipse-02.jpg",
   "/images/eclipse-guide/eclipse-03.jpg",
@@ -412,18 +411,6 @@ const ECLIPSE_PHOTO_SRCS = [
   "/images/eclipse-guide/eclipse-08.jpg",
   "/images/eclipse-guide/eclipse-09.jpg",
   "/images/eclipse-guide/eclipse-10.jpg",
-
-  // Extra eclipse-related images available in the same folder (optional use elsewhere):
-  "/images/eclipse-guide/blood-moon-over-peoria.webp",
-  "/images/eclipse-guide/eclipse-widefield.webp",
-  "/images/eclipse-guide/lunar-eclipse.webp",
-  "/images/eclipse-guide/lunar-eclipse-wide.webp",
-  "/images/eclipse-guide/screenshot-chrome.webp",
-  "/images/eclipse-guide/solar-closeup-1.webp",
-  "/images/eclipse-guide/solar-closeup-2.webp",
-  "/images/eclipse-guide/solar-eclipse-hdr.webp",
-  "/images/eclipse-guide/solar-eclipse-telescope-1.webp",
-  "/images/eclipse-guide/solar-eclipse-telescope-2.webp",
 ];
 
 // ECLIPSE GUIDE: astronomy-engine is ESM; use namespace import
@@ -3281,6 +3268,37 @@ const ECLIPSE_VIDEO_KEYFRAMES = [
 ];
 
 
+const AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES = [
+  { p: 0.0, src: "/images/eclipse-moon/2026-08-27/frame_001.png" },
+  { p: 0.08, src: "/images/eclipse-moon/2026-08-27/frame_002.png" },
+  { p: 0.18, src: "/images/eclipse-moon/2026-08-27/frame_003.png" },
+  { p: 0.30, src: "/images/eclipse-moon/2026-08-27/frame_004.png" },
+  { p: 0.42, src: "/images/eclipse-moon/2026-08-27/frame_005.png" },
+  { p: 0.48, src: "/images/eclipse-moon/2026-08-27/frame_006.png" },
+  { p: 0.50, src: "/images/eclipse-moon/2026-08-27/frame_007.png" },
+  { p: 0.54, src: "/images/eclipse-moon/2026-08-27/frame_008.png" },
+  { p: 0.64, src: "/images/eclipse-moon/2026-08-27/frame_009.png" },
+  { p: 0.76, src: "/images/eclipse-moon/2026-08-27/frame_010.png" },
+  { p: 0.88, src: "/images/eclipse-moon/2026-08-27/frame_011.png" },
+  { p: 0.94, src: "/images/eclipse-moon/2026-08-27/frame_012.png" },
+  { p: 1.0, src: "/images/eclipse-moon/2026-08-27/frame_013.png" },
+];
+
+const SPECIAL_LUNAR_REFERENCE_SETS = {
+  // Astronomy Engine peak time can land on the next UTC date even when the eclipse is still
+  // on the prior local calendar date. Support both keys so the reference frames still attach.
+  "2026-08-27": {
+    label: "Aug 27 2026 partial lunar eclipse",
+    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
+    crop: { x: 372, y: 96, size: 536 },
+  },
+  "2026-08-28": {
+    label: "Aug 27 2026 partial lunar eclipse",
+    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
+    crop: { x: 372, y: 96, size: 536 },
+  },
+};
+
 function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime, seekTime }) {
   const canvasRef = useRef(null);
   const frameImgsRef = useRef([]);
@@ -3317,6 +3335,35 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
     return new Date(ms);
   }, [start, end, peak, tPct]);
 
+  const eclipseDateKey = useMemo(() => {
+    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
+    if (!(d instanceof Date)) return "";
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [peak?.getTime?.(), p1?.getTime?.()]);
+
+  const eclipseLocalDateKey = useMemo(() => {
+    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
+    if (!(d instanceof Date)) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [peak?.getTime?.(), p1?.getTime?.()]);
+
+  const hasTrueTotality = useMemo(() => t1 instanceof Date && t4 instanceof Date, [t1?.getTime?.(), t4?.getTime?.()]);
+  const activeReferenceSet = useMemo(() => {
+    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey];
+    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey];
+    if (hasTrueTotality) return { label: "generic total lunar eclipse", keyframes: ECLIPSE_VIDEO_KEYFRAMES };
+    return null;
+  }, [eclipseDateKey, eclipseLocalDateKey, hasTrueTotality]);
+  const activeKeyframes = activeReferenceSet?.keyframes || [];
+  const activeCrop = activeReferenceSet?.crop || null;
+  const useReferenceFrames = activeKeyframes.length > 0;
+
   
   // Jump to an externally selected phase time (P1/U1/T1/MAX/T4/U4/P4)
   useEffect(() => {
@@ -3328,7 +3375,18 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
 
 useEffect(() => {
     let cancelled = false;
-    const imgs = ECLIPSE_VIDEO_KEYFRAMES.map((k) => {
+    setImgReady(false);
+    frameImgsRef.current = [];
+    frameOffsetRef.current = { ox: 0, oy: 0 };
+
+    if (!useReferenceFrames) {
+      setImgReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const imgs = activeKeyframes.map((k) => {
       const im = new Image();
       im.crossOrigin = "anonymous";
       im.src = k.src;
@@ -3419,7 +3477,7 @@ let loaded = 0;
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, []);
+  }, [activeKeyframes, useReferenceFrames]);
 
   // --- Helpers (geocentric; north-up, east-left) ---
   const getLightDir = (astroT) => {
@@ -3508,6 +3566,8 @@ let loaded = 0;
     return x * x * (3 - 2 * x);
   };
 
+
+
   const maxUmbralFraction = useMemo(() => {
     // Prefer raw umbral magnitude if present; otherwise infer from totality presence.
     const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
@@ -3516,11 +3576,14 @@ let loaded = 0;
       (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
       (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
       null;
-    if (m != null) return clampNum(m >= 1 ? 1 : m, 0, 1);
-    if (t1 && t4) return 1;
-    // Partial-only; typical max obscuration on app-like visuals.
-    return 0.88;
-  }, [eclipse?.raw, t1?.getTime?.(), t4?.getTime?.()]);
+    if (hasTrueTotality) return 1;
+    if (m != null) {
+      const cap = eclipseDateKey === "2026-08-27" ? 0.992 : 0.985;
+      return clampNum(Math.min(m, cap), 0, 1);
+    }
+    // Partial-only fallback: allow very deep partials but never total-red.
+    return eclipseDateKey === "2026-08-27" ? 0.992 : 0.96;
+  }, [eclipse?.raw, hasTrueTotality, eclipseDateKey]);
 
   const umbraFractionAt = (d) => {
     if (!(d instanceof Date)) return 0;
@@ -3570,16 +3633,90 @@ let loaded = 0;
     return Math.max(base * 0.95, umbraFractionAt(d) * 0.85);
   };
 
+  const drawFallbackMoon = (ctx, w, h, moonTime) => {
+    const tile = Math.min(w, h);
+    const r = tile * 0.5;
+    const cx = w / 2;
+    const cy = h / 2;
+    const umbra = clampNum(umbraFractionAt(moonTime), 0, 1);
+    const penumbra = clampNum(penumbraFractionAt(moonTime), 0, 1);
+    const isTotal = t1 instanceof Date && t4 instanceof Date && moonTime instanceof Date && moonTime >= t1 && moonTime <= t4;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    const base = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.22, r * 0.08, cx, cy, r * 1.05);
+    base.addColorStop(0, "rgba(232,236,240,1)");
+    base.addColorStop(0.45, "rgba(176,182,188,1)");
+    base.addColorStop(0.78, "rgba(104,110,116,1)");
+    base.addColorStop(1, "rgba(56,60,66,1)");
+    ctx.fillStyle = base;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+    for (let i = 0; i < 120; i += 1) {
+      const ang = (i * 137.50776405003785 * Math.PI) / 180;
+      const rr = Math.sqrt((i + 0.5) / 120) * r * 0.92;
+      const px = cx + Math.cos(ang) * rr;
+      const py = cy + Math.sin(ang) * rr;
+      const crater = 0.004 + (i % 7) * 0.0015;
+      ctx.fillStyle = i % 3 === 0 ? "rgba(70,74,80,0.10)" : "rgba(245,248,252,0.05)";
+      ctx.beginPath();
+      ctx.arc(px, py, r * crater, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const earthR = r * 1.24;
+    const overlapD = solveDistanceForFraction(r, earthR, umbra);
+    const earthDx = -overlapD;
+    if (penumbra > 0.001) {
+      const pAlpha = 0.10 + 0.42 * penumbra;
+      const pg = ctx.createRadialGradient(cx + earthDx, cy, earthR * 0.58, cx + earthDx, cy, earthR);
+      pg.addColorStop(0, `rgba(18,22,30,${Math.min(0.85, pAlpha + 0.12)})`);
+      pg.addColorStop(1, `rgba(18,22,30,${Math.max(0, pAlpha - 0.08)})`);
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(cx + earthDx, cy, earthR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (umbra > 0.001) {
+      const uAlpha = isTotal ? 0.58 : 0.18 + 0.52 * Math.pow(umbra, 0.85);
+      const ug = ctx.createRadialGradient(cx + earthDx, cy, earthR * 0.48, cx + earthDx, cy, earthR);
+      if (isTotal) {
+        ug.addColorStop(0, "rgba(106,34,24,0.74)");
+        ug.addColorStop(0.65, "rgba(66,20,16,0.58)");
+        ug.addColorStop(1, "rgba(20,12,16,0.42)");
+      } else {
+        ug.addColorStop(0, `rgba(26,28,34,${Math.min(0.92, uAlpha + 0.12)})`);
+        ug.addColorStop(1, `rgba(10,12,18,${Math.max(0.18, uAlpha)})`);
+      }
+      ctx.fillStyle = ug;
+      ctx.beginPath();
+      ctx.arc(cx + earthDx, cy, earthR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const rim = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r);
+    rim.addColorStop(0, "rgba(0,0,0,0)");
+    rim.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = rim;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !imgReady || !(tDate instanceof Date)) return;
+    if (!canvas || !(tDate instanceof Date)) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     try {
-      setMoonRenderError(null);
-
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
@@ -3593,8 +3730,15 @@ let loaded = 0;
       }
       prog = clampNum(prog, 0, 1);
 
-      const frames = ECLIPSE_VIDEO_KEYFRAMES;
+      const frames = activeKeyframes;
       const imgs = frameImgsRef.current || [];
+      const usableFrames = useReferenceFrames && imgReady && imgs.length === frames.length && imgs.some((im) => im && im.complete && (im.naturalWidth || im.width));
+
+      if (!usableFrames) {
+        drawFallbackMoon(ctx, w, h, tDate);
+        setMoonRenderError(null);
+        return;
+      }
 
       // Find bracketing keyframes
       let i1 = frames.findIndex((k) => k.p >= prog);
@@ -3606,6 +3750,12 @@ let loaded = 0;
       const a = imgs[i0];
       const b = imgs[i1];
 
+      if (!(a && (a.naturalWidth || a.width)) && !(b && (b.naturalWidth || b.width))) {
+        drawFallbackMoon(ctx, w, h, tDate);
+        setMoonRenderError(null);
+        return;
+      }
+
       const denom = (k1.p - k0.p) || 1;
       const t = clampNum((prog - k0.p) / denom, 0, 1);
 
@@ -3614,33 +3764,32 @@ let loaded = 0;
 
       // Draw as a centered, circular RGBA tile (already alpha-masked)
       const tile = Math.min(w, h);
-      // Auto-center the Moon disk within the circular mask (video frames can be slightly offset).
-      // frameOffsetRef stores normalized offsets in source-image space.
       const { ox, oy } = frameOffsetRef.current || { ox: 0, oy: 0 };
-
-      // Positive ox means disk center is to the right -> shift draw LEFT.
-      // Positive oy means disk center is lower -> shift draw UP.
       const dx = -ox * tile;
       const dy = -oy * tile;
-
-      // Final tiny manual nudge (down a touch) to visually center within the ring.
-      // Adjust this one scalar if needed.
-      const manualNudgeY = 0.015; // 1.5% of tile, positive = move DOWN
+      const manualNudgeY = eclipseDateKey === "2026-08-27" ? 0 : 0.015;
       const x = (w - tile) / 2 + dx;
       const y = (h - tile) / 2 + dy + tile * manualNudgeY;
-ctx.save();
+      ctx.save();
       ctx.imageSmoothingEnabled = true;
 
-      if (a && a.complete) {
-        ctx.globalAlpha = 1;
-        ctx.drawImage(a, x, y, tile, tile);
-      }
-      if (b && b.complete) {
-        ctx.globalAlpha = tt;
-        ctx.drawImage(b, x, y, tile, tile);
-      }
+      const drawReferenceFrame = (img, alpha) => {
+        if (!(img && img.complete && (img.naturalWidth || img.width))) return;
+        ctx.globalAlpha = alpha;
+        if (activeCrop && Number.isFinite(activeCrop.x) && Number.isFinite(activeCrop.y) && Number.isFinite(activeCrop.size)) {
+          const sx = activeCrop.x;
+          const sy = activeCrop.y;
+          const sw = activeCrop.size;
+          const sh = activeCrop.size;
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, tile, tile);
+        } else {
+          ctx.drawImage(img, x, y, tile, tile);
+        }
+      };
 
-      // Subtle rim darkening to keep a clean edge on dark backgrounds
+      drawReferenceFrame(a, 1);
+      drawReferenceFrame(b, tt);
+
       ctx.globalAlpha = 1;
       const grd = ctx.createRadialGradient(w / 2, h / 2, tile * 0.46, w / 2, h / 2, tile * 0.5);
       grd.addColorStop(0, "rgba(0,0,0,0)");
@@ -3651,8 +3800,12 @@ ctx.save();
       ctx.fill();
 
       ctx.restore();
+      setMoonRenderError(null);
     } catch (e) {
-      setMoonRenderError(String(e?.message || e));
+      const w = canvas.width;
+      const h = canvas.height;
+      drawFallbackMoon(ctx, w, h, tDate);
+      setMoonRenderError(null);
     }
   }, [
     imgReady,
@@ -3667,6 +3820,9 @@ ctx.save();
     observerLat,
     observerLon,
     observerHeightM,
+    activeKeyframes,
+    activeCrop,
+    useReferenceFrames,
   ]);
 
   const altAtT = useMemo(() => {
@@ -3691,11 +3847,6 @@ return (
         <div className="flex items-center justify-center">
           <div className="relative h-52 w-52 overflow-hidden rounded-full border border-white/15 bg-black/40">
             <canvas ref={canvasRef} width={520} height={520} className="h-full w-full" />
-            {moonRenderError ? (
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/70 p-3 text-center text-xs text-red-200">
-                Moon renderer error. Reverting to safe mode.
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -3966,6 +4117,7 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
 function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime }) {
   const mapRef = useRef(null);
   const mapWrapRef = useRef(null);
+  const dragStateRef = useRef({ active: false, pointerId: null, startX: 0, startLng: 0, lockedLat: 0 });
 
   // Mobile reliability: Leaflet often initializes before its container has a real height.
   // ResizeObserver keeps the map rendered when the page is shown / rotated / address-bar collapses.
@@ -4043,6 +4195,81 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
     return [0, 0];
   }, [observerLat, observerLon]);
 
+  useEffect(() => {
+    const m = mapRef.current;
+    const wrap = mapWrapRef.current;
+    if (!m || !wrap) return;
+
+    const wrapLng = (lng) => {
+      let out = lng;
+      while (out > 180) out -= 360;
+      while (out < -180) out += 360;
+      return out;
+    };
+
+    const syncLockedLatitude = () => {
+      const current = m.getCenter();
+      const lockedLat = clampNum(center[0], -85, 85);
+      if (Math.abs(current.lat - lockedLat) > 0.0001) {
+        m.setView([lockedLat, wrapLng(current.lng)], m.getZoom(), { animate: false });
+      }
+    };
+
+    syncLockedLatitude();
+
+    const endDrag = () => {
+      const state = dragStateRef.current;
+      state.active = false;
+      state.pointerId = null;
+      try { wrap.releasePointerCapture?.(state.pointerId); } catch (e) {}
+      syncLockedLatitude();
+    };
+
+    const onPointerDown = (ev) => {
+      if (!mapRef.current || ev.button !== undefined && ev.button !== 0) return;
+      const state = dragStateRef.current;
+      const current = mapRef.current.getCenter();
+      state.active = true;
+      state.pointerId = ev.pointerId ?? null;
+      state.startX = ev.clientX;
+      state.startLng = current.lng;
+      state.lockedLat = clampNum(center[0], -85, 85);
+      try {
+        if (ev.pointerId != null) wrap.setPointerCapture?.(ev.pointerId);
+      } catch (e) {}
+      ev.preventDefault();
+    };
+
+    const onPointerMove = (ev) => {
+      const state = dragStateRef.current;
+      if (!state.active || !mapRef.current) return;
+      const zoom = mapRef.current.getZoom();
+      const startPoint = mapRef.current.project([state.lockedLat, state.startLng], zoom);
+      const nextPoint = L.point(startPoint.x - (ev.clientX - state.startX), startPoint.y);
+      const nextLatLng = mapRef.current.unproject(nextPoint, zoom);
+      mapRef.current.setView([state.lockedLat, wrapLng(nextLatLng.lng)], zoom, { animate: false });
+      ev.preventDefault();
+    };
+
+    const onPointerUp = () => endDrag();
+    const onPointerCancel = () => endDrag();
+
+    wrap.style.touchAction = "pan-x";
+    wrap.addEventListener("pointerdown", onPointerDown, { passive: false });
+    wrap.addEventListener("pointermove", onPointerMove, { passive: false });
+    wrap.addEventListener("pointerup", onPointerUp, { passive: false });
+    wrap.addEventListener("pointercancel", onPointerCancel, { passive: false });
+    wrap.addEventListener("lostpointercapture", onPointerCancel, { passive: false });
+
+    return () => {
+      wrap.removeEventListener("pointerdown", onPointerDown);
+      wrap.removeEventListener("pointermove", onPointerMove);
+      wrap.removeEventListener("pointerup", onPointerUp);
+      wrap.removeEventListener("pointercancel", onPointerCancel);
+      wrap.removeEventListener("lostpointercapture", onPointerCancel);
+    };
+  }, [center[0], eclipse?.peak?.getTime?.()]);
+
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -4093,15 +4320,26 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         </div>
       )}
 
-      <div ref={mapWrapRef} className="mt-3 h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+      <div ref={mapWrapRef} className="mt-3 h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-black/30 cursor-grab active:cursor-grabbing">
         <MapContainer
           center={center}
           zoom={2}
           worldCopyJump
-          scrollWheelZoom
-          className="h-full w-full"
+          zoomControl={false}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          touchZoom={false}
+          boxZoom={false}
+          keyboard={false}
+          dragging={false}
+          inertia={false}
+          maxBounds={[[-90, -720], [90, 720]]}
+          maxBoundsViscosity={1.0}
+          className="!h-full !w-full"
+          style={{ height: "100%", width: "100%" }}
           whenCreated={(m) => {
             mapRef.current = m;
+            m.setView([center[0], center[1]], 2, { animate: false });
             setTimeout(() => m.invalidateSize(), 0);
           }}
         >
@@ -4295,7 +4533,7 @@ const moonAtMax = useMemo(() => {
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Tomorrow’s eclipse timeline</div>
+          <div className="text-lg font-semibold">Eclipse timeline</div>
           <div className="mt-1 text-xs text-white/70">
             Tap a row to jump the Moon preview to that phase. Times come from astronomy-engine.
           </div>
@@ -4472,6 +4710,103 @@ const moonAtMax = useMemo(() => {
 
 
 
+function formatCountdownParts(targetDate, nowMs) {
+  if (!(targetDate instanceof Date)) {
+    return { months: '00', days: '00', hours: '00', minutes: '00', seconds: '00', totalMs: null };
+  }
+  const now = new Date(nowMs);
+  let end = new Date(targetDate.getTime());
+  let sign = 1;
+  if (end.getTime() < now.getTime()) {
+    sign = -1;
+    end = new Date(now.getTime());
+  }
+  let cursor = new Date(now.getTime());
+  let months = 0;
+  while (true) {
+    const next = new Date(cursor.getTime());
+    next.setMonth(next.getMonth() + 1);
+    if (next.getTime() <= end.getTime()) {
+      months += 1;
+      cursor = next;
+    } else {
+      break;
+    }
+  }
+  let remainingMs = Math.max(0, end.getTime() - cursor.getTime());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const minuteMs = 60 * 1000;
+  const secondMs = 1000;
+  const days = Math.floor(remainingMs / dayMs);
+  remainingMs -= days * dayMs;
+  const hours = Math.floor(remainingMs / hourMs);
+  remainingMs -= hours * hourMs;
+  const minutes = Math.floor(remainingMs / minuteMs);
+  remainingMs -= minutes * minuteMs;
+  const seconds = Math.floor(remainingMs / secondMs);
+  const pad2 = (n) => String(Math.max(0, n)).padStart(2, '0');
+  return {
+    months: pad2(sign < 0 ? 0 : months),
+    days: pad2(sign < 0 ? 0 : days),
+    hours: pad2(sign < 0 ? 0 : hours),
+    minutes: pad2(sign < 0 ? 0 : minutes),
+    seconds: pad2(sign < 0 ? 0 : seconds),
+    totalMs: Math.max(0, targetDate.getTime() - nowMs),
+  };
+}
+
+function UpcomingEclipseCountdown({ eclipse, useLocalTime }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const target = eclipse?.peak instanceof Date ? eclipse.peak : null;
+  const countdown = useMemo(() => formatCountdownParts(target, nowMs), [target?.getTime?.(), nowMs]);
+  const hasTarget = target instanceof Date;
+  const cards = [
+    { label: 'Months', value: countdown.months },
+    { label: 'Days', value: countdown.days },
+    { label: 'Hours', value: countdown.hours },
+    { label: 'Min', value: countdown.minutes },
+    { label: 'Sec', value: countdown.seconds },
+  ];
+
+  return (
+    <div className="mt-4 rounded-[28px] border border-[#c9a227]/30 bg-gradient-to-br from-[#17120a] via-[#0d0d0d] to-black p-4 shadow-[0_0_0_1px_rgba(201,162,39,0.05),0_20px_60px_rgba(0,0,0,0.35)]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b54a]">Countdown to next eclipse</div>
+          <div className="mt-2 text-sm text-white/70">
+            {hasTarget ? (
+              <>
+                Time remaining until <span className="font-semibold text-white">{eclipseLabel(eclipse)}</span>
+              </>
+            ) : (
+              <>Loading next eclipse…</>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] font-mono text-white/55">
+          {hasTarget ? fmtDateTime(target, useLocalTime) : '—'}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-5 gap-2 sm:gap-3">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-2xl border border-white/10 bg-black/35 px-2 py-3 text-center shadow-inner shadow-black/30">
+            <div className="font-mono text-xl font-semibold tracking-[0.16em] text-[#f5d46c] sm:text-3xl">{card.value}</div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-[11px]">{card.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EclipseGuidePage({ navigate }) {
   const [useLocalTime, setUseLocalTime] = useState(true);
 
@@ -4496,9 +4831,7 @@ function EclipseGuidePage({ navigate }) {
     return nextLunar || nextSolar || null;
   }, [catalog]);
 
-  // For now, this page only shows tomorrow's lunar eclipse.
-// Past and additional upcoming eclipse lists will be added later.
-const selectedType = "lunar";
+  const selectedType = "lunar";
 const selectedEclipse = useMemo(() => catalog?.upcoming?.lunar?.[0] || null, [catalog]);
 
 const [moonSeekTime, setMoonSeekTime] = useState(null);
@@ -4559,31 +4892,21 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
                     <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
-            <div className="text-sm font-semibold">Tomorrow’s lunar eclipse</div>
+            <div className="text-sm font-semibold">Upcoming eclipses</div>
             <div className="mt-2 text-sm text-white/75">
               {selectedEclipse ? (
                 <>
-                  Showing a single event for now: <span className="font-semibold">{eclipseLabel(selectedEclipse)}</span>
+                  Next eclipse: <span className="font-semibold">{eclipseLabel(selectedEclipse)}</span>
                 </>
               ) : (
                 <>Loading eclipse data…</>
               )}
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="text-xs text-white/70">Past eclipses</div>
-                <div className="mt-1 text-sm text-white/80">Coming soon</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="text-xs text-white/70">Upcoming eclipses</div>
-                <div className="mt-1 text-sm text-white/80">Coming soon</div>
-              </div>
-            </div>
-
-            <div className="mt-3 text-xs text-white/60">
-              We’ll add past/upcoming eclipse browsing later. For now this page is focused on tomorrow’s lunar eclipse.
-            </div>
+            <UpcomingEclipseCountdown
+              eclipse={selectedEclipse}
+              useLocalTime={useLocalTime}
+            />
           </div>
 
 <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">

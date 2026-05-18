@@ -112,6 +112,17 @@
       "stylePreset": "default",
       "backgroundImage": "",
       "backgroundFit": "cover"
+    },
+    "instagram": {
+      "id": "instagram",
+      "label": "Instagram Feed",
+      "enabled": {
+        "desktop": true,
+        "mobile": true
+      },
+      "stylePreset": "default",
+      "backgroundImage": "",
+      "backgroundFit": "cover"
     }
   },
   "layouts": {
@@ -144,7 +155,7 @@
         "minH": 2
       },
       {
-        "i": "gallery",
+        "i": "instagram",
         "x": 0,
         "y": 12,
         "w": 12,
@@ -153,7 +164,7 @@
         "minH": 2
       },
       {
-        "i": "starcast",
+        "i": "gallery",
         "x": 0,
         "y": 16,
         "w": 12,
@@ -162,7 +173,7 @@
         "minH": 2
       },
       {
-        "i": "eclipseGuide",
+        "i": "starcast",
         "x": 0,
         "y": 20,
         "w": 12,
@@ -171,7 +182,7 @@
         "minH": 2
       },
       {
-        "i": "phoneBackgrounds",
+        "i": "eclipseGuide",
         "x": 0,
         "y": 24,
         "w": 12,
@@ -180,9 +191,18 @@
         "minH": 2
       },
       {
-        "i": "footer",
+        "i": "phoneBackgrounds",
         "x": 0,
         "y": 28,
+        "w": 12,
+        "h": 4,
+        "minW": 6,
+        "minH": 2
+      },
+      {
+        "i": "footer",
+        "x": 0,
+        "y": 32,
         "w": 12,
         "h": 4,
         "minW": 6,
@@ -218,7 +238,7 @@
         "minH": 2
       },
       {
-        "i": "gallery",
+        "i": "instagram",
         "x": 0,
         "y": 12,
         "w": 4,
@@ -227,7 +247,7 @@
         "minH": 2
       },
       {
-        "i": "starcast",
+        "i": "gallery",
         "x": 0,
         "y": 16,
         "w": 4,
@@ -236,7 +256,7 @@
         "minH": 2
       },
       {
-        "i": "eclipseGuide",
+        "i": "starcast",
         "x": 0,
         "y": 20,
         "w": 4,
@@ -245,7 +265,7 @@
         "minH": 2
       },
       {
-        "i": "phoneBackgrounds",
+        "i": "eclipseGuide",
         "x": 0,
         "y": 24,
         "w": 4,
@@ -254,9 +274,18 @@
         "minH": 2
       },
       {
-        "i": "footer",
+        "i": "phoneBackgrounds",
         "x": 0,
         "y": 28,
+        "w": 4,
+        "h": 4,
+        "minW": 4,
+        "minH": 2
+      },
+      {
+        "i": "footer",
+        "x": 0,
+        "y": 32,
         "w": 4,
         "h": 4,
         "minW": 4,
@@ -269,6 +298,7 @@
       "hero",
       "calendar",
       "latestNews",
+      "instagram",
       "gallery",
       "starcast",
       "eclipseGuide",
@@ -279,6 +309,7 @@
       "hero",
       "calendar",
       "latestNews",
+      "instagram",
       "gallery",
       "starcast",
       "eclipseGuide",
@@ -286,5 +317,13 @@
       "footer"
     ]
   },
-  "latestNews": []
+  "latestNews": [],
+  "instagramFeed": {
+    "handle": "jakeschultzastrophotography",
+    "profileUrl": "https://www.instagram.com/jakeschultzastrophotography/",
+    "provider": "elfsight",
+    "elfsightScriptUrl": "https://elfsightcdn.com/platform.js",
+    "elfsightAppId": "76fb801f-a4ee-4a42-9b24-7456926d123d",
+    "embedUrl": ""
+  }
 }

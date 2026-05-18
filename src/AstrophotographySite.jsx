@@ -170,12 +170,77 @@ function isObj(x) {
   return x && typeof x === "object" && !Array.isArray(x);
 }
 
+function ensureInstagramConfig(raw) {
+  if (!isObj(raw)) return raw;
+
+  const next = { ...raw };
+  next.sections = { ...(isObj(raw.sections) ? raw.sections : {}) };
+  next.order = { ...(isObj(raw.order) ? raw.order : {}) };
+  next.layouts = { ...(isObj(raw.layouts) ? raw.layouts : {}) };
+
+  if (!next.sections.instagram) {
+    next.sections.instagram = {
+      id: "instagram",
+      label: "Instagram Feed",
+      enabled: { desktop: true, mobile: true },
+      stylePreset: "default",
+      backgroundImage: "",
+      backgroundFit: "cover",
+    };
+  }
+
+  const insertAfterLatestNews = (arr) => {
+    const list = Array.isArray(arr) ? [...arr] : [];
+    if (list.includes("instagram")) return list;
+    const latestIndex = list.indexOf("latestNews");
+    const galleryIndex = list.indexOf("gallery");
+    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
+    list.splice(insertAt, 0, "instagram");
+    return list;
+  };
+
+  const insertLayoutAfterLatestNews = (arr, breakpoint) => {
+    const list = Array.isArray(arr) ? [...arr] : [];
+    if (list.some((item) => item?.i === "instagram")) return list;
+
+    const latestIndex = list.findIndex((item) => item?.i === "latestNews");
+    const galleryIndex = list.findIndex((item) => item?.i === "gallery");
+    const latest = latestIndex >= 0 ? list[latestIndex] : null;
+    const gallery = galleryIndex >= 0 ? list[galleryIndex] : null;
+    const w = breakpoint === "mobile" ? 4 : 12;
+    const h = 4;
+    const minW = breakpoint === "mobile" ? 4 : 6;
+    const y = latest ? Number(latest.y || 0) + Number(latest.h || 4) : gallery ? Number(gallery.y || 0) : 0;
+    const instagram = { i: "instagram", x: 0, y, w, h, minW, minH: 2 };
+    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
+    list.splice(insertAt, 0, instagram);
+    return list;
+  };
+
+  next.order.desktop = insertAfterLatestNews(next.order.desktop);
+  next.order.mobile = insertAfterLatestNews(next.order.mobile);
+  next.layouts.desktop = insertLayoutAfterLatestNews(next.layouts.desktop, "desktop");
+  next.layouts.mobile = insertLayoutAfterLatestNews(next.layouts.mobile, "mobile");
+
+  next.instagramFeed = {
+    handle: "jakeschultzastrophotography",
+    profileUrl: "https://www.instagram.com/jakeschultzastrophotography/",
+    provider: "elfsight",
+    elfsightScriptUrl: "https://elfsightcdn.com/platform.js",
+    elfsightAppId: "76fb801f-a4ee-4a42-9b24-7456926d123d",
+    embedUrl: "",
+    ...(isObj(raw.instagramFeed) ? raw.instagramFeed : {}),
+  };
+
+  return next;
+}
+
 function normalizeConfig(raw) {
   if (!isObj(raw)) return null;
 
   // Support v2 (AdminDashboard v2) and legacy v1 (AdminDashboard v1)
   if (raw.version === 2) {
-    return raw;
+    return ensureInstagramConfig(raw);
   }
   if (raw.version === 1) {
     // Map v1 -> v2-ish minimal surface for our needs (news + enabled/order)
@@ -708,6 +773,109 @@ function ShareBar({ title, shareHref, text }) {
   );
 }
 
+
+
+function InstagramFeedSection({ sectionScrollMargin = "", className = "", style = {}, siteConfig }) {
+  const instagramConfig = isObj(siteConfig?.instagramFeed) ? siteConfig.instagramFeed : {};
+  const handle = (instagramConfig.handle || "jakeschultzastrophotography").replace(/^@/, "");
+  const profileUrl = instagramConfig.profileUrl || `https://www.instagram.com/${handle}/`;
+  const embedUrl =
+    instagramConfig.embedUrl ||
+    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_INSTAGRAM_FEED_EMBED_URL : "") ||
+    "";
+  const elfsightScriptUrl = instagramConfig.elfsightScriptUrl || "https://elfsightcdn.com/platform.js";
+  const elfsightAppId = instagramConfig.elfsightAppId || "";
+  const elfsightClassName =
+    instagramConfig.elfsightClassName ||
+    (elfsightAppId ? `elfsight-app-${elfsightAppId}` : "");
+
+  useEffect(() => {
+    if (!elfsightClassName || typeof document === "undefined") return;
+
+    const alreadyLoaded = document.querySelector(`script[src="${elfsightScriptUrl}"]`);
+    if (alreadyLoaded) return;
+
+    const script = document.createElement("script");
+    script.src = elfsightScriptUrl;
+    script.async = true;
+    document.body.appendChild(script);
+  }, [elfsightClassName, elfsightScriptUrl]);
+
+  return (
+    <section
+      id="instagram"
+      className={`mx-auto max-w-6xl px-4 pb-12 sm:px-6 ${sectionScrollMargin} ${className}`}
+      style={style}
+    >
+      <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] px-4 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.32)] sm:px-7 sm:py-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.10),transparent_44%)]" />
+
+        <div className="relative mb-6 flex flex-col gap-4 text-center sm:mb-7 lg:flex-row lg:items-end lg:justify-between lg:text-left">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-semibold text-white/75 shadow-inner shadow-white/5">
+              <Instagram className="h-3.5 w-3.5" />
+              Instagram
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Latest from Instagram</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70 lg:max-w-3xl">
+              Follow along for new astrophotography, behind-the-scenes setup shots, and observing updates.
+            </p>
+          </div>
+
+          <a
+            href={profileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/15 lg:shrink-0"
+          >
+            @{handle}
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
+
+        <div className="relative">
+          <div className="instagram-embed-wide mx-auto flex min-h-[520px] w-full items-start justify-center overflow-hidden rounded-[1.25rem] bg-black/20 p-2 sm:min-h-[600px] sm:p-3">
+            {elfsightClassName ? (
+              <div className="w-full bg-transparent text-black [&_.eapps-widget-toolbar]:hidden [&_.eapps-instagram-feed]:!mx-auto [&_.eapps-instagram-feed]:!w-full [&_.eapps-instagram-feed]:!max-w-none [&_.eapps-instagram-feed-container]:!w-full [&_.eapps-instagram-feed-content]:!w-full [&_.eapps-instagram-feed-posts]:!w-full [&_.eapps-instagram-feed-posts-container]:!w-full [&_iframe]:!mx-auto [&_iframe]:!w-full [&_iframe]:!max-w-none">
+                <div className={`${elfsightClassName} w-full`} data-elfsight-app-lazy />
+              </div>
+            ) : embedUrl ? (
+              <iframe
+                title="Jake Schultz Astrophotography Instagram feed"
+                src={embedUrl}
+                className="h-[620px] w-full bg-transparent sm:h-[680px]"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allow="clipboard-write; encrypted-media; picture-in-picture; web-share"
+              />
+            ) : (
+              <div className="grid w-full gap-4 rounded-[1.25rem] bg-black/40 p-5 text-left sm:p-6">
+                <div>
+                  <div className="text-base font-semibold text-white">Instagram feed embed slot is ready.</div>
+                  <p className="mt-2 text-sm leading-6 text-white/70">
+                    Add the Elfsight widget app ID to <span className="font-mono text-white/80">public/site-config.json</span> under
+                    <span className="font-mono text-white/80"> instagramFeed.elfsightAppId</span>. You can also use
+                    <span className="font-mono text-white/80"> instagramFeed.embedUrl</span> for iframe-based widgets.
+                  </p>
+                </div>
+                <a
+                  href={profileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
+                >
+                  Open Instagram
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ===========================================================
    HOME PAGE (UNCHANGED LOOK)
 =========================================================== */
@@ -854,7 +1022,7 @@ const filterLayout = (layout, enabledSet) => {
 
 const gridIds = useMemo(() => {
   // Home sections we support in grid mode
-  const ids = ["hero", "calendar", "latestNews", "gallery", "footer"];
+  const ids = ["hero", "calendar", "latestNews", "instagram", "gallery", "footer"];
   return ids;
 }, []);
 
@@ -976,9 +1144,15 @@ const renderGridSection = (id) => {
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
+
+        <div className="mt-4 md:hidden">
+          <HomepageObservingConditionsCard />
+        </div>
       </section>
 
-      <HomepageObservingConditionsCard />
+      <div className="hidden md:block">
+        <HomepageObservingConditionsCard />
+      </div>
 
     </div>
   );
@@ -1068,7 +1242,7 @@ case "latestNews":
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-10">
+          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1163,6 +1337,19 @@ case "latestNews":
 
       
 
+    </div>
+  );
+case "instagram":
+  return (
+    <div className="h-full w-full">
+      {enabled("instagram") ? (
+        <InstagramFeedSection
+          sectionScrollMargin={sectionScrollMargin}
+          className={getSectionClassName("instagram")}
+          style={getSectionStyle("instagram")}
+          siteConfig={siteConfig}
+        />
+      ) : null}
     </div>
   );
 case "gallery":
@@ -1336,9 +1523,15 @@ return (
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
+
+        <div className="mt-4 md:hidden">
+          <HomepageObservingConditionsCard />
+        </div>
       </section>
 
-      <HomepageObservingConditionsCard />
+      <div className="hidden md:block">
+        <HomepageObservingConditionsCard />
+      </div>
 
       {/* CALENDAR PROMO */}
       {enabled("calendar") ? (
@@ -1414,7 +1607,7 @@ return (
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-10">
+          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1505,6 +1698,16 @@ return (
           </div>
         </div>
       </section>
+      ) : null}
+
+      {/* INSTAGRAM FEED */}
+      {enabled("instagram") ? (
+        <InstagramFeedSection
+          sectionScrollMargin={sectionScrollMargin}
+          className={getSectionClassName("instagram")}
+          style={getSectionStyle("instagram")}
+          siteConfig={siteConfig}
+        />
       ) : null}
 
       {/* GALLERY */}

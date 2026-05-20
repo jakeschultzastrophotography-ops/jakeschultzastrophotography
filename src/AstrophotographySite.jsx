@@ -804,20 +804,18 @@ function InstagramFeedSection({ sectionScrollMargin = "", className = "", style 
   return (
     <section
       id="instagram"
-      className={`mx-auto max-w-6xl px-4 pb-12 sm:px-6 ${sectionScrollMargin} ${className}`}
+      className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${className}`}
       style={style}
     >
-      <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] px-4 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.32)] sm:px-7 sm:py-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.10),transparent_44%)]" />
-
-        <div className="relative mb-6 flex flex-col gap-4 text-center sm:mb-7 lg:flex-row lg:items-end lg:justify-between lg:text-left">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-semibold text-white/75 shadow-inner shadow-white/5">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-semibold text-white/75">
               <Instagram className="h-3.5 w-3.5" />
               Instagram
             </div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Latest from Instagram</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70 lg:max-w-3xl">
+            <h2 className="text-2xl font-semibold">Latest from Instagram</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">
               Follow along for new astrophotography, behind-the-scenes setup shots, and observing updates.
             </p>
           </div>
@@ -833,8 +831,8 @@ function InstagramFeedSection({ sectionScrollMargin = "", className = "", style 
           </a>
         </div>
 
-        <div className="relative">
-          <div className="instagram-embed-wide mx-auto flex min-h-[520px] w-full items-start justify-center overflow-hidden rounded-[1.25rem] bg-black/20 p-2 sm:min-h-[600px] sm:p-3">
+        <div className="mt-6">
+          <div className="instagram-embed-wide mx-auto flex min-h-[430px] w-full items-start justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3 sm:min-h-[520px]">
             {elfsightClassName ? (
               <div className="w-full bg-transparent text-black [&_.eapps-widget-toolbar]:hidden [&_.eapps-instagram-feed]:!mx-auto [&_.eapps-instagram-feed]:!w-full [&_.eapps-instagram-feed]:!max-w-none [&_.eapps-instagram-feed-container]:!w-full [&_.eapps-instagram-feed-content]:!w-full [&_.eapps-instagram-feed-posts]:!w-full [&_.eapps-instagram-feed-posts-container]:!w-full [&_iframe]:!mx-auto [&_iframe]:!w-full [&_iframe]:!max-w-none">
                 <div className={`${elfsightClassName} w-full`} data-elfsight-app-lazy />
@@ -1229,7 +1227,7 @@ case "latestNews":
 {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("latestNews")}`}
+        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("latestNews")}`}
         style={getSectionStyle("latestNews")}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
@@ -1595,7 +1593,7 @@ return (
       {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">

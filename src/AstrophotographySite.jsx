@@ -920,12 +920,12 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
       {
         title: "Iris Nebula",
         src: "/images/gallery/Iris-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
       },
       {
         title: "M104 Sombrero Galaxy",
         src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
       },
       {
         title: "Crescent Nebula",
@@ -5573,6 +5573,16 @@ function GalleryPage({ heroFallback }) {
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
       },
       {
+        title: "Iris Nebula",
+        src: "/images/gallery/Iris-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
+      },
+      {
+        title: "M104 Sombrero Galaxy",
+        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
+      },
+      {
         title: "Crescent Nebula",
         src: "/images/gallery/crescent-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
@@ -6523,6 +6533,21 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 </div>
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbOpen(false);
+                  navigate("/admin");
+                }}
+                className={`${orbItemBase} ${path.startsWith("/admin") ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Grid3X3 className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Command Center</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Site tools</div>
+                </div>
+              </button>
+
               <a
                 href="https://www.instagram.com/jakeschultzastrophotography"
                 target="_blank"
@@ -6645,6 +6670,14 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               icon: Download,
               active: path === "/phone-backgrounds",
               onClick: () => navigate("/phone-backgrounds"),
+            },
+            {
+              key: "command-center",
+              label: "Command Center",
+              subtitle: "Site tools",
+              icon: Grid3X3,
+              active: path.startsWith("/admin"),
+              onClick: () => navigate("/admin"),
             },
           ].map(({ key, label, subtitle, icon: Icon, active, onClick }) => (
             <button

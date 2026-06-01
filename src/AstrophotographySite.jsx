@@ -913,6 +913,21 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
       },
       {
+        title: "M13 Great Hercules Cluster",
+        src: "/images/gallery/M13.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
+      },
+      {
+        title: "Iris Nebula",
+        src: "/images/gallery/Iris-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
+      },
+      {
+        title: "M104 Sombrero Galaxy",
+        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
+      },
+      {
         title: "Crescent Nebula",
         src: "/images/gallery/crescent-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
@@ -5551,6 +5566,11 @@ function GalleryPage({ heroFallback }) {
         title: "M3 Star Cluster",
         src: "/images/gallery/M3-star-cluster.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
+      },
+      {
+        title: "M13 Great Hercules Cluster",
+        src: "/images/gallery/M13.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
       },
       {
         title: "Crescent Nebula",

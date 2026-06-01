@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-06T03:13:45.289Z",
+  "generatedAt": "2026-06-01T03:51:21.130Z",
   "generatedFrom": "/public/images",
-  "assetCount": 60,
+  "assetCount": 93,
   "assets": [
     {
       "id": "asset_L2ltYWdlcy9icmFuZC",
@@ -120,6 +120,381 @@
       "folder": "eclipse guide",
       "tags": [
         "eclipse guide"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 001",
+      "path": "/images/eclipse-moon/2026-08-27/frame_001.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 002",
+      "path": "/images/eclipse-moon/2026-08-27/frame_002.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 003",
+      "path": "/images/eclipse-moon/2026-08-27/frame_003.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 004",
+      "path": "/images/eclipse-moon/2026-08-27/frame_004.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 005",
+      "path": "/images/eclipse-moon/2026-08-27/frame_005.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 006",
+      "path": "/images/eclipse-moon/2026-08-27/frame_006.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 007",
+      "path": "/images/eclipse-moon/2026-08-27/frame_007.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 008",
+      "path": "/images/eclipse-moon/2026-08-27/frame_008.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 009",
+      "path": "/images/eclipse-moon/2026-08-27/frame_009.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 010",
+      "path": "/images/eclipse-moon/2026-08-27/frame_010.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 011",
+      "path": "/images/eclipse-moon/2026-08-27/frame_011.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 012",
+      "path": "/images/eclipse-moon/2026-08-27/frame_012.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 013",
+      "path": "/images/eclipse-moon/2026-08-27/frame_013.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "2026 08 27"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "base texture",
+      "path": "/images/eclipse-moon/base-texture.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 001",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_001.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 002",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_002.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 003",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_003.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 004",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_004.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 005",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_005.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 006",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_006.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 007",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_007.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 008",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_008.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 009",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_009.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 010",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_010.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 011",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_011.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 012",
+      "path": "/images/eclipse-moon/profiles/partial-heavy/frame_012.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial heavy"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 001",
+      "path": "/images/eclipse-moon/profiles/partial-light/frame_001.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial light"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 002",
+      "path": "/images/eclipse-moon/profiles/partial-light/frame_002.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial light"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 003",
+      "path": "/images/eclipse-moon/profiles/partial-light/frame_003.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial light"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9lY2xpcH",
+      "title": "frame 004",
+      "path": "/images/eclipse-moon/profiles/partial-light/frame_004.png",
+      "folder": "eclipse moon",
+      "tags": [
+        "eclipse moon",
+        "profiles",
+        "partial light"
       ],
       "source": "Auto-generated manifest",
       "kind": "image"
@@ -267,6 +642,39 @@
       "tags": [
         "gallery",
         "hero"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "Iris Nebula",
+      "path": "/images/gallery/Iris-Nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M104 Sombrero Galaxy",
+      "path": "/images/gallery/M104-Sombrero-Galaxy.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "M13",
+      "path": "/images/gallery/M13.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
       ],
       "source": "Auto-generated manifest",
       "kind": "image"

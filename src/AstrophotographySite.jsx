@@ -888,6 +888,11 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
   const gallery = useMemo(
     () => [
       {
+        title: "IC 1396 — Elephant Trunk Nebula",
+        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
+      },
+      {
         title: "Andromeda Galaxy (M31)",
         src: "/images/gallery/M31-andromeda-galaxy.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
@@ -1083,7 +1088,10 @@ const renderGridSection = (id) => {
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              Deep-sky images and nightscapes, built for the wall.
+              <span className="block">Jake Schultz Astrophotography</span>
+              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
+                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
+              </span>
             </motion.h1>
 
             <motion.p
@@ -1462,7 +1470,10 @@ return (
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              Deep-sky images and nightscapes, built for the wall.
+              <span className="block">Jake Schultz Astrophotography</span>
+              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
+                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
+              </span>
             </motion.h1>
 
             <motion.p
@@ -5542,6 +5553,11 @@ function EclipseGuidePage({ navigate }) {
 function GalleryPage({ heroFallback }) {
   const gallery = useMemo(
     () => [
+      {
+        title: "IC 1396 — Elephant Trunk Nebula",
+        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
+      },
       {
         title: "M31 Andromeda Galaxy",
         src: "/images/gallery/M31-andromeda-galaxy.jpg",

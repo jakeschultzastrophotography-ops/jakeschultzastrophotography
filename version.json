@@ -1,10 +1,5 @@
 {
-  "version": "2.0.0",
-  "releaseName": "Command Center",
-  "releaseDate": "2026-03-05",
-  "notes": [
-    "Command Center is the default admin homepage.",
-    "Editor password gate removed.",
-    "Admin routes restored for editor, post studio, and media library."
-  ]
+  "version": "2.4.19",
+  "releaseName": "Add IC 1396 Elephant Trunk Nebula at top of gallery",
+  "releaseDate": "2026-06-14"
 }

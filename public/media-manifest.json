@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-06-01T03:51:21.130Z",
+  "generatedAt": "2026-06-14T13:44:48.695Z",
   "generatedFrom": "/public/images",
-  "assetCount": 93,
+  "assetCount": 94,
   "assets": [
     {
       "id": "asset_L2ltYWdlcy9icmFuZC",
@@ -642,6 +642,17 @@
       "tags": [
         "gallery",
         "hero"
+      ],
+      "source": "Auto-generated manifest",
+      "kind": "image"
+    },
+    {
+      "id": "asset_L2ltYWdlcy9nYWxsZX",
+      "title": "IC 1396 Elephant Trunk Nebula",
+      "path": "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
+      "folder": "gallery",
+      "tags": [
+        "gallery"
       ],
       "source": "Auto-generated manifest",
       "kind": "image"

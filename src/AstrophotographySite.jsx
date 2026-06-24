@@ -5575,51 +5575,75 @@ function EclipseGuidePage({ navigate }) {
 
 function NorthAmericanNebulaPage({ navigate }) {
   const [mode, setMode] = useState("image");
-  const [baseLayer, setBaseLayer] = useState("final");
+  const [showStars, setShowStars] = useState(true);
   const [showAnnotation, setShowAnnotation] = useState(false);
+  const [showPelicanOverlay, setShowPelicanOverlay] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [missingLayers, setMissingLayers] = useState({});
   const viewerRef = useRef(null);
   const dragRef = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 });
+  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0 });
 
-  const imageLayers = {
-    final: {
-      src: "/images/gallery/north-american-nebula-full.png",
-      label: "Final Image",
-      shortLabel: "Final Image",
-      description: "Clean final processed image — no labels, no Apertura guide overlay, and the original mosaic edges preserved.",
-    },
-    starless: {
-      src: "/images/gallery/north-american-nebula-starless-hires.webp",
-      label: "Starless Layer",
-      shortLabel: "Starless",
-      description: "Starless processing layer for studying the nebular structure, dust lanes, and emission regions without the dense Cygnus star field competing for attention.",
-    },
-    stars: {
-      src: "/images/gallery/north-american-nebula-stars-only.png",
-      label: "Stars Only Layer",
-      shortLabel: "Stars Only",
-      description: "Stars-only reference layer for comparing the field structure against the nebular emission and dust.",
-    },
-    apertura: {
-      src: "/images/gallery/north-american-nebula-apertura-pelican-hires.webp",
-      label: "Apertura / Pelican Overlay",
-      shortLabel: "Apertura / Pelican Overlay",
-      description: "Apertura/Pelican field reference view as a selectable base layer, separate from the clean final image.",
-    },
+  const baseImage = {
+    src: "/images/gallery/north-american-nebula-starless-fullres.webp",
+    label: "Starless Base",
+    shortLabel: "Starless",
+    description: "The viewer now uses the starless North American Nebula image as the always-on base layer, with stars, annotations, and the Pelican overlay available as independent toggles.",
   };
 
   const overlayLayers = {
+    stars: {
+      src: "/images/gallery/north-american-nebula-stars-only-display.webp",
+      label: "Stars",
+      shortLabel: "Stars",
+      description: "Stars-only layer that can be toggled on top of the starless base.",
+    },
     annotation: {
       src: "/images/gallery/north-american-nebula-annotation-overlay-hires.png",
       label: "Annotation",
-      description: "Transparent annotation layer with object labels and reference markings. This stays active while you switch base layers.",
+      shortLabel: "Annotation",
+      description: "Transparent annotation layer with object labels and reference markings.",
+    },
+    pelican: {
+      src: "/images/gallery/north-american-nebula-apertura-pelican-hires.webp",
+      label: "Pelican Nebula Overlay",
+      shortLabel: "Pelican Overlay",
+      description: "Apertura/Pelican overlay view, toggleable on top of the starless base.",
     },
   };
 
   const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery";
   const isImageMode = mode === "image";
-  const activeBase = imageLayers[baseLayer] || imageLayers.final;
+  const activeBase = baseImage;
+
+  useEffect(() => {
+    const preloadUrls = [
+      "/images/gallery/north-american-nebula-starless-fullres.webp",
+      "/images/gallery/north-american-nebula-stars-only-display.webp",
+      "/images/gallery/north-american-nebula-annotation-overlay-hires.png",
+      "/images/gallery/north-american-nebula-apertura-pelican-hires.webp",
+    ];
+
+    const preload = () => {
+      preloadUrls.forEach((src) => {
+        const img = new window.Image();
+        img.decoding = "async";
+        img.src = src;
+      });
+    };
+
+    const idleId = "requestIdleCallback" in window
+      ? window.requestIdleCallback(preload, { timeout: 2500 })
+      : window.setTimeout(preload, 900);
+
+    return () => {
+      if ("cancelIdleCallback" in window && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, []);
 
   const markMissing = (key) => setMissingLayers((current) => ({ ...current, [key]: true }));
   const clearMissing = (key) => setMissingLayers((current) => {
@@ -5652,7 +5676,89 @@ function NorthAmericanNebulaPage({ navigate }) {
     dragRef.current.active = false;
   };
 
-  const zoomIn = () => setZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))));
+  const touchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const handleViewerTouchStart = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    if (event.touches.length === 2) {
+      touchRef.current = {
+        mode: "pinch",
+        distance: touchDistance(event.touches),
+        zoom,
+        x: 0,
+        y: 0,
+        left: el.scrollLeft,
+        top: el.scrollTop,
+      };
+      return;
+    }
+    if (event.touches.length === 1) {
+      touchRef.current = {
+        mode: "pan",
+        distance: 0,
+        zoom,
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY,
+        left: el.scrollLeft,
+        top: el.scrollTop,
+      };
+    }
+  };
+
+  const handleViewerTouchMove = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    if (event.touches.length === 2 && touchRef.current.mode === "pinch") {
+      event.preventDefault();
+      const startDistance = touchRef.current.distance || touchDistance(event.touches);
+      const currentDistance = touchDistance(event.touches);
+      const nextZoom = Math.max(0.5, Math.min(6, touchRef.current.zoom * (currentDistance / startDistance)));
+      setZoom(Number(nextZoom.toFixed(2)));
+      return;
+    }
+    if (event.touches.length === 1 && touchRef.current.mode === "pan") {
+      event.preventDefault();
+      const touch = event.touches[0];
+      el.scrollLeft = touchRef.current.left - (touch.clientX - touchRef.current.x);
+      el.scrollTop = touchRef.current.top - (touch.clientY - touchRef.current.y);
+    }
+  };
+
+  const handleViewerTouchEnd = () => {
+    touchRef.current.mode = null;
+  };
+
+  const handleViewerWheel = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    event.preventDefault();
+
+    const rect = el.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+    const scaleFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+
+    setZoom((current) => {
+      const next = Math.max(0.5, Math.min(6, Number((current * scaleFactor).toFixed(2))));
+      if (next !== current) {
+        const imageX = (el.scrollLeft + cursorX) / current;
+        const imageY = (el.scrollTop + cursorY) / current;
+        requestAnimationFrame(() => {
+          el.scrollLeft = imageX * next - cursorX;
+          el.scrollTop = imageY * next - cursorY;
+        });
+      }
+      return next;
+    });
+  };
+
+  const zoomIn = () => setZoom((z) => Math.min(6, Number((z + 0.25).toFixed(2))));
   const zoomOut = () => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))));
   const resetView = () => {
     setZoom(1);
@@ -5681,7 +5787,8 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const activeLayerSummary = [
     activeBase.label,
-    baseLayer === "apertura" ? "Pelican FOV" : null,
+    showStars ? overlayLayers.stars.label : null,
+    showPelicanOverlay ? overlayLayers.pelican.label : null,
     showAnnotation ? overlayLayers.annotation.label : null,
   ].filter(Boolean).join(" + ");
 
@@ -5737,74 +5844,84 @@ function NorthAmericanNebulaPage({ navigate }) {
               <button type="button" onClick={() => setMode("depth")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
             </div>
           </div>
-
-          {isImageMode && (
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#e9d8bc]"><Grid3X3 className="h-4 w-4" /> Layers</div>
-              <div className="space-y-3">
-                <div className="grid gap-2 lg:grid-cols-[130px_minmax(0,1fr)] lg:items-center">
-                  <div className="text-sm text-white/64">Base Image</div>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    {Object.entries(imageLayers).map(([id, layer]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => { clearMissing(id); setBaseLayer(id); }}
-                        className={layerButtonClass(baseLayer === id)}
-                      >
-                        {layer.shortLabel}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-2 lg:grid-cols-[130px_minmax(0,1fr)] lg:items-center">
-                  <div className="text-sm text-white/64">Overlays</div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
-                      className={`inline-flex min-h-[42px] items-center gap-3 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                        showAnnotation
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.035] text-white/70 hover:bg-white/[0.075] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-5 w-9 rounded-full border transition ${showAnnotation ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-4 w-4 translate-y-[1px] rounded-full bg-white/85 transition ${showAnnotation ? "translate-x-4" : "translate-x-1"}`} />
-                      </span>
-                      Annotation
-                    </button>
-                    <span className="text-xs leading-5 text-white/50">Pelican FOV now appears automatically whenever the Apertura / Pelican Overlay base image is selected.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {isImageMode ? (
-          <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-h-[62vh] bg-black">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/70 px-4 py-3">
-                <div className="text-sm text-white/70">Viewing: {activeLayerSummary}</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" onClick={zoomOut} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">−</button>
-                  <div className="min-w-16 text-center text-sm text-white/70">{Math.round(zoom * 100)}%</div>
-                  <button type="button" onClick={zoomIn} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">+</button>
-                  <button type="button" onClick={resetView} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
+          <div className="bg-black">
+            <div className="relative min-h-[86vh] overflow-hidden bg-black">
+              <div className="pointer-events-none absolute left-3 right-3 top-3 z-30 flex justify-center sm:left-5 sm:right-5">
+                <div className="pointer-events-auto max-w-full rounded-2xl border border-white/12 bg-black/72 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <div className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70 lg:block">{activeBase.shortLabel} base</div>
+                    <button
+                      type="button"
+                      onClick={() => { clearMissing("stars"); setShowStars((value) => !value); }}
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                        showStars
+                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
+                      }`}
+                    >
+                      <span className={`h-4 w-7 rounded-full border transition ${showStars ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
+                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showStars ? "translate-x-3" : "translate-x-1"}`} />
+                      </span>
+                      Stars
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }}
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                        showPelicanOverlay
+                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
+                      }`}
+                    >
+                      <span className={`h-4 w-7 rounded-full border transition ${showPelicanOverlay ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
+                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showPelicanOverlay ? "translate-x-3" : "translate-x-1"}`} />
+                      </span>
+                      Pelican Overlay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                        showAnnotation
+                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
+                      }`}
+                    >
+                      <span className={`h-4 w-7 rounded-full border transition ${showAnnotation ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
+                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showAnnotation ? "translate-x-3" : "translate-x-1"}`} />
+                      </span>
+                      Annotation
+                    </button>
+                    <div className="ml-0 flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 sm:ml-2">
+                      <button type="button" onClick={zoomOut} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">−</button>
+                      <div className="min-w-12 text-center text-xs font-semibold text-white/72">{Math.round(zoom * 100)}%</div>
+                      <button type="button" onClick={zoomIn} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">+</button>
+                      <button type="button" onClick={resetView} className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/72 hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-center text-[11px] text-white/45 sm:hidden">Pinch or scroll to zoom • Drag to pan • High-res layers</div>
                 </div>
               </div>
               <div
                 ref={viewerRef}
-                className="h-[72vh] cursor-grab overflow-auto bg-black active:cursor-grabbing"
+                className="h-[86vh] cursor-grab overflow-auto bg-black active:cursor-grabbing"
                 onMouseDown={beginPan}
                 onMouseMove={pan}
                 onMouseUp={endPan}
                 onMouseLeave={endPan}
+                onTouchStart={handleViewerTouchStart}
+                onTouchMove={handleViewerTouchMove}
+                onTouchEnd={handleViewerTouchEnd}
+                onTouchCancel={handleViewerTouchEnd}
+                onWheel={handleViewerWheel}
+                style={{ touchAction: "none" }}
               >
-                <div style={{ width: `${100 * zoom}%`, maxWidth: "none" }} className="relative inline-block select-none align-top">
-                  {missingLayers[baseLayer] ? (
-                    <div className="flex h-[460px] min-w-[720px] items-center justify-center p-8 text-center">
+                <div style={{ width: `${100 * zoom}%`, maxWidth: "none" }} className="relative inline-block min-w-full select-none align-top">
+                  {missingLayers.starless ? (
+                    <div className="flex h-[520px] min-w-[720px] items-center justify-center p-8 text-center">
                       <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">
                         <div className="text-lg font-semibold">{activeBase.label} could not be loaded</div>
                         <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBase.src} exists in the gallery image folder.</p>
@@ -5815,34 +5932,64 @@ function NorthAmericanNebulaPage({ navigate }) {
                       src={activeBase.src}
                       alt={`North American Nebula ${activeBase.label}`}
                       draggable="false"
-                      onLoad={() => clearMissing(baseLayer)}
-                      onError={() => markMissing(baseLayer)}
+                      decoding="async"
+                      loading="eager"
+                      fetchPriority="high"
+                      onLoad={() => clearMissing("starless")}
+                      onError={() => markMissing("starless")}
                       className="block w-full select-none"
                     />
                   )}
-                  {baseLayer === "apertura" && (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute select-none"
-                      style={{
-                        left: "41.02%",
-                        top: "13.52%",
-                        width: "40.69%",
-                        height: "36.20%",
-                        border: "2px solid rgba(255,255,255,0.38)",
-                        borderRadius: 0,
-                        background: "transparent",
-                        transform: "rotate(51.87deg)",
-                        transformOrigin: "center center",
-                        boxSizing: "border-box",
-                      }}
+                  {showStars && !missingLayers.stars && (
+                    <img
+                      src={overlayLayers.stars.src}
+                      alt="North American Nebula stars-only overlay"
+                      draggable="false"
+                      decoding="async"
+                      loading="lazy"
+                      onLoad={() => clearMissing("stars")}
+                      onError={() => markMissing("stars")}
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
+                      style={{ mixBlendMode: "screen" }}
                     />
+                  )}
+                  {showPelicanOverlay && !missingLayers.pelican && (
+                    <>
+                      <img
+                        src={overlayLayers.pelican.src}
+                        alt="North American Nebula Pelican overlay"
+                        draggable="false"
+                        decoding="async"
+                        loading="lazy"
+                        onLoad={() => clearMissing("pelican")}
+                        onError={() => markMissing("pelican")}
+                        className="pointer-events-none absolute inset-0 block h-full w-full select-none opacity-80"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute select-none"
+                        style={{
+                          left: "41.02%",
+                          top: "13.52%",
+                          width: "40.69%",
+                          height: "36.20%",
+                          border: "2px solid rgba(255,255,255,0.38)",
+                          borderRadius: 0,
+                          background: "transparent",
+                          transform: "rotate(51.87deg)",
+                          transformOrigin: "center center",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </>
                   )}
                   {showAnnotation && !missingLayers.annotation && (
                     <img
                       src={overlayLayers.annotation.src}
                       alt="North American Nebula annotation overlay"
                       draggable="false"
+                      decoding="async"
+                      loading="lazy"
                       onLoad={() => clearMissing("annotation")}
                       onError={() => markMissing("annotation")}
                       className="pointer-events-none absolute inset-0 block h-full w-full select-none"
@@ -5851,34 +5998,24 @@ function NorthAmericanNebulaPage({ navigate }) {
                 </div>
               </div>
             </div>
-            <aside className="border-t border-white/10 bg-black/30 p-5 2xl:border-l 2xl:border-t-0">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#e9d8bc]"><Star className="h-3.5 w-3.5" /> Emission Nebula</div>
-                <h2 className="mt-4 text-2xl font-semibold text-white">North American Nebula</h2>
-                <p className="mt-1 text-sm text-white/55">NGC 7000</p>
-                <p className="mt-4 text-sm leading-7 text-white/68">A wide-field Cygnus emission region shown with selectable processing and reference layers, plus persistent annotations for object identification.</p>
-                <div className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/26">
-                  {metadata.map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
-                      <span className="text-white/50">{label}</span>
-                      <span className="max-w-[170px] text-right font-semibold text-white/86">{value}</span>
-                    </div>
+            <div className="border-t border-white/10 bg-black/45 px-5 py-4 sm:px-8">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/65">
+                <div><span className="text-white/40">Viewing:</span> <span className="font-semibold text-white/86">{activeLayerSummary}</span></div>
+                <div className="flex flex-wrap gap-2 text-xs text-white/50">
+                  {metadata.slice(0, 5).map(([label, value]) => (
+                    <span key={label} className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5"><span className="text-white/35">{label}:</span> {value}</span>
                   ))}
                 </div>
-                <a href={astrobinUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d8b175]/35 bg-[#5A4939]/70 px-4 py-3 text-sm font-semibold text-white hover:bg-[#6b5745]">
-                  View on AstroBin <ExternalLink className="h-4 w-4" />
+                <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/70 px-4 py-2 text-xs font-semibold text-white hover:bg-[#6b5745]">
+                  AstroBin <ExternalLink className="h-3.5 w-3.5" />
                 </a>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button type="button" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75"><Star className="h-4 w-4" /> Feature</button>
-                  <a href={activeBase.src} download className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75"><Download className="h-4 w-4" /> Image</a>
-                </div>
               </div>
-              {(missingLayers.annotation || missingLayers[baseLayer]) && (
+              {(missingLayers.annotation || missingLayers.starless || missingLayers.stars || missingLayers.pelican) && (
                 <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-100/80">
                   One or more layer files could not be loaded. Re-merge the public folder from this patch into your site.
                 </div>
               )}
-            </aside>
+            </div>
           </div>
         ) : mode === "objects" ? (
           <div className="bg-black">
@@ -5886,7 +6023,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
               <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
             </div>
-            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" className="h-[82vh] w-full border-0" />
+            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" loading="lazy" className="h-[82vh] w-full border-0" />
           </div>
         ) : (
           <div className="bg-black">
@@ -5894,7 +6031,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
               <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
             </div>
-            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" className="h-[82vh] w-full border-0" />
+            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" loading="lazy" className="h-[82vh] w-full border-0" />
           </div>
         )}
       </div>

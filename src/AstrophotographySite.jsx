@@ -5582,7 +5582,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [missingLayers, setMissingLayers] = useState({});
   const viewerRef = useRef(null);
   const dragRef = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 });
-  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0 });
+  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
 
   const baseImage = {
     src: "/images/gallery/north-american-nebula-starless-fullres.webp",
@@ -5615,6 +5615,8 @@ function NorthAmericanNebulaPage({ navigate }) {
   const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery";
   const isImageMode = mode === "image";
   const activeBase = baseImage;
+  const minZoom = 0.5;
+  const maxZoom = 20;
 
   useEffect(() => {
     const preloadUrls = [
@@ -5687,6 +5689,9 @@ function NorthAmericanNebulaPage({ navigate }) {
     const el = viewerRef.current;
     if (!el || !isImageMode) return;
     if (event.touches.length === 2) {
+      const rect = el.getBoundingClientRect();
+      const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
+      const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
       touchRef.current = {
         mode: "pinch",
         distance: touchDistance(event.touches),
@@ -5695,6 +5700,10 @@ function NorthAmericanNebulaPage({ navigate }) {
         y: 0,
         left: el.scrollLeft,
         top: el.scrollTop,
+        centerX,
+        centerY,
+        imageX: (el.scrollLeft + centerX) / zoom,
+        imageY: (el.scrollTop + centerY) / zoom,
       };
       return;
     }
@@ -5707,6 +5716,10 @@ function NorthAmericanNebulaPage({ navigate }) {
         y: event.touches[0].clientY,
         left: el.scrollLeft,
         top: el.scrollTop,
+        centerX: 0,
+        centerY: 0,
+        imageX: 0,
+        imageY: 0,
       };
     }
   };
@@ -5718,8 +5731,13 @@ function NorthAmericanNebulaPage({ navigate }) {
       event.preventDefault();
       const startDistance = touchRef.current.distance || touchDistance(event.touches);
       const currentDistance = touchDistance(event.touches);
-      const nextZoom = Math.max(0.5, Math.min(6, touchRef.current.zoom * (currentDistance / startDistance)));
-      setZoom(Number(nextZoom.toFixed(2)));
+      const nextZoom = Math.max(minZoom, Math.min(maxZoom, touchRef.current.zoom * (currentDistance / startDistance)));
+      const roundedZoom = Number(nextZoom.toFixed(2));
+      setZoom(roundedZoom);
+      requestAnimationFrame(() => {
+        el.scrollLeft = touchRef.current.imageX * roundedZoom - touchRef.current.centerX;
+        el.scrollTop = touchRef.current.imageY * roundedZoom - touchRef.current.centerY;
+      });
       return;
     }
     if (event.touches.length === 1 && touchRef.current.mode === "pan") {
@@ -5745,7 +5763,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     const scaleFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
 
     setZoom((current) => {
-      const next = Math.max(0.5, Math.min(6, Number((current * scaleFactor).toFixed(2))));
+      const next = Math.max(minZoom, Math.min(maxZoom, Number((current * scaleFactor).toFixed(2))));
       if (next !== current) {
         const imageX = (el.scrollLeft + cursorX) / current;
         const imageY = (el.scrollTop + cursorY) / current;
@@ -5758,8 +5776,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     });
   };
 
-  const zoomIn = () => setZoom((z) => Math.min(6, Number((z + 0.25).toFixed(2))));
-  const zoomOut = () => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))));
+  const zoomIn = () => setZoom((z) => Math.min(maxZoom, Number((z * 1.28).toFixed(2))));
+  const zoomOut = () => setZoom((z) => Math.max(minZoom, Number((z / 1.28).toFixed(2))));
   const resetView = () => {
     setZoom(1);
     requestAnimationFrame(() => {
@@ -5772,7 +5790,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   };
 
   const modeTabClass = (id) =>
-    `flex min-h-[58px] flex-1 items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold transition sm:text-base ${
+    `flex min-h-[40px] flex-1 items-center justify-center gap-1.5 border border-white/10 px-2 py-2 text-xs font-semibold transition sm:min-h-[58px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
       mode === id
         ? "bg-[#5A4939]/92 text-[#f4dfb9] shadow-[inset_0_0_0_1px_rgba(216,177,117,0.35),0_0_32px_rgba(216,177,117,0.12)]"
         : "bg-black/26 text-white/68 hover:bg-white/[0.06] hover:text-white"
@@ -5802,8 +5820,8 @@ function NorthAmericanNebulaPage({ navigate }) {
   ];
 
   return (
-    <section className="mx-auto max-w-[1580px] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <section className="mx-auto max-w-[1580px] px-0 py-0 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mb-6 hidden flex-wrap items-center justify-between gap-3 sm:flex">
         <button
           type="button"
           onClick={() => navigate("/gallery")}
@@ -5816,8 +5834,8 @@ function NorthAmericanNebulaPage({ navigate }) {
         </a>
       </div>
 
-      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.022))] shadow-[0_30px_110px_rgba(0,0,0,0.42)]">
-        <div className="border-b border-white/10 px-5 py-6 sm:px-8">
+      <div className="overflow-hidden border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.022))] shadow-[0_30px_110px_rgba(0,0,0,0.42)] sm:rounded-[30px]">
+        <div className="hidden border-b border-white/10 px-5 py-6 sm:block sm:px-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/25 bg-[#5A4939]/45 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#e9d8bc]">
@@ -5836,8 +5854,8 @@ function NorthAmericanNebulaPage({ navigate }) {
           </div>
         </div>
 
-        <div className="border-b border-white/10 bg-black/24 px-4 py-4 sm:px-8">
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/24">
+        <div className="border-b border-white/10 bg-black/55 px-2 py-2 sm:bg-black/24 sm:px-8 sm:py-4">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/24 sm:rounded-2xl">
             <div className="grid grid-cols-1 sm:grid-cols-3">
               <button type="button" onClick={() => setMode("image")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
               <button type="button" onClick={() => setMode("objects")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
@@ -5848,15 +5866,15 @@ function NorthAmericanNebulaPage({ navigate }) {
 
         {isImageMode ? (
           <div className="bg-black">
-            <div className="relative min-h-[86vh] overflow-hidden bg-black">
-              <div className="pointer-events-none absolute left-3 right-3 top-3 z-30 flex justify-center sm:left-5 sm:right-5">
-                <div className="pointer-events-auto max-w-full rounded-2xl border border-white/12 bg-black/72 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                  <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="relative min-h-[calc(100svh-112px)] overflow-hidden bg-black sm:min-h-[86vh]">
+              <div className="pointer-events-none absolute left-2 right-2 top-2 z-30 flex justify-center sm:left-5 sm:right-5 sm:top-3">
+                <div className="pointer-events-auto max-w-full rounded-full border border-white/12 bg-black/62 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:rounded-2xl sm:p-3">
+                  <div className="flex flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:flex-wrap sm:gap-2">
                     <div className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70 lg:block">{activeBase.shortLabel} base</div>
                     <button
                       type="button"
                       onClick={() => { clearMissing("stars"); setShowStars((value) => !value); }}
-                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-sm ${
                         showStars
                           ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
                           : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
@@ -5870,7 +5888,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                     <button
                       type="button"
                       onClick={() => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }}
-                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-sm ${
                         showPelicanOverlay
                           ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
                           : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
@@ -5884,7 +5902,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                     <button
                       type="button"
                       onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
-                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition sm:text-sm ${
+                      className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-sm ${
                         showAnnotation
                           ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
                           : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
@@ -5895,19 +5913,19 @@ function NorthAmericanNebulaPage({ navigate }) {
                       </span>
                       Annotation
                     </button>
-                    <div className="ml-0 flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 sm:ml-2">
+                    <div className="ml-0 hidden items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 sm:ml-2 sm:flex">
                       <button type="button" onClick={zoomOut} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">−</button>
                       <div className="min-w-12 text-center text-xs font-semibold text-white/72">{Math.round(zoom * 100)}%</div>
                       <button type="button" onClick={zoomIn} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">+</button>
                       <button type="button" onClick={resetView} className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/72 hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
                     </div>
                   </div>
-                  <div className="mt-2 text-center text-[11px] text-white/45 sm:hidden">Pinch or scroll to zoom • Drag to pan • High-res layers</div>
+                  <div className="hidden mt-2 text-center text-[11px] text-white/45 sm:hidden">Pinch or scroll to zoom • Drag to pan • High-res layers</div>
                 </div>
               </div>
               <div
                 ref={viewerRef}
-                className="h-[86vh] cursor-grab overflow-auto bg-black active:cursor-grabbing"
+                className="h-[calc(100svh-112px)] cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[86vh]"
                 onMouseDown={beginPan}
                 onMouseMove={pan}
                 onMouseUp={endPan}
@@ -5998,7 +6016,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 </div>
               </div>
             </div>
-            <div className="border-t border-white/10 bg-black/45 px-5 py-4 sm:px-8">
+            <div className="hidden border-t border-white/10 bg-black/45 px-5 py-4 sm:block sm:px-8">
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/65">
                 <div><span className="text-white/40">Viewing:</span> <span className="font-semibold text-white/86">{activeLayerSummary}</span></div>
                 <div className="flex flex-wrap gap-2 text-xs text-white/50">

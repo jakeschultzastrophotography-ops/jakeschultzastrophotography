@@ -888,6 +888,13 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
   const gallery = useMemo(
     () => [
       {
+        title: "North America Nebula Interactive Explorer",
+        src: "/images/gallery/north-american-nebula-full.png",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+        detailPath: "/gallery/north-american-nebula",
+        featuredInteractive: true,
+      },
+      {
         title: "IC 1396 — Elephant Trunk Nebula",
         src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
@@ -956,6 +963,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         title: "North America Nebula",
         src: "/images/gallery/north-american-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+        detailPath: "/gallery/north-american-nebula",
       },
       {
         title: "Pacman Nebula",
@@ -1387,7 +1395,7 @@ case "gallery":
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to view it on AstroBin.
+              Click any image to open its feature page or AstroBin source.
             </p>
           </div>
 
@@ -1397,15 +1405,15 @@ case "gallery":
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.astrobin}
-              target="_blank"
-              rel="noreferrer"
+              href={item.detailPath || item.astrobin}
+              target={item.detailPath ? undefined : "_blank"}
+              rel={item.detailPath ? undefined : "noreferrer"}
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={`Open on AstroBin: ${item.title}`}
+              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1420,10 +1428,17 @@ case "gallery":
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="text-base font-semibold">{item.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>View on AstroBin →</span>
+                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
                   </div>
                 </div>
               </div>
@@ -1745,7 +1760,7 @@ return (
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to view it on AstroBin.
+              Click any image to open its feature page or AstroBin source.
             </p>
           </div>
 
@@ -1755,15 +1770,15 @@ return (
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.astrobin}
-              target="_blank"
-              rel="noreferrer"
+              href={item.detailPath || item.astrobin}
+              target={item.detailPath ? undefined : "_blank"}
+              rel={item.detailPath ? undefined : "noreferrer"}
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={`Open on AstroBin: ${item.title}`}
+              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1778,10 +1793,17 @@ return (
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="text-base font-semibold">{item.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>View on AstroBin →</span>
+                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
                   </div>
                 </div>
               </div>
@@ -5550,6 +5572,337 @@ function EclipseGuidePage({ navigate }) {
 
 
 
+
+function NorthAmericanNebulaPage({ navigate }) {
+  const [mode, setMode] = useState("image");
+  const [baseLayer, setBaseLayer] = useState("final");
+  const [showAnnotation, setShowAnnotation] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [missingLayers, setMissingLayers] = useState({});
+  const viewerRef = useRef(null);
+  const dragRef = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 });
+
+  const imageLayers = {
+    final: {
+      src: "/images/gallery/north-american-nebula-full.png",
+      label: "Final Image",
+      shortLabel: "Final Image",
+      description: "Clean final processed image — no labels, no Apertura guide overlay, and the original mosaic edges preserved.",
+    },
+    starless: {
+      src: "/images/gallery/north-american-nebula-starless-hires.webp",
+      label: "Starless Layer",
+      shortLabel: "Starless",
+      description: "Starless processing layer for studying the nebular structure, dust lanes, and emission regions without the dense Cygnus star field competing for attention.",
+    },
+    stars: {
+      src: "/images/gallery/north-american-nebula-stars-only.png",
+      label: "Stars Only Layer",
+      shortLabel: "Stars Only",
+      description: "Stars-only reference layer for comparing the field structure against the nebular emission and dust.",
+    },
+    apertura: {
+      src: "/images/gallery/north-american-nebula-apertura-pelican-hires.webp",
+      label: "Apertura / Pelican Overlay",
+      shortLabel: "Apertura / Pelican Overlay",
+      description: "Apertura/Pelican field reference view as a selectable base layer, separate from the clean final image.",
+    },
+  };
+
+  const overlayLayers = {
+    annotation: {
+      src: "/images/gallery/north-american-nebula-annotation-overlay-hires.png",
+      label: "Annotation",
+      description: "Transparent annotation layer with object labels and reference markings. This stays active while you switch base layers.",
+    },
+  };
+
+  const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery";
+  const isImageMode = mode === "image";
+  const activeBase = imageLayers[baseLayer] || imageLayers.final;
+
+  const markMissing = (key) => setMissingLayers((current) => ({ ...current, [key]: true }));
+  const clearMissing = (key) => setMissingLayers((current) => {
+    const next = { ...current };
+    delete next[key];
+    return next;
+  });
+
+  const beginPan = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    dragRef.current = {
+      active: true,
+      x: event.clientX,
+      y: event.clientY,
+      left: el.scrollLeft,
+      top: el.scrollTop,
+    };
+  };
+
+  const pan = (event) => {
+    const el = viewerRef.current;
+    if (!el || !dragRef.current.active) return;
+    event.preventDefault();
+    el.scrollLeft = dragRef.current.left - (event.clientX - dragRef.current.x);
+    el.scrollTop = dragRef.current.top - (event.clientY - dragRef.current.y);
+  };
+
+  const endPan = () => {
+    dragRef.current.active = false;
+  };
+
+  const zoomIn = () => setZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))));
+  const zoomOut = () => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))));
+  const resetView = () => {
+    setZoom(1);
+    requestAnimationFrame(() => {
+      const el = viewerRef.current;
+      if (el) {
+        el.scrollLeft = 0;
+        el.scrollTop = 0;
+      }
+    });
+  };
+
+  const modeTabClass = (id) =>
+    `flex min-h-[58px] flex-1 items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold transition sm:text-base ${
+      mode === id
+        ? "bg-[#5A4939]/92 text-[#f4dfb9] shadow-[inset_0_0_0_1px_rgba(216,177,117,0.35),0_0_32px_rgba(216,177,117,0.12)]"
+        : "bg-black/26 text-white/68 hover:bg-white/[0.06] hover:text-white"
+    }`;
+
+  const layerButtonClass = (active) =>
+    `min-h-[42px] rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+      active
+        ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+        : "border-white/10 bg-white/[0.035] text-white/70 hover:bg-white/[0.075] hover:text-white"
+    }`;
+
+  const activeLayerSummary = [
+    activeBase.label,
+    baseLayer === "apertura" ? "Pelican FOV" : null,
+    showAnnotation ? overlayLayers.annotation.label : null,
+  ].filter(Boolean).join(" + ");
+
+  const metadata = [
+    ["Catalog", "NGC 7000"],
+    ["Region", "Cygnus"],
+    ["Type", "Emission Nebula"],
+    ["Distance", "~2,600 ly"],
+    ["Explorer Data", "401 objects"],
+    ["View", activeLayerSummary],
+  ];
+
+  return (
+    <section className="mx-auto max-w-[1580px] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => navigate("/gallery")}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/[0.08]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Gallery
+        </button>
+        <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-4 py-2 text-sm font-semibold text-white hover:bg-[#6b5745]">
+          View on AstroBin <ExternalLink className="h-4 w-4" />
+        </a>
+      </div>
+
+      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.022))] shadow-[0_30px_110px_rgba(0,0,0,0.42)]">
+        <div className="border-b border-white/10 px-5 py-6 sm:px-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/25 bg-[#5A4939]/45 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#e9d8bc]">
+                <Compass className="h-3.5 w-3.5" /> Interactive Image Explorer
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-5xl">North American Nebula</h1>
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-white/72 sm:text-base">
+                A dedicated image page with the original mosaic preserved, top-level view modes, selectable image layers, persistent annotation overlays, the full object explorer, and the complete 4D AstroDepth map.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/22 p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Current View</div>
+              <div className="mt-2 text-lg font-semibold text-white">{mode === "image" ? activeLayerSummary : mode === "objects" ? "Interactive Object Explorer" : "4D AstroDepth Map"}</div>
+              <p className="mt-2 text-sm leading-6 text-white/58">Use the top row for the main page mode. Image layer controls appear underneath as a dedicated subsection.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-b border-white/10 bg-black/24 px-4 py-4 sm:px-8">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/24">
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <button type="button" onClick={() => setMode("image")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
+              <button type="button" onClick={() => setMode("objects")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
+              <button type="button" onClick={() => setMode("depth")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
+            </div>
+          </div>
+
+          {isImageMode && (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#e9d8bc]"><Grid3X3 className="h-4 w-4" /> Layers</div>
+              <div className="space-y-3">
+                <div className="grid gap-2 lg:grid-cols-[130px_minmax(0,1fr)] lg:items-center">
+                  <div className="text-sm text-white/64">Base Image</div>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {Object.entries(imageLayers).map(([id, layer]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { clearMissing(id); setBaseLayer(id); }}
+                        className={layerButtonClass(baseLayer === id)}
+                      >
+                        {layer.shortLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid gap-2 lg:grid-cols-[130px_minmax(0,1fr)] lg:items-center">
+                  <div className="text-sm text-white/64">Overlays</div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
+                      className={`inline-flex min-h-[42px] items-center gap-3 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                        showAnnotation
+                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+                          : "border-white/10 bg-white/[0.035] text-white/70 hover:bg-white/[0.075] hover:text-white"
+                      }`}
+                    >
+                      <span className={`h-5 w-9 rounded-full border transition ${showAnnotation ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
+                        <span className={`block h-4 w-4 translate-y-[1px] rounded-full bg-white/85 transition ${showAnnotation ? "translate-x-4" : "translate-x-1"}`} />
+                      </span>
+                      Annotation
+                    </button>
+                    <span className="text-xs leading-5 text-white/50">Pelican FOV now appears automatically whenever the Apertura / Pelican Overlay base image is selected.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {isImageMode ? (
+          <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-h-[62vh] bg-black">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/70 px-4 py-3">
+                <div className="text-sm text-white/70">Viewing: {activeLayerSummary}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={zoomOut} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">−</button>
+                  <div className="min-w-16 text-center text-sm text-white/70">{Math.round(zoom * 100)}%</div>
+                  <button type="button" onClick={zoomIn} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">+</button>
+                  <button type="button" onClick={resetView} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
+                </div>
+              </div>
+              <div
+                ref={viewerRef}
+                className="h-[72vh] cursor-grab overflow-auto bg-black active:cursor-grabbing"
+                onMouseDown={beginPan}
+                onMouseMove={pan}
+                onMouseUp={endPan}
+                onMouseLeave={endPan}
+              >
+                <div style={{ width: `${100 * zoom}%`, maxWidth: "none" }} className="relative inline-block select-none align-top">
+                  {missingLayers[baseLayer] ? (
+                    <div className="flex h-[460px] min-w-[720px] items-center justify-center p-8 text-center">
+                      <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">
+                        <div className="text-lg font-semibold">{activeBase.label} could not be loaded</div>
+                        <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBase.src} exists in the gallery image folder.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={activeBase.src}
+                      alt={`North American Nebula ${activeBase.label}`}
+                      draggable="false"
+                      onLoad={() => clearMissing(baseLayer)}
+                      onError={() => markMissing(baseLayer)}
+                      className="block w-full select-none"
+                    />
+                  )}
+                  {baseLayer === "apertura" && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute select-none"
+                      style={{
+                        left: "41.02%",
+                        top: "13.52%",
+                        width: "40.69%",
+                        height: "36.20%",
+                        border: "2px solid rgba(255,255,255,0.38)",
+                        borderRadius: 0,
+                        background: "transparent",
+                        transform: "rotate(51.87deg)",
+                        transformOrigin: "center center",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  )}
+                  {showAnnotation && !missingLayers.annotation && (
+                    <img
+                      src={overlayLayers.annotation.src}
+                      alt="North American Nebula annotation overlay"
+                      draggable="false"
+                      onLoad={() => clearMissing("annotation")}
+                      onError={() => markMissing("annotation")}
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <aside className="border-t border-white/10 bg-black/30 p-5 2xl:border-l 2xl:border-t-0">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#e9d8bc]"><Star className="h-3.5 w-3.5" /> Emission Nebula</div>
+                <h2 className="mt-4 text-2xl font-semibold text-white">North American Nebula</h2>
+                <p className="mt-1 text-sm text-white/55">NGC 7000</p>
+                <p className="mt-4 text-sm leading-7 text-white/68">A wide-field Cygnus emission region shown with selectable processing and reference layers, plus persistent annotations for object identification.</p>
+                <div className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/26">
+                  {metadata.map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
+                      <span className="text-white/50">{label}</span>
+                      <span className="max-w-[170px] text-right font-semibold text-white/86">{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <a href={astrobinUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d8b175]/35 bg-[#5A4939]/70 px-4 py-3 text-sm font-semibold text-white hover:bg-[#6b5745]">
+                  View on AstroBin <ExternalLink className="h-4 w-4" />
+                </a>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button type="button" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75"><Star className="h-4 w-4" /> Feature</button>
+                  <a href={activeBase.src} download className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75"><Download className="h-4 w-4" /> Image</a>
+                </div>
+              </div>
+              {(missingLayers.annotation || missingLayers[baseLayer]) && (
+                <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-100/80">
+                  One or more layer files could not be loaded. Re-merge the public folder from this patch into your site.
+                </div>
+              )}
+            </aside>
+          </div>
+        ) : mode === "objects" ? (
+          <div className="bg-black">
+            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
+              <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
+              <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
+            </div>
+            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" className="h-[82vh] w-full border-0" />
+          </div>
+        ) : (
+          <div className="bg-black">
+            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
+              <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
+              <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
+            </div>
+            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" className="h-[82vh] w-full border-0" />
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+
 function GalleryPage({ heroFallback }) {
   const gallery = useMemo(
     () => [
@@ -5622,6 +5975,7 @@ function GalleryPage({ heroFallback }) {
         title: "North American Nebula",
         src: "/images/gallery/north-american-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+        detailPath: "/gallery/north-american-nebula",
       },
       {
         title: "Pacman Nebula",
@@ -5704,7 +6058,7 @@ function GalleryPage({ heroFallback }) {
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Featured Astrophotography</h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/74 sm:text-base">
-                Explore the dedicated gallery page for deep-sky work, lunar images, aurora captures, and wide-field scenes. Click any image to open it on AstroBin.
+                Explore the dedicated gallery page for deep-sky work, lunar images, aurora captures, and wide-field scenes. Click any image to open its feature page or AstroBin source.
               </p>
             </div>
             <a
@@ -5722,15 +6076,15 @@ function GalleryPage({ heroFallback }) {
             {gallery.map((item) => (
               <motion.a
                 key={item.title}
-                href={item.astrobin}
-                target="_blank"
-                rel="noreferrer"
+                href={item.detailPath || item.astrobin}
+                target={item.detailPath ? undefined : "_blank"}
+                rel={item.detailPath ? undefined : "noreferrer"}
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.35 }}
                 className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-                title={`Open on AstroBin: ${item.title}`}
+                title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <img
@@ -5745,10 +6099,17 @@ function GalleryPage({ heroFallback }) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                   <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <div className="text-base font-semibold">{item.title}</div>
+                    <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
                     <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <ExternalLink className="h-3.5 w-3.5" />
-                      <span>View on AstroBin →</span>
+                      <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
                     </div>
                   </div>
                 </div>
@@ -6821,6 +7182,7 @@ if (path === "/admin/persistence") {
 const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
   const onGallery = path === "/gallery";
+  const onImageDetail = path === "/gallery/north-american-nebula";
   const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
@@ -6857,7 +7219,7 @@ const onHome = path === "/";
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onGallery || onPlanetarium || onEclipseGuide || onStarcast || onLiveTelescope) ? (
+            {(onWallpapers || onGallery || onImageDetail || onPlanetarium || onEclipseGuide || onStarcast || onLiveTelescope) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -7012,6 +7374,8 @@ const onHome = path === "/";
             <PhoneBackgroundsPage heroFallback={heroFallback} />
           ) : onGallery ? (
             <GalleryPage heroFallback={heroFallback} />
+          ) : onImageDetail ? (
+            <NorthAmericanNebulaPage navigate={navigate} />
           ) : onPlanetarium ? (
             <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (

@@ -1,50 +1,3 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Instagram,
-  Facebook,
-  Camera,
-  ChevronLeft,
-  Download,
-  ShoppingBag,
-  Image as ImageIcon,
-  ExternalLink,
-  Share2,
-  Link as LinkIcon,
-  MessageCircle,
-  Compass,
-  Target,
-  RotateCcw,
-  Star,
-  Grid3X3,
-  X,
-} from "lucide-react";
-
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-import { Responsive } from "react-grid-layout";
-
-import HomepageObservingConditionsCard from "./components/HomepageObservingConditionsCard";
-import ObservingConditionsWidget from "./components/ObservingConditionsWidget";
-import { SITE_VERSION } from "./siteVersion";
-
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Circle,
-  ImageOverlay,
-  LayersControl,
-} from "react-leaflet";
-import * as AstronomyImport from "astronomy-engine";
-
-const Starcast = lazy(() => import("./Starcast"));
-const AdminDashboard = lazy(() => import("./AdminDashboard"));
-const DashboardHome = lazy(() => import("./DashboardHome"));
-
 
 function useContainerWidth(ref) {
   const [w, setW] = useState(0);
@@ -72,6 +25,49 @@ function useContainerWidth(ref) {
 
   return w;
 }
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Instagram,
+  Facebook,
+  Camera,
+  ChevronLeft,
+  Download,
+  ShoppingBag,
+  Image as ImageIcon,
+  ExternalLink,
+  Share2,
+  Link as LinkIcon,
+  MessageCircle,
+  Compass,
+  Target,
+  RotateCcw,
+  Star,
+  Grid3X3,
+  X,
+} from "lucide-react";
+
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import { Responsive } from "react-grid-layout";
+
+import Starcast from "./Starcast";
+import AdminDashboard from "./AdminDashboard";
+import DashboardHome from "./DashboardHome";
+import { SITE_VERSION } from "./siteVersion";
+
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  ImageOverlay,
+  LayersControl,
+} from "react-leaflet";
+import * as AstronomyImport from "astronomy-engine";
 
 
 /** Prevent horizontal scrolling (mobile + desktop) without blocking vertical scroll */
@@ -105,134 +101,9 @@ function useNoHorizontalScroll() {
 ============================ */
 
 const SITE_CONFIG_URL = "/site-config.json";
-const SITE_CONFIG_STORAGE_KEY = "jake_site_builder_v2";
-const SITE_CONFIG_PREVIEW_EVENT = "jake-site-config-updated";
-const SITE_CONFIG_PREVIEW_CHANNEL = "jake-site-config";
-
-const YOUTUBE_LIVE_CHANNEL_ID = "UCNG0QTu2_0LYwTmYHHMVXXA";
-const YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@JakeSchultzAstrophotography";
-const YOUTUBE_LIVE_EMBED_URL = `https://www.youtube.com/embed/live_stream?channel=${YOUTUBE_LIVE_CHANNEL_ID}&autoplay=0&mute=0`;
-const YOUTUBE_STREAMS_URL = "https://www.youtube.com/@JakeSchultzAstrophotography/streams";
-
-const DEFAULT_LIVE_TELESCOPE = {
-  status: "offline",
-  projectedNextStream: "Clear evenings after dark, weather permitting.",
-  askJakeText: "Have a question while I am live? Drop it into YouTube chat and I will answer as many as I can during the session.",
-  currentTarget: {
-    name: "",
-    constellation: "",
-    objectType: "",
-    description: "",
-  },
-  targetInfo: {
-    title: "",
-    summary: "",
-    astrobinUrl: "",
-  },
-  skyConditions: {
-    cloudCover: "",
-    transparency: "",
-    seeing: "",
-    moonPhase: "",
-    wind: "",
-  },
-  whereToLook: {
-    pointedNear: "",
-    direction: "",
-    altitude: "",
-    constellation: "",
-    note: "",
-  },
-  imageProgress: {
-    subsCaptured: "",
-    exposureLength: "",
-    totalIntegration: "",
-    currentFilter: "",
-    guidingStable: "",
-  },
-  equipment: {
-    telescope: "",
-    telescopeCustom: "",
-    mount: "",
-    mountCustom: "",
-    mainCamera: "",
-    mainCameraCustom: "",
-    guideCamera: "",
-    guideCameraCustom: "",
-    filter: "",
-    filterCustom: "",
-    software: "",
-    softwareCustom: "",
-  },
-};
 
 function isObj(x) {
   return x && typeof x === "object" && !Array.isArray(x);
-}
-
-function ensureInstagramConfig(raw) {
-  if (!isObj(raw)) return raw;
-
-  const next = { ...raw };
-  next.sections = { ...(isObj(raw.sections) ? raw.sections : {}) };
-  next.order = { ...(isObj(raw.order) ? raw.order : {}) };
-  next.layouts = { ...(isObj(raw.layouts) ? raw.layouts : {}) };
-
-  if (!next.sections.instagram) {
-    next.sections.instagram = {
-      id: "instagram",
-      label: "Instagram Feed",
-      enabled: { desktop: true, mobile: true },
-      stylePreset: "default",
-      backgroundImage: "",
-      backgroundFit: "cover",
-    };
-  }
-
-  const insertAfterLatestNews = (arr) => {
-    const list = Array.isArray(arr) ? [...arr] : [];
-    if (list.includes("instagram")) return list;
-    const latestIndex = list.indexOf("latestNews");
-    const galleryIndex = list.indexOf("gallery");
-    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
-    list.splice(insertAt, 0, "instagram");
-    return list;
-  };
-
-  const insertLayoutAfterLatestNews = (arr, breakpoint) => {
-    const list = Array.isArray(arr) ? [...arr] : [];
-    if (list.some((item) => item?.i === "instagram")) return list;
-
-    const latestIndex = list.findIndex((item) => item?.i === "latestNews");
-    const galleryIndex = list.findIndex((item) => item?.i === "gallery");
-    const latest = latestIndex >= 0 ? list[latestIndex] : null;
-    const gallery = galleryIndex >= 0 ? list[galleryIndex] : null;
-    const w = breakpoint === "mobile" ? 4 : 12;
-    const h = 4;
-    const minW = breakpoint === "mobile" ? 4 : 6;
-    const y = latest ? Number(latest.y || 0) + Number(latest.h || 4) : gallery ? Number(gallery.y || 0) : 0;
-    const instagram = { i: "instagram", x: 0, y, w, h, minW, minH: 2 };
-    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
-    list.splice(insertAt, 0, instagram);
-    return list;
-  };
-
-  next.order.desktop = insertAfterLatestNews(next.order.desktop);
-  next.order.mobile = insertAfterLatestNews(next.order.mobile);
-  next.layouts.desktop = insertLayoutAfterLatestNews(next.layouts.desktop, "desktop");
-  next.layouts.mobile = insertLayoutAfterLatestNews(next.layouts.mobile, "mobile");
-
-  next.instagramFeed = {
-    handle: "jakeschultzastrophotography",
-    profileUrl: "https://www.instagram.com/jakeschultzastrophotography/",
-    provider: "elfsight",
-    elfsightScriptUrl: "https://elfsightcdn.com/platform.js",
-    elfsightAppId: "76fb801f-a4ee-4a42-9b24-7456926d123d",
-    embedUrl: "",
-    ...(isObj(raw.instagramFeed) ? raw.instagramFeed : {}),
-  };
-
-  return next;
 }
 
 function normalizeConfig(raw) {
@@ -240,7 +111,7 @@ function normalizeConfig(raw) {
 
   // Support v2 (AdminDashboard v2) and legacy v1 (AdminDashboard v1)
   if (raw.version === 2) {
-    return ensureInstagramConfig(raw);
+    return raw;
   }
   if (raw.version === 1) {
     // Map v1 -> v2-ish minimal surface for our needs (news + enabled/order)
@@ -303,45 +174,6 @@ function applyThemeTokens(tokens) {
   set("--site-font-display", tokens.fontDisplay);
 }
 
-function getLocalPreviewConfig() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return normalizeConfig(parsed);
-  } catch {
-    return null;
-  }
-}
-
-function shouldUseLocalPreview() {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname;
-  const params = new URLSearchParams(window.location.search);
-  return host === "localhost" || host === "127.0.0.1" || params.get("builderPreview") === "1";
-}
-
-function sectionConfigFor(siteConfig, id) {
-  return siteConfig?.sections?.[id] || null;
-}
-
-function sectionPresetClassName(section) {
-  const preset = section?.stylePreset || "default";
-  if (preset === "nebulaGlass") return "overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.04] backdrop-blur-sm";
-  if (preset === "stellarium") return "overflow-hidden rounded-[1.75rem] border border-sky-300/10 bg-[linear-gradient(180deg,rgba(10,25,45,0.28),rgba(4,8,18,0.16))]";
-  return "";
-}
-
-function sectionInlineStyle(section) {
-  if (!section?.backgroundImage) return undefined;
-  return {
-    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)), url(${section.backgroundImage})`,
-    backgroundSize: section?.backgroundFit || "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-  };
-}
-
 function useSiteConfig() {
   const [config, setConfig] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | missing | error
@@ -349,85 +181,37 @@ function useSiteConfig() {
   useEffect(() => {
     let alive = true;
 
-    const applyConfig = (raw, nextStatus = "ready") => {
-      const norm = normalizeConfig(raw);
-      if (!alive) return false;
-      if (norm) {
-        setConfig(norm);
-        setStatus(nextStatus);
-        if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
-        return true;
-      }
-      return false;
-    };
-
-    const load = async () => {
+    async function load() {
       try {
         setStatus("loading");
-
-        if (shouldUseLocalPreview()) {
-          const local = getLocalPreviewConfig();
-          if (local) {
-            applyConfig(local, "ready");
-            return;
-          }
-        }
-
         const res = await fetch(SITE_CONFIG_URL, { cache: "no-store" });
         if (!res.ok) {
           if (!alive) return;
-          const fallback = getLocalPreviewConfig();
-          if (fallback) {
-            applyConfig(fallback, "ready");
-          } else {
-            setStatus("missing");
-            setConfig(null);
-          }
+          setStatus("missing");
+          setConfig(null);
           return;
         }
         const raw = await res.json();
-        if (!applyConfig(raw, "ready") && alive) {
-          setConfig(null);
-          setStatus("error");
-        }
-      } catch {
+        const norm = normalizeConfig(raw);
         if (!alive) return;
-        const fallback = getLocalPreviewConfig();
-        if (fallback) {
-          applyConfig(fallback, "ready");
+        if (norm) {
+          setConfig(norm);
+          setStatus("ready");
+          if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
         } else {
-          setStatus("error");
           setConfig(null);
+          setStatus("error");
         }
+      } catch (e) {
+        if (!alive) return;
+        setStatus("error");
+        setConfig(null);
       }
-    };
+    }
 
     load();
-
-    const handlePreviewUpdate = (event) => {
-      const next = event?.detail || getLocalPreviewConfig();
-      applyConfig(next, "ready");
-    };
-    const handleStorage = (event) => {
-      if (event.key && event.key !== SITE_CONFIG_STORAGE_KEY) return;
-      const next = getLocalPreviewConfig();
-      if (next) applyConfig(next, "ready");
-    };
-
-    let channel = null;
-    try {
-      channel = new BroadcastChannel(SITE_CONFIG_PREVIEW_CHANNEL);
-      channel.onmessage = (event) => applyConfig(event?.data, "ready");
-    } catch {}
-
-    window.addEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
-    window.addEventListener("storage", handleStorage);
-
     return () => {
       alive = false;
-      window.removeEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
-      window.removeEventListener("storage", handleStorage);
-      if (channel) channel.close();
     };
   }, []);
 
@@ -469,6 +253,7 @@ const LOGO_SRC = "/images/brand/logo.png";
 
 
 const ECLIPSE_PHOTO_SRCS = [
+  // Main grid used in the "My eclipse photos" section:
   "/images/eclipse-guide/eclipse-01.jpg",
   "/images/eclipse-guide/eclipse-02.jpg",
   "/images/eclipse-guide/eclipse-03.jpg",
@@ -479,6 +264,18 @@ const ECLIPSE_PHOTO_SRCS = [
   "/images/eclipse-guide/eclipse-08.jpg",
   "/images/eclipse-guide/eclipse-09.jpg",
   "/images/eclipse-guide/eclipse-10.jpg",
+
+  // Extra eclipse-related images available in the same folder (optional use elsewhere):
+  "/images/eclipse-guide/blood-moon-over-peoria.webp",
+  "/images/eclipse-guide/eclipse-widefield.webp",
+  "/images/eclipse-guide/lunar-eclipse.webp",
+  "/images/eclipse-guide/lunar-eclipse-wide.webp",
+  "/images/eclipse-guide/screenshot-chrome.webp",
+  "/images/eclipse-guide/solar-closeup-1.webp",
+  "/images/eclipse-guide/solar-closeup-2.webp",
+  "/images/eclipse-guide/solar-eclipse-hdr.webp",
+  "/images/eclipse-guide/solar-eclipse-telescope-1.webp",
+  "/images/eclipse-guide/solar-eclipse-telescope-2.webp",
 ];
 
 // ECLIPSE GUIDE: astronomy-engine is ESM; use namespace import
@@ -641,6 +438,10 @@ function StripeBuyButton({ buyButtonId, publishableKey }) {
           publishable-key={publishableKey}
         ></stripe-buy-button>
       )}
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
@@ -769,108 +570,11 @@ function ShareBar({ title, shareHref, text }) {
         <MessageCircle className="h-4 w-4" />
         Text
       </a>
-    </div>
-  );
-}
-
-
-
-function InstagramFeedSection({ sectionScrollMargin = "", className = "", style = {}, siteConfig }) {
-  const instagramConfig = isObj(siteConfig?.instagramFeed) ? siteConfig.instagramFeed : {};
-  const handle = (instagramConfig.handle || "jakeschultzastrophotography").replace(/^@/, "");
-  const profileUrl = instagramConfig.profileUrl || `https://www.instagram.com/${handle}/`;
-  const embedUrl =
-    instagramConfig.embedUrl ||
-    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_INSTAGRAM_FEED_EMBED_URL : "") ||
-    "";
-  const elfsightScriptUrl = instagramConfig.elfsightScriptUrl || "https://elfsightcdn.com/platform.js";
-  const elfsightAppId = instagramConfig.elfsightAppId || "";
-  const elfsightClassName =
-    instagramConfig.elfsightClassName ||
-    (elfsightAppId ? `elfsight-app-${elfsightAppId}` : "");
-
-  useEffect(() => {
-    if (!elfsightClassName || typeof document === "undefined") return;
-
-    const alreadyLoaded = document.querySelector(`script[src="${elfsightScriptUrl}"]`);
-    if (alreadyLoaded) return;
-
-    const script = document.createElement("script");
-    script.src = elfsightScriptUrl;
-    script.async = true;
-    document.body.appendChild(script);
-  }, [elfsightClassName, elfsightScriptUrl]);
-
-  return (
-    <section
-      id="instagram"
-      className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${className}`}
-      style={style}
-    >
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-semibold text-white/75">
-              <Instagram className="h-3.5 w-3.5" />
-              Instagram
-            </div>
-            <h2 className="text-2xl font-semibold">Latest from Instagram</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">
-              Follow along for new astrophotography, behind-the-scenes setup shots, and observing updates.
-            </p>
-          </div>
-
-          <a
-            href={profileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/15 lg:shrink-0"
-          >
-            @{handle}
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </div>
-
-        <div className="mt-6">
-          <div className="instagram-embed-wide mx-auto flex min-h-[430px] w-full items-start justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3 sm:min-h-[520px]">
-            {elfsightClassName ? (
-              <div className="w-full bg-transparent text-black [&_.eapps-widget-toolbar]:hidden [&_.eapps-instagram-feed]:!mx-auto [&_.eapps-instagram-feed]:!w-full [&_.eapps-instagram-feed]:!max-w-none [&_.eapps-instagram-feed-container]:!w-full [&_.eapps-instagram-feed-content]:!w-full [&_.eapps-instagram-feed-posts]:!w-full [&_.eapps-instagram-feed-posts-container]:!w-full [&_iframe]:!mx-auto [&_iframe]:!w-full [&_iframe]:!max-w-none">
-                <div className={`${elfsightClassName} w-full`} data-elfsight-app-lazy />
-              </div>
-            ) : embedUrl ? (
-              <iframe
-                title="Jake Schultz Astrophotography Instagram feed"
-                src={embedUrl}
-                className="h-[620px] w-full bg-transparent sm:h-[680px]"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allow="clipboard-write; encrypted-media; picture-in-picture; web-share"
-              />
-            ) : (
-              <div className="grid w-full gap-4 rounded-[1.25rem] bg-black/40 p-5 text-left sm:p-6">
-                <div>
-                  <div className="text-base font-semibold text-white">Instagram feed embed slot is ready.</div>
-                  <p className="mt-2 text-sm leading-6 text-white/70">
-                    Add the Elfsight widget app ID to <span className="font-mono text-white/80">public/site-config.json</span> under
-                    <span className="font-mono text-white/80"> instagramFeed.elfsightAppId</span>. You can also use
-                    <span className="font-mono text-white/80"> instagramFeed.embedUrl</span> for iframe-based widgets.
-                  </p>
-                </div>
-                <a
-                  href={profileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
-                >
-                  Open Instagram
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
+        {SITE_VERSION}
       </div>
-    </section>
+
+    </div>
   );
 }
 
@@ -881,24 +585,9 @@ function InstagramFeedSection({ sectionScrollMargin = "", className = "", style 
 function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sectionEnabled, breakpoint, siteConfig }) {
   const year = new Date().getFullYear();
   const heroSrc = "/images/gallery/hero/hero.jpg";
-  const getSectionConfig = (id) => sectionConfigFor(siteConfig, id);
-  const getSectionClassName = (id) => sectionPresetClassName(getSectionConfig(id));
-  const getSectionStyle = (id) => sectionInlineStyle(getSectionConfig(id));
 
   const gallery = useMemo(
     () => [
-      {
-        title: "North America Nebula Interactive Explorer",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
-        detailPath: "/gallery/north-american-nebula",
-        featuredInteractive: true,
-      },
-      {
-        title: "IC 1396 — Elephant Trunk Nebula",
-        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
-      },
       {
         title: "Andromeda Galaxy (M31)",
         src: "/images/gallery/M31-andromeda-galaxy.jpg",
@@ -925,21 +614,6 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
       },
       {
-        title: "M13 Great Hercules Cluster",
-        src: "/images/gallery/M13.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
-      },
-      {
-        title: "Iris Nebula",
-        src: "/images/gallery/Iris-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
-      },
-      {
-        title: "M104 Sombrero Galaxy",
-        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
-      },
-      {
         title: "Crescent Nebula",
         src: "/images/gallery/crescent-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
@@ -961,9 +635,8 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
       },
       {
         title: "North America Nebula",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+        src: "/images/gallery/north-american-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
-        detailPath: "/gallery/north-american-nebula",
       },
       {
         title: "Pacman Nebula",
@@ -1048,7 +721,7 @@ const filterLayout = (layout, enabledSet) => {
 
 const gridIds = useMemo(() => {
   // Home sections we support in grid mode
-  const ids = ["hero", "calendar", "latestNews", "instagram", "gallery", "footer"];
+  const ids = ["hero", "calendar", "latestNews", "gallery", "footer"];
   return ids;
 }, []);
 
@@ -1085,8 +758,7 @@ const renderGridSection = (id) => {
 {/* HERO */}
       <section
         id="top"
-        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin} ${getSectionClassName("hero")}`}
-        style={getSectionStyle("hero")}
+        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin}`}
       >
         <div className="grid items-center gap-8 lg:grid-cols-2">
           <div>
@@ -1096,10 +768,7 @@ const renderGridSection = (id) => {
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              <span className="block">Jake Schultz Astrophotography</span>
-              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
-                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
-              </span>
+              Deep-sky images and nightscapes, built for the wall.
             </motion.h1>
 
             <motion.p
@@ -1173,15 +842,9 @@ const renderGridSection = (id) => {
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
-
-        <div className="mt-4 md:hidden">
-          <HomepageObservingConditionsCard />
-        </div>
       </section>
 
-      <div className="hidden md:block">
-        <HomepageObservingConditionsCard />
-      </div>
+      
 
     </div>
   );
@@ -1192,8 +855,7 @@ case "calendar":
       {enabled("calendar") ? (
       <section
         id="calendar"
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("calendar")}`}
-        style={getSectionStyle("calendar")}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1258,8 +920,7 @@ case "latestNews":
 {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("latestNews")}`}
-        style={getSectionStyle("latestNews")}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
@@ -1271,7 +932,7 @@ case "latestNews":
             </div>
           </div>
 
-          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
+          <div className="mt-6 flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1368,19 +1029,6 @@ case "latestNews":
 
     </div>
   );
-case "instagram":
-  return (
-    <div className="h-full w-full">
-      {enabled("instagram") ? (
-        <InstagramFeedSection
-          sectionScrollMargin={sectionScrollMargin}
-          className={getSectionClassName("instagram")}
-          style={getSectionStyle("instagram")}
-          siteConfig={siteConfig}
-        />
-      ) : null}
-    </div>
-  );
 case "gallery":
   return (
     <div className="h-full w-full">
@@ -1388,32 +1036,37 @@ case "gallery":
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
-        style={getSectionStyle("gallery")}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to open its feature page or AstroBin source.
+              Click any image to view it on AstroBin.
             </p>
           </div>
 
+          <a
+            href="#calendar"
+            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
+          >
+            Calendar
+          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.detailPath || item.astrobin}
-              target={item.detailPath ? undefined : "_blank"}
-              rel={item.detailPath ? undefined : "noreferrer"}
+              href={item.astrobin}
+              target="_blank"
+              rel="noreferrer"
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
+              title={`Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1428,17 +1081,10 @@ case "gallery":
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                    <span>{item.title}</span>
-                    {item.detailPath ? (
-                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
-                        Interactive
-                      </span>
-                    ) : null}
-                  </div>
+                  <div className="text-base font-semibold">{item.title}</div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
+                    <span>View on AstroBin →</span>
                   </div>
                 </div>
               </div>
@@ -1455,7 +1101,7 @@ case "gallery":
 case "footer":
   return (
     <div className="h-full w-full">
-<footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
+<footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1469,7 +1115,7 @@ case "footer":
   }
 };
 
-if (!gridMode || !layouts || gridWidth <= 0) {
+if (!gridMode) {
 return (
     <>
       {/* HERO */}
@@ -1485,10 +1131,7 @@ return (
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              <span className="block">Jake Schultz Astrophotography</span>
-              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
-                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
-              </span>
+              Deep-sky images and nightscapes, built for the wall.
             </motion.h1>
 
             <motion.p
@@ -1562,15 +1205,7 @@ return (
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
-
-        <div className="mt-4 md:hidden">
-          <HomepageObservingConditionsCard />
-        </div>
       </section>
-
-      <div className="hidden md:block">
-        <HomepageObservingConditionsCard />
-      </div>
 
       {/* CALENDAR PROMO */}
       {enabled("calendar") ? (
@@ -1634,7 +1269,7 @@ return (
       {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
@@ -1646,7 +1281,7 @@ return (
             </div>
           </div>
 
-          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
+          <div className="mt-6 flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1739,46 +1374,41 @@ return (
       </section>
       ) : null}
 
-      {/* INSTAGRAM FEED */}
-      {enabled("instagram") ? (
-        <InstagramFeedSection
-          sectionScrollMargin={sectionScrollMargin}
-          className={getSectionClassName("instagram")}
-          style={getSectionStyle("instagram")}
-          siteConfig={siteConfig}
-        />
-      ) : null}
-
       {/* GALLERY */}
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
-        style={getSectionStyle("gallery")}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to open its feature page or AstroBin source.
+              Click any image to view it on AstroBin.
             </p>
           </div>
 
+          <a
+            href="#calendar"
+            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
+          >
+            Calendar
+          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.detailPath || item.astrobin}
-              target={item.detailPath ? undefined : "_blank"}
-              rel={item.detailPath ? undefined : "noreferrer"}
+              href={item.astrobin}
+              target="_blank"
+              rel="noreferrer"
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
+              title={`Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1793,17 +1423,10 @@ return (
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                    <span>{item.title}</span>
-                    {item.detailPath ? (
-                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
-                        Interactive
-                      </span>
-                    ) : null}
-                  </div>
+                  <div className="text-base font-semibold">{item.title}</div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
+                    <span>View on AstroBin →</span>
                   </div>
                 </div>
               </div>
@@ -1813,7 +1436,7 @@ return (
       </section>
       ) : null}
 
-      <footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
+      <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1922,8 +1545,6 @@ function PhoneBackgroundsPage({ heroFallback }) {
 
             <div className="flex gap-2">
               <input
-                id="phone-background-search"
-                name="phone-background-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
@@ -2002,6 +1623,7 @@ function PhoneBackgroundsPage({ heroFallback }) {
           })}
         </div>
       </section>
+      ) : null}
 
       <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
@@ -3522,88 +3144,10 @@ const ECLIPSE_VIDEO_KEYFRAMES = [
 ];
 
 
-const AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES = [
-  { p: 0.0, src: "/images/eclipse-moon/2026-08-27/frame_001.png" },
-  { p: 0.08, src: "/images/eclipse-moon/2026-08-27/frame_002.png" },
-  { p: 0.18, src: "/images/eclipse-moon/2026-08-27/frame_003.png" },
-  { p: 0.30, src: "/images/eclipse-moon/2026-08-27/frame_004.png" },
-  { p: 0.42, src: "/images/eclipse-moon/2026-08-27/frame_005.png" },
-  { p: 0.48, src: "/images/eclipse-moon/2026-08-27/frame_006.png" },
-  { p: 0.50, src: "/images/eclipse-moon/2026-08-27/frame_007.png" },
-  { p: 0.54, src: "/images/eclipse-moon/2026-08-27/frame_008.png" },
-  { p: 0.64, src: "/images/eclipse-moon/2026-08-27/frame_009.png" },
-  { p: 0.76, src: "/images/eclipse-moon/2026-08-27/frame_010.png" },
-  { p: 0.88, src: "/images/eclipse-moon/2026-08-27/frame_011.png" },
-  { p: 0.94, src: "/images/eclipse-moon/2026-08-27/frame_012.png" },
-  { p: 1.0, src: "/images/eclipse-moon/2026-08-27/frame_013.png" },
-];
-
-const SPECIAL_LUNAR_REFERENCE_SETS = {
-  // Astronomy Engine peak time can land on the next UTC date even when the eclipse is still
-  // on the prior local calendar date. Support both keys so the reference frames still attach.
-  "2026-08-27": {
-    label: "Aug 27 2026 partial lunar eclipse",
-    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
-    crop: { x: 372, y: 96, size: 536 },
-  },
-  "2026-08-28": {
-    label: "Aug 27 2026 partial lunar eclipse",
-    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
-    crop: { x: 372, y: 96, size: 536 },
-  },
-};
-
-const STELLARIUM_REFERENCE_LOCATION = {
-  lat: 39.0997,
-  lon: -94.5786,
-  radiusDeg: 1.25,
-};
-
-const STELLARIUM_PROFILE_KEYFRAMES = {
-  total: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/total/frame_${String(i + 1).padStart(3, "0")}.png` })),
-  partialHeavy: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-heavy/frame_${String(i + 1).padStart(3, "0")}.png` })),
-  partialLight: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-light/frame_${String(i + 1).padStart(3, "0")}.png` })),
-};
-
-function angularDistanceDeg(lat1, lon1, lat2, lon2) {
-  if (![lat1, lon1, lat2, lon2].every((v) => Number.isFinite(v))) return Infinity;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const p1 = toRad(lat1);
-  const p2 = toRad(lat2);
-  const dl = toRad(lon2 - lon1);
-  const cosD = Math.sin(p1) * Math.sin(p2) + Math.cos(p1) * Math.cos(p2) * Math.cos(dl);
-  return (Math.acos(Math.max(-1, Math.min(1, cosD))) * 180) / Math.PI;
-}
-
-function isNearStellariumReferenceLocation(lat, lon) {
-  return angularDistanceDeg(lat, lon, STELLARIUM_REFERENCE_LOCATION.lat, STELLARIUM_REFERENCE_LOCATION.lon) <= STELLARIUM_REFERENCE_LOCATION.radiusDeg;
-}
-
-function classifyReferenceProfileForLunarEclipse(eclipse, hasTrueTotality) {
-  const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
-  const kind = String(raw?.kind || raw?.eclipse_kind || raw?.classification || "").toLowerCase();
-  if (hasTrueTotality || kind.includes("total")) return "total";
-  if (kind.includes("penumbral")) return "partialLight";
-
-  const magnitude =
-    (typeof raw?.umbral_magnitude === "number" && isFinite(raw.umbral_magnitude) && raw.umbral_magnitude) ||
-    (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
-    (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
-    null;
-
-  if (magnitude != null) return magnitude >= 0.75 ? "partialHeavy" : "partialLight";
-
-  const peak = timeToDate(eclipse?.peak);
-  const frac = clampNum(lunarEclipseFractionAtTime(eclipse, peak instanceof Date ? peak : new Date()), 0, 1);
-  return frac >= 0.75 ? "partialHeavy" : frac > 0.05 ? "partialLight" : null;
-}
-
 function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime, seekTime }) {
   const canvasRef = useRef(null);
   const frameImgsRef = useRef([]);
   const frameOffsetRef = useRef({ ox: 0, oy: 0 });
-  const baseMoonImgRef = useRef(null);
-  const [baseMoonReady, setBaseMoonReady] = useState(false);
   const [tPct, setTPct] = useState(50);
   const [imgReady, setImgReady] = useState(false);
   const [moonRenderError, setMoonRenderError] = useState(null);
@@ -3636,39 +3180,6 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
     return new Date(ms);
   }, [start, end, peak, tPct]);
 
-  const eclipseDateKey = useMemo(() => {
-    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
-    if (!(d instanceof Date)) return "";
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, [peak?.getTime?.(), p1?.getTime?.()]);
-
-  const eclipseLocalDateKey = useMemo(() => {
-    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
-    if (!(d instanceof Date)) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, [peak?.getTime?.(), p1?.getTime?.()]);
-
-  const hasTrueTotality = useMemo(() => t1 instanceof Date && t4 instanceof Date, [t1?.getTime?.(), t4?.getTime?.()]);
-  const nearReferenceLocation = useMemo(
-    () => isNearStellariumReferenceLocation(observerLat, observerLon),
-    [observerLat, observerLon]
-  );
-  const activeReferenceSet = useMemo(() => {
-    if (!nearReferenceLocation) return null;
-    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey];
-    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey];
-    return null;
-  }, [eclipseDateKey, eclipseLocalDateKey, nearReferenceLocation]);
-  const activeKeyframes = activeReferenceSet?.keyframes || [];
-  const activeCrop = activeReferenceSet?.crop || null;
-  const useReferenceFrames = activeKeyframes.length > 0;
-
   
   // Jump to an externally selected phase time (P1/U1/T1/MAX/T4/U4/P4)
   useEffect(() => {
@@ -3680,18 +3191,7 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
 
 useEffect(() => {
     let cancelled = false;
-    setImgReady(false);
-    frameImgsRef.current = [];
-    frameOffsetRef.current = { ox: 0, oy: 0 };
-
-    if (!useReferenceFrames) {
-      setImgReady(true);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const imgs = activeKeyframes.map((k) => {
+    const imgs = ECLIPSE_VIDEO_KEYFRAMES.map((k) => {
       const im = new Image();
       im.crossOrigin = "anonymous";
       im.src = k.src;
@@ -3782,27 +3282,6 @@ let loaded = 0;
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [activeKeyframes, useReferenceFrames]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setBaseMoonReady(false);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (cancelled) return;
-      baseMoonImgRef.current = img;
-      setBaseMoonReady(true);
-    };
-    img.onerror = () => {
-      if (cancelled) return;
-      baseMoonImgRef.current = null;
-      setBaseMoonReady(false);
-    };
-    img.src = "/images/eclipse-moon/base-texture.png";
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // --- Helpers (geocentric; north-up, east-left) ---
@@ -3892,41 +3371,6 @@ let loaded = 0;
     return x * x * (3 - 2 * x);
   };
 
-  const totalityBlendAt = (d) => {
-    if (!(d instanceof Date) || !(u1 instanceof Date) || !(u4 instanceof Date) || !(t1 instanceof Date) || !(t4 instanceof Date)) return 0;
-    const ms = d.getTime();
-    const u1ms = u1.getTime();
-    const u4ms = u4.getTime();
-    const t1ms = t1.getTime();
-    const t4ms = t4.getTime();
-    if (ms < u1ms || ms > u4ms) return 0;
-
-    const preDur = Math.max(1, t1ms - u1ms);
-    const postDur = Math.max(1, u4ms - t4ms);
-    const totalDur = Math.max(1, t4ms - t1ms);
-
-    if (ms < t1ms) {
-      const pre = (ms - u1ms) / preDur;
-      return Math.pow(smoothstep01((pre - 0.62) / 0.38), 1.15);
-    }
-    if (ms > t4ms) {
-      const post = 1 - (ms - t4ms) / postDur;
-      return Math.pow(smoothstep01((post - 0.62) / 0.38), 1.15);
-    }
-
-    const within = (ms - t1ms) / totalDur;
-    const ramp = Math.min(within / 0.16, (1 - within) / 0.16, 1);
-    const plateau = smoothstep01(ramp);
-    return 0.72 + 0.28 * plateau;
-  };
-
-  const totalityWarmthAt = (d) => {
-    const umbra = clampNum(umbraFractionAt(d), 0, 1);
-    const totalBlend = totalityBlendAt(d);
-    const nearTotal = Math.pow(smoothstep01((umbra - 0.84) / 0.16), 1.2);
-    return clampNum(Math.max(totalBlend, nearTotal * 0.72), 0, 1);
-  };
-
   const maxUmbralFraction = useMemo(() => {
     // Prefer raw umbral magnitude if present; otherwise infer from totality presence.
     const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
@@ -3935,14 +3379,11 @@ let loaded = 0;
       (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
       (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
       null;
-    if (hasTrueTotality) return 1;
-    if (m != null) {
-      const cap = eclipseDateKey === "2026-08-27" ? 0.992 : 0.985;
-      return clampNum(Math.min(m, cap), 0, 1);
-    }
-    // Partial-only fallback: allow very deep partials but never total-red.
-    return eclipseDateKey === "2026-08-27" ? 0.992 : 0.96;
-  }, [eclipse?.raw, hasTrueTotality, eclipseDateKey]);
+    if (m != null) return clampNum(m >= 1 ? 1 : m, 0, 1);
+    if (t1 && t4) return 1;
+    // Partial-only; typical max obscuration on app-like visuals.
+    return 0.88;
+  }, [eclipse?.raw, t1?.getTime?.(), t4?.getTime?.()]);
 
   const umbraFractionAt = (d) => {
     if (!(d instanceof Date)) return 0;
@@ -3992,139 +3433,16 @@ let loaded = 0;
     return Math.max(base * 0.95, umbraFractionAt(d) * 0.85);
   };
 
-  const drawFallbackMoon = (ctx, w, h, moonTime) => {
-    const tile = Math.min(w, h);
-    const r = tile * 0.5;
-    const cx = w / 2;
-    const cy = h / 2;
-    const umbra = clampNum(umbraFractionAt(moonTime), 0, 1);
-    const penumbra = clampNum(penumbraFractionAt(moonTime), 0, 1);
-    const isTotal = t1 instanceof Date && t4 instanceof Date && moonTime instanceof Date && moonTime >= t1 && moonTime <= t4;
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.clip();
-
-    const baseMoonImg = baseMoonImgRef.current;
-    if (baseMoonReady && baseMoonImg && (baseMoonImg.naturalWidth || baseMoonImg.width)) {
-      ctx.drawImage(baseMoonImg, cx - r, cy - r, r * 2, r * 2);
-    } else {
-      const base = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.22, r * 0.08, cx, cy, r * 1.05);
-      base.addColorStop(0, "rgba(232,236,240,1)");
-      base.addColorStop(0.45, "rgba(176,182,188,1)");
-      base.addColorStop(0.78, "rgba(104,110,116,1)");
-      base.addColorStop(1, "rgba(56,60,66,1)");
-      ctx.fillStyle = base;
-      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-
-      for (let i = 0; i < 120; i += 1) {
-        const ang = (i * 137.50776405003785 * Math.PI) / 180;
-        const rr = Math.sqrt((i + 0.5) / 120) * r * 0.92;
-        const px = cx + Math.cos(ang) * rr;
-        const py = cy + Math.sin(ang) * rr;
-        const crater = 0.004 + (i % 7) * 0.0015;
-        ctx.fillStyle = i % 3 === 0 ? "rgba(70,74,80,0.10)" : "rgba(245,248,252,0.05)";
-        ctx.beginPath();
-        ctx.arc(px, py, r * crater, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    const altAz = tryMoonAltAz(observerLat, observerLon, observerHeightM, moonTime);
-    const shadowAngleRad = altAz && Number.isFinite(altAz.az) ? ((altAz.az - 90) * Math.PI) / 180 : 0;
-    const totalBlend = clampNum(totalityBlendAt(moonTime), 0, 1);
-    const totalWarmth = clampNum(totalityWarmthAt(moonTime), 0, 1);
-    const penEarthR = r * 1.62;
-    const penCoverage = clampNum(penumbra * 0.16, 0, 0.16);
-    const penDx = -solveDistanceForFraction(r, penEarthR, penCoverage);
-    const umbEarthR = r * 1.24;
-    const umbDx = -solveDistanceForFraction(r, umbEarthR, umbra);
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(shadowAngleRad);
-    ctx.translate(-cx, -cy);
-
-    if (penumbra > 0.001) {
-      const pAlpha = 0.022 + 0.11 * penumbra;
-      const pg = ctx.createRadialGradient(cx + penDx, cy, penEarthR * 0.62, cx + penDx, cy, penEarthR);
-      pg.addColorStop(0, `rgba(18,22,30,${Math.min(0.18, pAlpha + 0.03)})`);
-      pg.addColorStop(1, `rgba(18,22,30,${Math.max(0, pAlpha - 0.02)})`);
-      ctx.fillStyle = pg;
-      ctx.beginPath();
-      ctx.arc(cx + penDx, cy, penEarthR, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (umbra > 0.001) {
-      const darkCore = isTotal
-        ? 0.26 + 0.20 * Math.pow(umbra, 0.9) * (1 - 0.30 * totalBlend)
-        : 0.15 + 0.44 * Math.pow(umbra, 0.9);
-      const ug = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.46, cx + umbDx, cy, umbEarthR);
-      ug.addColorStop(0, `rgba(18,18,24,${Math.min(0.78, darkCore + 0.08)})`);
-      ug.addColorStop(0.72, `rgba(10,10,16,${Math.min(0.70, darkCore)})`);
-      ug.addColorStop(1, `rgba(4,4,10,${Math.max(0.10, darkCore - 0.08)})`);
-      ctx.fillStyle = ug;
-      ctx.beginPath();
-      ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (totalWarmth > 0.001) {
-        const copper = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.10, cx + umbDx, cy, umbEarthR * 0.98);
-        copper.addColorStop(0, `rgba(154,76,42,${0.08 + 0.16 * totalWarmth})`);
-        copper.addColorStop(0.55, `rgba(132,52,30,${0.06 + 0.22 * totalWarmth})`);
-        copper.addColorStop(1, `rgba(34,10,10,${0.02 + 0.10 * totalWarmth})`);
-        ctx.fillStyle = copper;
-        ctx.beginPath();
-        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (totalBlend > 0.001) {
-        const redCore = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.18, cx + umbDx, cy, umbEarthR * 0.92);
-        redCore.addColorStop(0, `rgba(188,82,52,${0.10 + 0.20 * totalBlend})`);
-        redCore.addColorStop(0.45, `rgba(150,44,28,${0.08 + 0.26 * totalBlend})`);
-        redCore.addColorStop(0.82, `rgba(86,18,18,${0.05 + 0.18 * totalBlend})`);
-        redCore.addColorStop(1, `rgba(22,6,10,${0.01 + 0.08 * totalBlend})`);
-        ctx.fillStyle = redCore;
-        ctx.beginPath();
-        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalCompositeOperation = "screen";
-        const emberLift = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.06, cx + umbDx, cy, umbEarthR * 0.82);
-        emberLift.addColorStop(0, `rgba(198,112,76,${0.05 + 0.10 * totalBlend})`);
-        emberLift.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = emberLift;
-        ctx.beginPath();
-        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalCompositeOperation = "source-over";
-      }
-    }
-
-    ctx.restore();
-
-    const rim = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r);
-    rim.addColorStop(0, "rgba(0,0,0,0)");
-    rim.addColorStop(1, "rgba(0,0,0,0.32)");
-    ctx.fillStyle = rim;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  };
-
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !(tDate instanceof Date)) return;
+    if (!canvas || !imgReady || !(tDate instanceof Date)) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     try {
+      setMoonRenderError(null);
+
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
@@ -4138,15 +3456,8 @@ let loaded = 0;
       }
       prog = clampNum(prog, 0, 1);
 
-      const frames = activeKeyframes;
+      const frames = ECLIPSE_VIDEO_KEYFRAMES;
       const imgs = frameImgsRef.current || [];
-      const usableFrames = useReferenceFrames && imgReady && imgs.length === frames.length && imgs.some((im) => im && im.complete && (im.naturalWidth || im.width));
-
-      if (!usableFrames) {
-        drawFallbackMoon(ctx, w, h, tDate);
-        setMoonRenderError(null);
-        return;
-      }
 
       // Find bracketing keyframes
       let i1 = frames.findIndex((k) => k.p >= prog);
@@ -4158,12 +3469,6 @@ let loaded = 0;
       const a = imgs[i0];
       const b = imgs[i1];
 
-      if (!(a && (a.naturalWidth || a.width)) && !(b && (b.naturalWidth || b.width))) {
-        drawFallbackMoon(ctx, w, h, tDate);
-        setMoonRenderError(null);
-        return;
-      }
-
       const denom = (k1.p - k0.p) || 1;
       const t = clampNum((prog - k0.p) / denom, 0, 1);
 
@@ -4172,32 +3477,33 @@ let loaded = 0;
 
       // Draw as a centered, circular RGBA tile (already alpha-masked)
       const tile = Math.min(w, h);
+      // Auto-center the Moon disk within the circular mask (video frames can be slightly offset).
+      // frameOffsetRef stores normalized offsets in source-image space.
       const { ox, oy } = frameOffsetRef.current || { ox: 0, oy: 0 };
+
+      // Positive ox means disk center is to the right -> shift draw LEFT.
+      // Positive oy means disk center is lower -> shift draw UP.
       const dx = -ox * tile;
       const dy = -oy * tile;
-      const manualNudgeY = eclipseDateKey === "2026-08-27" ? 0 : 0.015;
+
+      // Final tiny manual nudge (down a touch) to visually center within the ring.
+      // Adjust this one scalar if needed.
+      const manualNudgeY = 0.015; // 1.5% of tile, positive = move DOWN
       const x = (w - tile) / 2 + dx;
       const y = (h - tile) / 2 + dy + tile * manualNudgeY;
-      ctx.save();
+ctx.save();
       ctx.imageSmoothingEnabled = true;
 
-      const drawReferenceFrame = (img, alpha) => {
-        if (!(img && img.complete && (img.naturalWidth || img.width))) return;
-        ctx.globalAlpha = alpha;
-        if (activeCrop && Number.isFinite(activeCrop.x) && Number.isFinite(activeCrop.y) && Number.isFinite(activeCrop.size)) {
-          const sx = activeCrop.x;
-          const sy = activeCrop.y;
-          const sw = activeCrop.size;
-          const sh = activeCrop.size;
-          ctx.drawImage(img, sx, sy, sw, sh, x, y, tile, tile);
-        } else {
-          ctx.drawImage(img, x, y, tile, tile);
-        }
-      };
+      if (a && a.complete) {
+        ctx.globalAlpha = 1;
+        ctx.drawImage(a, x, y, tile, tile);
+      }
+      if (b && b.complete) {
+        ctx.globalAlpha = tt;
+        ctx.drawImage(b, x, y, tile, tile);
+      }
 
-      drawReferenceFrame(a, 1);
-      drawReferenceFrame(b, tt);
-
+      // Subtle rim darkening to keep a clean edge on dark backgrounds
       ctx.globalAlpha = 1;
       const grd = ctx.createRadialGradient(w / 2, h / 2, tile * 0.46, w / 2, h / 2, tile * 0.5);
       grd.addColorStop(0, "rgba(0,0,0,0)");
@@ -4208,12 +3514,8 @@ let loaded = 0;
       ctx.fill();
 
       ctx.restore();
-      setMoonRenderError(null);
     } catch (e) {
-      const w = canvas.width;
-      const h = canvas.height;
-      drawFallbackMoon(ctx, w, h, tDate);
-      setMoonRenderError(null);
+      setMoonRenderError(String(e?.message || e));
     }
   }, [
     imgReady,
@@ -4228,10 +3530,6 @@ let loaded = 0;
     observerLat,
     observerLon,
     observerHeightM,
-    activeKeyframes,
-    activeCrop,
-    useReferenceFrames,
-    baseMoonReady,
   ]);
 
   const altAtT = useMemo(() => {
@@ -4246,10 +3544,7 @@ return (
         <div>
           <div className="text-lg font-semibold">Moon appearance (physically shaded)</div>
           <div className="mt-1 text-xs text-white/70">
-            Uses exact Stellarium reference frames only for eclipses you have calibrated at Jake’s observing location. All other eclipses and locations use a dynamic viewer-dependent simulation with a smoother totality transition modeled from the Stellarium reference behavior.
-          </div>
-          <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[#f5d46c]/80">
-            {useReferenceFrames ? "Reference-calibrated at Jake’s location" : "Simulated for your location"}
+            Uses a real lunar texture + illumination geometry and a shadow model tied to contact times.
           </div>
         </div>
         <div className="text-xs text-white/70">{fmtDateTime(tDate, useLocalTime)}</div>
@@ -4259,6 +3554,11 @@ return (
         <div className="flex items-center justify-center">
           <div className="relative h-52 w-52 overflow-hidden rounded-full border border-white/15 bg-black/40">
             <canvas ref={canvasRef} width={520} height={520} className="h-full w-full" />
+            {moonRenderError ? (
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/70 p-3 text-center text-xs text-red-200">
+                Moon renderer error. Reverting to safe mode.
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -4291,47 +3591,17 @@ return (
               <div className="mt-1 text-lg font-semibold">{altAtT == null ? "—" : altAtT > 0 ? "Yes" : "No"}</div>
             </div>
           </div>
-          <div className="mt-3 text-xs text-white/55">
-            Reference-frame mode is used only when both the eclipse and the observer location match a calibrated Jake-location Stellarium reference. All other cases use the dynamic viewer-dependent simulation so the Moon orientation stays correct for the selected location.
-          </div>
         </div>
       </div>
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
 
-function smoothRasterCanvas(sourceCanvas, width, height, blurPx = 2.2) {
-  try {
-    const out = document.createElement("canvas");
-    out.width = width;
-    out.height = height;
-    const octx = out.getContext("2d", { willReadFrequently: false });
-    if (!octx) return sourceCanvas;
-
-    const tmp = document.createElement("canvas");
-    tmp.width = width;
-    tmp.height = height;
-    const tctx = tmp.getContext("2d", { willReadFrequently: false });
-    if (!tctx) return sourceCanvas;
-
-    tctx.clearRect(0, 0, width, height);
-    tctx.filter = `blur(${blurPx}px)`;
-    tctx.drawImage(sourceCanvas, 0, 0, width, height);
-    tctx.filter = "none";
-
-    octx.clearRect(0, 0, width, height);
-    octx.globalAlpha = 0.92;
-    octx.drawImage(tmp, 0, 0, width, height);
-    octx.globalAlpha = 0.50;
-    octx.drawImage(sourceCanvas, 0, 0, width, height);
-    octx.globalAlpha = 1;
-    return out;
-  } catch (e) {
-    return sourceCanvas;
-  }
-}
-
-function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }) {
+function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }) {
   // "Time scrubber" view: where the eclipse is visible at THIS instant (Moon above horizon + eclipse in progress).
   // Returns { url, legend } where url is a dataURL (PNG) in equirectangular projection.
   try {
@@ -4350,7 +3620,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }
       canvas.width = width;
       canvas.height = height;
       return {
-        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
+        url: canvas.toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -4389,7 +3659,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }
     if (!rgba) {
       ctx.putImageData(img, 0, 0);
       return {
-        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
+        url: canvas.toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -4422,7 +3692,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }
     ctx.putImageData(img, 0, 0);
 
     return {
-      url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
+      url: canvas.toDataURL("image/png"),
       legend: [
         { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
         { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -4435,7 +3705,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }
 }
 
 
-function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
+function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
   // App-style "maximum visibility class" map:
   //  - Entire eclipse visible (all penumbral from P1..P4 above horizon)
   //  - Entire total & partial phases visible (all umbral from U1..U4 above horizon)
@@ -4479,17 +3749,25 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
     const eqUmb = umbTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
     const eqTot = totTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
 
-    // Colors tuned toward a smoother, app-like eclipse visibility overlay.
+    // Colors tuned toward the Eclipse Guide app look (stacked red bands).
     const COLORS = {
-      total: [124, 18, 18],
-      umbral: [210, 88, 68],
-      penumbral: [255, 196, 170],
+      entire: [90, 0, 0, 140],      // entire eclipse visible
+      umbAll: [140, 30, 30, 120],   // all umbral (partial+total) visible
+      totAll: [190, 55, 55, 110],   // all total visible
+      totSome: [225, 95, 80, 105],  // some total visible
+      umbSome: [245, 135, 105, 95], // some partial visible
+      penSome: [255, 190, 170, 85], // some penumbral visible
+      none: [0, 0, 0, 0],
     };
 
     const legend = [
-      { key: "total", label: "Total visibility strongest", color: "rgba(124,18,18,0.52)" },
-      { key: "umbral", label: "Umbral / partial visibility", color: "rgba(210,88,68,0.42)" },
-      { key: "penumbral", label: "Penumbral visibility", color: "rgba(255,196,170,0.28)" },
+      { key: "entire", label: "Entire eclipse is visible", color: "rgba(90,0,0,0.55)" },
+      { key: "umbAll", label: "Entire total & partial phases are visible", color: "rgba(140,30,30,0.47)" },
+      { key: "totAll", label: "Entire total phase is visible", color: "rgba(190,55,55,0.43)" },
+      { key: "totSome", label: "Some of total phase is visible", color: "rgba(225,95,80,0.41)" },
+      { key: "umbSome", label: "Some of partial phase is visible", color: "rgba(245,135,105,0.37)" },
+      { key: "penSome", label: "Some of penumbral phase is visible", color: "rgba(255,190,170,0.33)" },
+      { key: "none", label: "Eclipse is not visible at all", color: "rgba(160,160,160,0.25)" },
     ];
 
     const canvas = document.createElement("canvas");
@@ -4519,36 +3797,33 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
           continue;
         }
 
-        const penFrac = eqPen.length ? eqPen.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqPen.length : 0;
-        const umbFrac = eqUmb.length ? eqUmb.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqUmb.length : 0;
-        const totFrac = eqTot.length ? eqTot.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqTot.length : 0;
+        const penAll = eqPen.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0);
 
-        const totalWeight = clampNum(totFrac, 0, 1);
-        const umbralWeight = Math.max(clampNum(umbFrac - totalWeight * 0.45, 0, 1), 0);
-        const penWeight = Math.max(clampNum(penFrac - Math.max(umbFrac, totalWeight) * 0.55, 0, 1), 0);
+        const umbAny = eqUmb.length ? eqUmb.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const umbAll = eqUmb.length ? eqUmb.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
 
-        const totalAlpha = 148 * Math.pow(totalWeight, 0.9);
-        const umbralAlpha = 118 * Math.pow(umbralWeight, 0.85);
-        const penAlpha = 78 * Math.pow(penWeight, 0.8);
-        const alpha = Math.round(Math.max(totalAlpha, umbralAlpha, penAlpha));
-        if (alpha <= 0) continue;
+        const totAny = eqTot.length ? eqTot.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const totAll = eqTot.length ? eqTot.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
 
-        const weightSum = totalAlpha + umbralAlpha + penAlpha || 1;
-        const r = (COLORS.total[0] * totalAlpha + COLORS.umbral[0] * umbralAlpha + COLORS.penumbral[0] * penAlpha) / weightSum;
-        const g = (COLORS.total[1] * totalAlpha + COLORS.umbral[1] * umbralAlpha + COLORS.penumbral[1] * penAlpha) / weightSum;
-        const b = (COLORS.total[2] * totalAlpha + COLORS.umbral[2] * umbralAlpha + COLORS.penumbral[2] * penAlpha) / weightSum;
+        let c = COLORS.penSome;
+        if (penAll) c = COLORS.entire;
+        else if (umbAll) c = COLORS.umbAll;
+        else if (totAll) c = COLORS.totAll; // (only possible if totAll true but umbAll false in grazing cases)
+        else if (totAny) c = COLORS.totSome;
+        else if (umbAny) c = COLORS.umbSome;
+        else c = COLORS.penSome;
 
         const idx = (y * width + x) * 4;
-        data[idx + 0] = Math.round(r);
-        data[idx + 1] = Math.round(g);
-        data[idx + 2] = Math.round(b);
-        data[idx + 3] = alpha;
+        data[idx + 0] = c[0];
+        data[idx + 1] = c[1];
+        data[idx + 2] = c[2];
+        data[idx + 3] = c[3];
       }
     }
 
     ctx.putImageData(img, 0, 0);
 
-    return { url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"), legend };
+    return { url: canvas.toDataURL("image/png"), legend };
   } catch (e) {
     return null;
   }
@@ -4558,7 +3833,6 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
 function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime }) {
   const mapRef = useRef(null);
   const mapWrapRef = useRef(null);
-  const dragStateRef = useRef({ active: false, pointerId: null, startX: 0, startLng: 0, lockedLat: 0 });
 
   // Mobile reliability: Leaflet often initializes before its container has a real height.
   // ResizeObserver keeps the map rendered when the page is shown / rotated / address-bar collapses.
@@ -4636,88 +3910,13 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
     return [0, 0];
   }, [observerLat, observerLon]);
 
-  useEffect(() => {
-    const m = mapRef.current;
-    const wrap = mapWrapRef.current;
-    if (!m || !wrap) return;
-
-    const wrapLng = (lng) => {
-      let out = lng;
-      while (out > 180) out -= 360;
-      while (out < -180) out += 360;
-      return out;
-    };
-
-    const syncLockedLatitude = () => {
-      const current = m.getCenter();
-      const lockedLat = clampNum(center[0], -85, 85);
-      if (Math.abs(current.lat - lockedLat) > 0.0001) {
-        m.setView([lockedLat, wrapLng(current.lng)], m.getZoom(), { animate: false });
-      }
-    };
-
-    syncLockedLatitude();
-
-    const endDrag = () => {
-      const state = dragStateRef.current;
-      state.active = false;
-      state.pointerId = null;
-      try { wrap.releasePointerCapture?.(state.pointerId); } catch (e) {}
-      syncLockedLatitude();
-    };
-
-    const onPointerDown = (ev) => {
-      if (!mapRef.current || ev.button !== undefined && ev.button !== 0) return;
-      const state = dragStateRef.current;
-      const current = mapRef.current.getCenter();
-      state.active = true;
-      state.pointerId = ev.pointerId ?? null;
-      state.startX = ev.clientX;
-      state.startLng = current.lng;
-      state.lockedLat = clampNum(center[0], -85, 85);
-      try {
-        if (ev.pointerId != null) wrap.setPointerCapture?.(ev.pointerId);
-      } catch (e) {}
-      ev.preventDefault();
-    };
-
-    const onPointerMove = (ev) => {
-      const state = dragStateRef.current;
-      if (!state.active || !mapRef.current) return;
-      const zoom = mapRef.current.getZoom();
-      const startPoint = mapRef.current.project([state.lockedLat, state.startLng], zoom);
-      const nextPoint = L.point(startPoint.x - (ev.clientX - state.startX), startPoint.y);
-      const nextLatLng = mapRef.current.unproject(nextPoint, zoom);
-      mapRef.current.setView([state.lockedLat, wrapLng(nextLatLng.lng)], zoom, { animate: false });
-      ev.preventDefault();
-    };
-
-    const onPointerUp = () => endDrag();
-    const onPointerCancel = () => endDrag();
-
-    wrap.style.touchAction = "pan-x";
-    wrap.addEventListener("pointerdown", onPointerDown, { passive: false });
-    wrap.addEventListener("pointermove", onPointerMove, { passive: false });
-    wrap.addEventListener("pointerup", onPointerUp, { passive: false });
-    wrap.addEventListener("pointercancel", onPointerCancel, { passive: false });
-    wrap.addEventListener("lostpointercapture", onPointerCancel, { passive: false });
-
-    return () => {
-      wrap.removeEventListener("pointerdown", onPointerDown);
-      wrap.removeEventListener("pointermove", onPointerMove);
-      wrap.removeEventListener("pointerup", onPointerUp);
-      wrap.removeEventListener("pointercancel", onPointerCancel);
-      wrap.removeEventListener("lostpointercapture", onPointerCancel);
-    };
-  }, [center[0], eclipse?.peak?.getTime?.()]);
-
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-lg font-semibold">Lunar visibility map</div>
           <div className="mt-1 text-xs text-white/70">
-            Shows where the eclipse is visible (Moon above horizon) with a smoother, app-style shadow overlay. Toggle between maximum class and time-scrubbed view.
+            Shows where the eclipse is visible (Moon above horizon). Toggle between maximum class and time-scrubbed view.
           </div>
         </div>
 
@@ -4761,26 +3960,15 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         </div>
       )}
 
-      <div ref={mapWrapRef} className="mt-3 h-[380px] overflow-hidden rounded-2xl border border-white/10 bg-black/30 cursor-grab active:cursor-grabbing">
+      <div ref={mapWrapRef} className="mt-3 h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-black/30">
         <MapContainer
           center={center}
           zoom={2}
           worldCopyJump
-          zoomControl={false}
-          scrollWheelZoom={false}
-          doubleClickZoom={false}
-          touchZoom={false}
-          boxZoom={false}
-          keyboard={false}
-          dragging={false}
-          inertia={false}
-          maxBounds={[[-90, -720], [90, 720]]}
-          maxBoundsViscosity={1.0}
-          className="!h-full !w-full"
-          style={{ height: "100%", width: "100%" }}
+          scrollWheelZoom
+          className="h-full w-full"
           whenCreated={(m) => {
             mapRef.current = m;
-            m.setView([center[0], center[1]], 2, { animate: false });
             setTimeout(() => m.invalidateSize(), 0);
           }}
         >
@@ -4813,7 +4001,7 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
           <div className="text-white/60">Legend</div>
           <div className="mt-1 leading-relaxed">
-            Deep red = strongest total visibility • Copper = umbral / partial visibility • Soft glow = penumbral visibility (Moon above horizon).
+            Purple = total visible • Orange = umbral/partial visible • Cyan = penumbral visible (Moon above horizon).
           </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
@@ -4829,6 +4017,10 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
           </div>
         </div>
       </div>
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
@@ -4974,7 +4166,7 @@ const moonAtMax = useMemo(() => {
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Eclipse timeline</div>
+          <div className="text-lg font-semibold">Tomorrow’s eclipse timeline</div>
           <div className="mt-1 text-xs text-white/70">
             Tap a row to jump the Moon preview to that phase. Times come from astronomy-engine.
           </div>
@@ -5145,108 +4337,15 @@ const moonAtMax = useMemo(() => {
           </tbody>
         </table>
       </div>
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
 
 
-
-function formatCountdownParts(targetDate, nowMs) {
-  if (!(targetDate instanceof Date)) {
-    return { months: '00', days: '00', hours: '00', minutes: '00', seconds: '00', totalMs: null };
-  }
-  const now = new Date(nowMs);
-  let end = new Date(targetDate.getTime());
-  let sign = 1;
-  if (end.getTime() < now.getTime()) {
-    sign = -1;
-    end = new Date(now.getTime());
-  }
-  let cursor = new Date(now.getTime());
-  let months = 0;
-  while (true) {
-    const next = new Date(cursor.getTime());
-    next.setMonth(next.getMonth() + 1);
-    if (next.getTime() <= end.getTime()) {
-      months += 1;
-      cursor = next;
-    } else {
-      break;
-    }
-  }
-  let remainingMs = Math.max(0, end.getTime() - cursor.getTime());
-  const dayMs = 24 * 60 * 60 * 1000;
-  const hourMs = 60 * 60 * 1000;
-  const minuteMs = 60 * 1000;
-  const secondMs = 1000;
-  const days = Math.floor(remainingMs / dayMs);
-  remainingMs -= days * dayMs;
-  const hours = Math.floor(remainingMs / hourMs);
-  remainingMs -= hours * hourMs;
-  const minutes = Math.floor(remainingMs / minuteMs);
-  remainingMs -= minutes * minuteMs;
-  const seconds = Math.floor(remainingMs / secondMs);
-  const pad2 = (n) => String(Math.max(0, n)).padStart(2, '0');
-  return {
-    months: pad2(sign < 0 ? 0 : months),
-    days: pad2(sign < 0 ? 0 : days),
-    hours: pad2(sign < 0 ? 0 : hours),
-    minutes: pad2(sign < 0 ? 0 : minutes),
-    seconds: pad2(sign < 0 ? 0 : seconds),
-    totalMs: Math.max(0, targetDate.getTime() - nowMs),
-  };
-}
-
-function UpcomingEclipseCountdown({ eclipse, useLocalTime }) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const target = eclipse?.peak instanceof Date ? eclipse.peak : null;
-  const countdown = useMemo(() => formatCountdownParts(target, nowMs), [target?.getTime?.(), nowMs]);
-  const hasTarget = target instanceof Date;
-  const cards = [
-    { label: 'Months', value: countdown.months },
-    { label: 'Days', value: countdown.days },
-    { label: 'Hours', value: countdown.hours },
-    { label: 'Min', value: countdown.minutes },
-    { label: 'Sec', value: countdown.seconds },
-  ];
-
-  return (
-    <div className="mt-4 rounded-[28px] border border-[#c9a227]/30 bg-gradient-to-br from-[#17120a] via-[#0d0d0d] to-black p-4 shadow-[0_0_0_1px_rgba(201,162,39,0.05),0_20px_60px_rgba(0,0,0,0.35)]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b54a]">Countdown to next eclipse</div>
-          <div className="mt-2 text-sm text-white/70">
-            {hasTarget ? (
-              <>
-                Time remaining until <span className="font-semibold text-white">{eclipseLabel(eclipse)}</span>
-              </>
-            ) : (
-              <>Loading next eclipse…</>
-            )}
-          </div>
-        </div>
-        <div className="text-[11px] font-mono text-white/55">
-          {hasTarget ? fmtDateTime(target, useLocalTime) : '—'}
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-5 gap-2 sm:gap-3">
-        {cards.map((card) => (
-          <div key={card.label} className="rounded-2xl border border-white/10 bg-black/35 px-2 py-3 text-center shadow-inner shadow-black/30">
-            <div className="font-mono text-xl font-semibold tracking-[0.16em] text-[#f5d46c] sm:text-3xl">{card.value}</div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-[11px]">{card.label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function EclipseGuidePage({ navigate }) {
   const [useLocalTime, setUseLocalTime] = useState(true);
@@ -5263,32 +4362,22 @@ function EclipseGuidePage({ navigate }) {
   const observerHeightM = useMemo(() => Number(elevStr), [elevStr]);
 
   const catalog = useMemo(() => buildEclipseCatalog(new Date()), []);
-  const upcomingLunarEclipses = useMemo(() => catalog?.upcoming?.lunar?.slice(0, 10) || [], [catalog]);
-  const [selectedLunarUtc, setSelectedLunarUtc] = useState("");
 
-  useEffect(() => {
-    if (!selectedLunarUtc && upcomingLunarEclipses[0]?.peak instanceof Date) {
-      setSelectedLunarUtc(upcomingLunarEclipses[0].peak.toISOString());
-    }
-  }, [selectedLunarUtc, upcomingLunarEclipses]);
+  // Default: next upcoming eclipse, preferring the March 3 lunar eclipse if it is indeed next.
+  const defaultEclipse = useMemo(() => {
+    const nextLunar = catalog?.upcoming?.lunar?.[0] || null;
+    const nextSolar = catalog?.upcoming?.solar?.[0] || null;
+    if (nextLunar && nextSolar) return nextLunar.peak <= nextSolar.peak ? nextLunar : nextSolar;
+    return nextLunar || nextSolar || null;
+  }, [catalog]);
 
-  const selectedEclipse = useMemo(() => {
-    if (!upcomingLunarEclipses.length) return null;
-    if (!selectedLunarUtc) return upcomingLunarEclipses[0] || null;
-    return (
-      upcomingLunarEclipses.find((e) => e?.peak instanceof Date && e.peak.toISOString() === selectedLunarUtc) ||
-      upcomingLunarEclipses[0] ||
-      null
-    );
-  }, [upcomingLunarEclipses, selectedLunarUtc]);
+  // For now, this page only shows tomorrow's lunar eclipse.
+// Past and additional upcoming eclipse lists will be added later.
+const selectedType = "lunar";
+const selectedEclipse = useMemo(() => catalog?.upcoming?.lunar?.[0] || null, [catalog]);
 
-  const [moonSeekTime, setMoonSeekTime] = useState(null);
-  const [moonSeekKey, setMoonSeekKey] = useState(null);
-
-  useEffect(() => {
-    setMoonSeekTime(null);
-    setMoonSeekKey(null);
-  }, [selectedLunarUtc]);
+const [moonSeekTime, setMoonSeekTime] = useState(null);
+const [moonSeekKey, setMoonSeekKey] = useState(null);
 
   const shareHref = useMemo(() => {
     const base =
@@ -5311,16 +4400,12 @@ function EclipseGuidePage({ navigate }) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pt-12">
-      <HomepageObservingConditionsCard
-        sectionClassName="mb-6 mt-0 max-w-none px-0 sm:mt-0 sm:px-0 lg:px-0"
-      />
-
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold sm:text-4xl">Eclipse Guide</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/75">
-              Choose from the next 10 upcoming lunar eclipses, then inspect accurate timing, a location-aware Moon appearance, and a stable global visibility map for any observer location. Exact Stellarium frame references are used only for eclipses you have explicitly calibrated from Jake’s site.
+              Extremely accurate eclipse timing + realistic Moon appearance + global visibility maps. Choose any location and scrub through the event.
             </p>
           </div>
 
@@ -5349,43 +4434,31 @@ function EclipseGuidePage({ navigate }) {
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
                     <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
-            <div className="text-sm font-semibold">Upcoming eclipses</div>
+            <div className="text-sm font-semibold">Tomorrow’s lunar eclipse</div>
             <div className="mt-2 text-sm text-white/75">
-              Select any of the next 10 upcoming lunar eclipses. All timing, Moon rendering, and map content below update to the eclipse and observer location you choose.
+              {selectedEclipse ? (
+                <>
+                  Showing a single event for now: <span className="font-semibold">{eclipseLabel(selectedEclipse)}</span>
+                </>
+              ) : (
+                <>Loading eclipse data…</>
+              )}
             </div>
 
-            <div className="mt-4 pointer-events-auto">
-              <label className="block">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8b54a]">Choose lunar eclipse</div>
-                <select
-                  value={selectedLunarUtc}
-                  onChange={(e) => setSelectedLunarUtc(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8b54a]/60"
-                >
-                  {upcomingLunarEclipses.map((e) => {
-                    const value = e?.peak instanceof Date ? e.peak.toISOString() : '';
-                    return (
-                      <option key={value || eclipseLabel(e)} value={value}>
-                        {eclipseLabel(e)}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-xs uppercase tracking-[0.2em] text-white/55">Selected lunar eclipse</div>
-              <div className="mt-1 text-base font-semibold text-white">{selectedEclipse ? eclipseLabel(selectedEclipse) : 'Loading eclipse data…'}</div>
-              <div className="mt-1 text-sm text-white/70">
-                {selectedEclipse ? `${(selectedEclipse.kind || 'lunar').toString()} lunar eclipse` : '—'}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-xs text-white/70">Past eclipses</div>
+                <div className="mt-1 text-sm text-white/80">Coming soon</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="text-xs text-white/70">Upcoming eclipses</div>
+                <div className="mt-1 text-sm text-white/80">Coming soon</div>
               </div>
             </div>
 
-            <UpcomingEclipseCountdown
-              eclipse={selectedEclipse}
-              useLocalTime={useLocalTime}
-            />
+            <div className="mt-3 text-xs text-white/60">
+              We’ll add past/upcoming eclipse browsing later. For now this page is focused on tomorrow’s lunar eclipse.
+            </div>
           </div>
 
 <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
@@ -5449,14 +4522,6 @@ function EclipseGuidePage({ navigate }) {
         <div className="mt-6 grid gap-4">
           {selectedEclipse?.type === "lunar" ? (
             <>
-              <RealisticLunarMoonView
-                eclipse={selectedEclipse}
-                observerLat={observerLat}
-                observerLon={observerLon}
-                observerHeightM={observerHeightM}
-                useLocalTime={useLocalTime}
-                seekTime={moonSeekTime}
-              />
               <EclipseTimesPanel
                 eclipse={selectedEclipse}
                 observerLat={observerLat}
@@ -5465,6 +4530,14 @@ function EclipseGuidePage({ navigate }) {
                 useLocalTime={useLocalTime}
                 onSelectTime={handleSeekMoonToPhase}
                 activeKey={moonSeekKey}
+              />
+              <RealisticLunarMoonView
+                eclipse={selectedEclipse}
+                observerLat={observerLat}
+                observerLon={observerLon}
+                observerHeightM={observerHeightM}
+                useLocalTime={useLocalTime}
+                seekTime={moonSeekTime}
               />
               <LunarVisibilityMapV2
                 eclipse={selectedEclipse}
@@ -5479,7 +4552,7 @@ function EclipseGuidePage({ navigate }) {
               <div className="text-lg font-semibold">Solar eclipse support</div>
               <div className="mt-2 text-sm text-white/75">
                 Solar eclipse path-of-totality mapping is implemented next (umbra/penumbra ground tracks, local circumstances, and time scrubber).  
-                The selector above now focuses on the next 10 upcoming lunar eclipses.
+                The selector above already loads solar eclipses and their global times; the full map model is the next iteration.
               </div>
               <div className="mt-4 text-xs text-white/60">
                 If you want, I can prioritize:
@@ -5572,1395 +4645,7 @@ function EclipseGuidePage({ navigate }) {
 
 
 
-
-function NorthAmericanNebulaPage({ navigate }) {
-  const [mode, setMode] = useState("image");
-  const [baseLayer, setBaseLayer] = useState("combined");
-  const [showStars, setShowStars] = useState(true);
-  const [showAnnotation, setShowAnnotation] = useState(false);
-  const [showPelicanOverlay, setShowPelicanOverlay] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [missingLayers, setMissingLayers] = useState({});
-  const viewerRef = useRef(null);
-  const dragRef = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 });
-  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
-  const zoomRef = useRef(1);
-  const zoomAnimationRef = useRef({ frame: 0, targetZoom: 1, anchorX: 0, anchorY: 0, imageX: 0, imageY: 0 });
-
-  const baseLayers = {
-    combined: {
-      src: "/images/gallery/north-american-nebula-combined-starless-fullres.webp",
-      label: "Combined Starless",
-      shortLabel: "Combined",
-      description: "Full-resolution combined starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
-    },
-    rgb: {
-      src: "/images/gallery/north-american-nebula-rgb-starless-fullres.webp",
-      label: "RGB Starless",
-      shortLabel: "RGB",
-      description: "Full-resolution RGB starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
-    },
-    c2: {
-      src: "/images/gallery/north-american-nebula-c2-starless-fullres.webp",
-      label: "C2 Starless",
-      shortLabel: "C2",
-      description: "Full-resolution C2 starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
-    },
-  };
-
-  const overlayLayers = {
-    stars: {
-      src: "/images/gallery/north-american-nebula-stars-only-fullres.webp",
-      label: "Stars",
-      shortLabel: "Stars",
-      description: "Full-resolution stars-only layer matched to the same 7887 × 6086 canvas.",
-    },
-    annotation: {
-      src: "/images/gallery/north-american-nebula-annotation-overlay-fullres.png",
-      label: "Annotation",
-      shortLabel: "Annotation",
-      description: "Full-resolution transparent annotation layer matched to the same 7887 × 6086 canvas.",
-    },
-    pelican: {
-      src: "/images/gallery/north-american-nebula-pelican-overlay-fullres.webp",
-      label: "Pelican Nebula Overlay",
-      shortLabel: "Pelican Overlay",
-      description: "Full-resolution Pelican overlay matched to the same 7887 × 6086 canvas.",
-    },
-  };
-
-  const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery";
-  const isImageMode = mode === "image";
-  const activeBase = baseLayers[baseLayer] || baseLayers.combined;
-  const minZoom = 0.5;
-  const maxZoom = 30;
-
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
-
-  useEffect(() => () => {
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-    }
-  }, []);
-
-  useEffect(() => {
-    const preloadUrls = [
-      "/images/gallery/north-american-nebula-combined-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-rgb-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-c2-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-stars-only-fullres.webp",
-      "/images/gallery/north-american-nebula-annotation-overlay-fullres.png",
-      "/images/gallery/north-american-nebula-pelican-overlay-fullres.webp",
-    ];
-
-    const preload = () => {
-      preloadUrls.forEach((src) => {
-        const img = new window.Image();
-        img.decoding = "async";
-        img.src = src;
-      });
-    };
-
-    const idleId = "requestIdleCallback" in window
-      ? window.requestIdleCallback(preload, { timeout: 2500 })
-      : window.setTimeout(preload, 900);
-
-    return () => {
-      if ("cancelIdleCallback" in window && typeof idleId === "number") {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
-      }
-    };
-  }, []);
-
-  const markMissing = (key) => setMissingLayers((current) => ({ ...current, [key]: true }));
-  const clearMissing = (key) => setMissingLayers((current) => {
-    const next = { ...current };
-    delete next[key];
-    return next;
-  });
-
-  const clampZoom = (value) => Math.max(minZoom, Math.min(maxZoom, Number(value.toFixed(3))));
-
-  const applyZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || zoom) => {
-    const safeCurrentZoom = currentZoom || 1;
-    const safeNextZoom = clampZoom(nextZoom);
-    if (Math.abs(safeNextZoom - safeCurrentZoom) < 0.0005) return;
-    const imageX = (el.scrollLeft + anchorX) / safeCurrentZoom;
-    const imageY = (el.scrollTop + anchorY) / safeCurrentZoom;
-    zoomRef.current = safeNextZoom;
-    setZoom(safeNextZoom);
-    requestAnimationFrame(() => {
-      el.scrollLeft = imageX * safeNextZoom - anchorX;
-      el.scrollTop = imageY * safeNextZoom - anchorY;
-    });
-  };
-
-  const animateSmoothZoom = (el) => {
-    const state = zoomAnimationRef.current;
-    const currentZoom = zoomRef.current || zoom;
-    const difference = state.targetZoom - currentZoom;
-    const nextZoom = Math.abs(difference) < 0.003 ? state.targetZoom : currentZoom + difference * 0.30;
-
-    zoomRef.current = nextZoom;
-    setZoom(nextZoom);
-
-    requestAnimationFrame(() => {
-      el.scrollLeft = state.imageX * nextZoom - state.anchorX;
-      el.scrollTop = state.imageY * nextZoom - state.anchorY;
-
-      if (Math.abs(state.targetZoom - nextZoom) >= 0.003) {
-        state.frame = requestAnimationFrame(() => animateSmoothZoom(el));
-      } else {
-        state.frame = 0;
-      }
-    });
-  };
-
-  const smoothZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || zoom) => {
-    const safeCurrentZoom = currentZoom || 1;
-    const safeNextZoom = clampZoom(nextZoom);
-    const state = zoomAnimationRef.current;
-    state.targetZoom = safeNextZoom;
-    state.anchorX = anchorX;
-    state.anchorY = anchorY;
-    state.imageX = (el.scrollLeft + anchorX) / safeCurrentZoom;
-    state.imageY = (el.scrollTop + anchorY) / safeCurrentZoom;
-
-    if (!state.frame) {
-      state.frame = requestAnimationFrame(() => animateSmoothZoom(el));
-    }
-  };
-
-  const beginPan = (event) => {
-    const el = viewerRef.current;
-    if (!el || !isImageMode || event.button !== 0) return;
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-      zoomAnimationRef.current.frame = 0;
-    }
-    dragRef.current = {
-      active: true,
-      x: event.clientX,
-      y: event.clientY,
-      left: el.scrollLeft,
-      top: el.scrollTop,
-    };
-  };
-
-  const pan = (event) => {
-    const el = viewerRef.current;
-    if (!el || !dragRef.current.active) return;
-    event.preventDefault();
-    el.scrollLeft = dragRef.current.left - (event.clientX - dragRef.current.x);
-    el.scrollTop = dragRef.current.top - (event.clientY - dragRef.current.y);
-  };
-
-  const endPan = () => {
-    dragRef.current.active = false;
-  };
-
-  const touchDistance = (touches) => {
-    if (!touches || touches.length < 2) return 0;
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(dx, dy);
-  };
-
-  const handleViewerTouchStart = (event) => {
-    const el = viewerRef.current;
-    if (!el || !isImageMode) return;
-    dragRef.current.active = false;
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-      zoomAnimationRef.current.frame = 0;
-    }
-    if (event.touches.length === 2) {
-      event.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-      const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-      const currentZoom = zoomRef.current || zoom;
-      touchRef.current = {
-        mode: "pinch",
-        distance: touchDistance(event.touches),
-        zoom: currentZoom,
-        x: 0,
-        y: 0,
-        left: el.scrollLeft,
-        top: el.scrollTop,
-        centerX,
-        centerY,
-        imageX: (el.scrollLeft + centerX) / currentZoom,
-        imageY: (el.scrollTop + centerY) / currentZoom,
-      };
-      return;
-    }
-    if (event.touches.length === 1) {
-      const touch = event.touches[0];
-      touchRef.current = {
-        mode: "pan",
-        distance: 0,
-        zoom: zoomRef.current || zoom,
-        x: touch.clientX,
-        y: touch.clientY,
-        left: el.scrollLeft,
-        top: el.scrollTop,
-        centerX: 0,
-        centerY: 0,
-        imageX: 0,
-        imageY: 0,
-      };
-    }
-  };
-
-  const handleViewerTouchMove = (event) => {
-    const el = viewerRef.current;
-    if (!el || !isImageMode) return;
-    if (event.touches.length === 2) {
-      event.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const currentDistance = touchDistance(event.touches);
-      if (touchRef.current.mode !== "pinch" || !touchRef.current.distance) {
-        const currentZoom = zoomRef.current || zoom;
-        const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-        const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-        touchRef.current = {
-          mode: "pinch",
-          distance: currentDistance,
-          zoom: currentZoom,
-          x: 0,
-          y: 0,
-          left: el.scrollLeft,
-          top: el.scrollTop,
-          centerX,
-          centerY,
-          imageX: (el.scrollLeft + centerX) / currentZoom,
-          imageY: (el.scrollTop + centerY) / currentZoom,
-        };
-        return;
-      }
-      const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-      const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-      const nextZoom = clampZoom(touchRef.current.zoom * (currentDistance / touchRef.current.distance));
-      zoomRef.current = nextZoom;
-      setZoom(nextZoom);
-      requestAnimationFrame(() => {
-        el.scrollLeft = touchRef.current.imageX * nextZoom - centerX;
-        el.scrollTop = touchRef.current.imageY * nextZoom - centerY;
-      });
-      return;
-    }
-    if (event.touches.length === 1 && touchRef.current.mode === "pan") {
-      event.preventDefault();
-      const touch = event.touches[0];
-      el.scrollLeft = touchRef.current.left - (touch.clientX - touchRef.current.x);
-      el.scrollTop = touchRef.current.top - (touch.clientY - touchRef.current.y);
-    }
-  };
-
-  const handleViewerTouchEnd = (event) => {
-    const el = viewerRef.current;
-    if (!el) return;
-    if (event.touches && event.touches.length === 1) {
-      const touch = event.touches[0];
-      touchRef.current = {
-        mode: "pan",
-        distance: 0,
-        zoom: zoomRef.current || zoom,
-        x: touch.clientX,
-        y: touch.clientY,
-        left: el.scrollLeft,
-        top: el.scrollTop,
-        centerX: 0,
-        centerY: 0,
-        imageX: 0,
-        imageY: 0,
-      };
-      return;
-    }
-    touchRef.current.mode = null;
-    touchRef.current.distance = 0;
-  };
-
-  const handleViewerWheel = (event) => {
-    const el = viewerRef.current;
-    if (!el || !isImageMode) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.nativeEvent?.stopImmediatePropagation) event.nativeEvent.stopImmediatePropagation();
-    const rect = el.getBoundingClientRect();
-    const cursorX = event.clientX - rect.left;
-    const cursorY = event.clientY - rect.top;
-    const currentZoom = zoomRef.current || zoom;
-    const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-    const rawFactor = Math.exp(-normalizedDelta * 0.00075);
-    const scaleFactor = Math.max(0.925, Math.min(1.085, rawFactor));
-    smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
-  };
-
-  useEffect(() => {
-    const el = viewerRef.current;
-    if (!el || !isImageMode) return undefined;
-    const onNativeWheel = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = el.getBoundingClientRect();
-      const cursorX = event.clientX - rect.left;
-      const cursorY = event.clientY - rect.top;
-      const currentZoom = zoomRef.current || zoom;
-      const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-      const rawFactor = Math.exp(-normalizedDelta * 0.00075);
-      const scaleFactor = Math.max(0.925, Math.min(1.085, rawFactor));
-      smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
-    };
-    el.addEventListener("wheel", onNativeWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onNativeWheel);
-  }, [isImageMode]);
-
-  const zoomIn = () => {
-    const el = viewerRef.current;
-    if (!el) return;
-    smoothZoomAtPoint(el, (zoomRef.current || zoom) * 1.45, el.clientWidth / 2, el.clientHeight / 2);
-  };
-  const zoomOut = () => {
-    const el = viewerRef.current;
-    if (!el) return;
-    smoothZoomAtPoint(el, (zoomRef.current || zoom) / 1.45, el.clientWidth / 2, el.clientHeight / 2);
-  };
-  const resetView = () => {
-    zoomRef.current = 1;
-    setZoom(1);
-    requestAnimationFrame(() => {
-      const el = viewerRef.current;
-      if (el) {
-        el.scrollLeft = 0;
-        el.scrollTop = 0;
-      }
-    });
-  };
-
-  const modeTabClass = (id) =>
-    `flex min-h-[36px] flex-1 items-center justify-center gap-1.5 border border-white/10 px-2 py-1.5 text-xs font-semibold tracking-wide transition duration-200 sm:min-h-[42px] sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
-      mode === id
-        ? "bg-[#5A4939]/92 text-[#f4dfb9] shadow-[inset_0_0_0_1px_rgba(216,177,117,0.35),0_0_32px_rgba(216,177,117,0.12)]"
-        : "bg-black/28 text-white/66 hover:bg-white/[0.065] hover:text-white"
-    }`;
-
-  const layerButtonClass = (active) =>
-    `min-h-[42px] rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-      active
-        ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-        : "border-white/10 bg-white/[0.035] text-white/70 hover:bg-white/[0.075] hover:text-white"
-    }`;
-
-  const activeLayerSummary = [
-    activeBase.label,
-    showStars ? overlayLayers.stars.label : null,
-    showPelicanOverlay ? overlayLayers.pelican.label : null,
-    showAnnotation ? overlayLayers.annotation.label : null,
-  ].filter(Boolean).join(" + ");
-
-  const metadata = [
-    ["Catalog", "NGC 7000"],
-    ["Region", "Cygnus"],
-    ["Type", "Emission Nebula"],
-    ["Distance", "~2,600 ly"],
-    ["Explorer Data", "401 objects"],
-    ["View", activeLayerSummary],
-  ];
-
-  const projectSummary = [
-    ["Object", "North America Nebula (NGC 7000)"],
-    ["Designation", "NGC 7000"],
-    ["Type", "Emission Nebula"],
-    ["Constellation", "Cygnus"],
-    ["Dataset", "RGB + C2 S-II/O-III"],
-    ["First Light", "2024-08-26"],
-    ["Last Light", "2026-06-19"],
-    ["Nights Captured", "6"],
-    ["Total FIT Lights", "227"],
-    ["Total Integration", "18h 28m"],
-  ];
-
-  const captureEquipment = [
-    ["Telescope", "William Optics RedCat 51"],
-    ["Mounts", "RGB: Sky-Watcher EQ6-R Pro · C2: Sky-Watcher EQM-35 Pro"],
-    ["Camera", "ZWO ASI294MC Pro"],
-    ["Filters", "RGB: none / OSC RGB · C2: Askar Colour Magic C2 Duo-Band S-II / O-III, 2-inch narrowband"],
-    ["Capture Software", "ASIAIR"],
-    ["Binning", "1×1"],
-    ["Gain", "125"],
-    ["Exposure", "180s RGB / 600s C2"],
-  ];
-
-  const locationSky = [
-    ["Site", "Peoria Heights, Illinois"],
-    ["Site Type", "Backyard"],
-    ["Bortle Class", "6"],
-    ["SQM", "19.16 mag/arcsec²"],
-    ["Elevation", "212 m"],
-  ];
-
-  const processingFiles = [
-    ["Processing Software", "PixInsight, GIMP"],
-    ["Working Files", "North America Nebula.pxi project · North America Nebula.xcf"],
-    ["Calibration", "Darks + Flats (master)"],
-    ["Status", "Final"],
-    ["Processed", "June 2026"],
-    ["Image Version", "Template v1.0"],
-  ];
-
-  const datasetRows = [
-    ["RGB Night 1", "2026-06-16 to 2026-06-17", "12", "180s", "0h 36m", "No filter / EQ6-R Pro"],
-    ["RGB Night 2", "2026-06-17 to 2026-06-18", "95", "180s", "4h 45m", "No filter / EQ6-R Pro"],
-    ["RGB Night 3", "2026-06-18 to 2026-06-19", "59", "180s", "2h 57m", "No filter / EQ6-R Pro"],
-    ["C2 Night 1", "2024-08-26 to 2024-08-27", "24", "600s", "4h 00m", "C2 S-II / O-III / EQM-35 Pro"],
-    ["C2 Night 2", "2024-08-29 to 2024-08-30", "15", "600s", "2h 30m", "C2 S-II / O-III / EQM-35 Pro"],
-    ["C2 Night 3", "2024-09-01 to 2024-09-02", "22", "600s", "3h 40m", "C2 S-II / O-III / EQM-35 Pro"],
-  ];
-
-  const datasetTotals = [
-    ["RGB Total", "166 FIT lights · 8h 18m"],
-    ["C2 Total", "61 FIT lights · 10h 10m"],
-    ["Project Total", "227 FIT lights · 18h 28m"],
-  ];
-
-  return (
-    <section className="mx-auto max-w-[1700px] px-0 py-0 sm:px-4 sm:py-2 lg:px-5">
-      <div className="mb-1.5 hidden flex-wrap items-center justify-between gap-2 sm:flex">
-        <button
-          type="button"
-          onClick={() => navigate("/gallery")}
-          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/75 hover:bg-white/[0.08]"
-        >
-          <ChevronLeft className="h-4 w-4" /> Gallery
-        </button>
-        <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6b5745]">
-          View on AstroBin <ExternalLink className="h-4 w-4" />
-        </a>
-      </div>
-
-      <div className="overflow-hidden border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] shadow-[0_28px_100px_rgba(0,0,0,0.44)] sm:rounded-[28px]">
-        <div className="hidden border-b border-white/10 bg-black/48 px-4 py-1.5 backdrop-blur sm:block lg:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#e9d8bc]/80">
-                <Compass className="h-3.5 w-3.5" /> Interactive Image Explorer
-              </div>
-              <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-white lg:text-2xl">NGC 7000 — North American Nebula</h1>
-            </div>
-            <div className="max-w-[620px] truncate rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-white/62">
-              {mode === "image" ? activeLayerSummary : mode === "objects" ? "Interactive Object Explorer" : "4D AstroDepth Map"}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-white/10 bg-black/58 px-2 py-1.5 sm:bg-black/30 sm:px-4 sm:py-1.5">
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div className="grid grid-cols-1 sm:grid-cols-3">
-              <button type="button" onClick={() => setMode("image")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
-              <button type="button" onClick={() => setMode("objects")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
-              <button type="button" onClick={() => setMode("depth")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
-            </div>
-          </div>
-        </div>
-
-        {isImageMode ? (
-          <div className="bg-black">
-            <div className="relative min-h-[calc(100svh-88px)] overflow-hidden bg-black sm:min-h-[calc(100vh-146px)] lg:min-h-[calc(100vh-130px)]">
-              <div className="pointer-events-none absolute left-2 right-2 top-2 z-30 flex justify-center sm:left-5 sm:right-5 sm:top-3">
-                <div className="pointer-events-auto max-w-full rounded-full border border-white/12 bg-black/68 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:rounded-2xl sm:bg-black/62 sm:p-2.5">
-                  <div className="flex flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:flex-wrap sm:gap-2">
-                    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/35 p-1">
-                      {Object.entries(baseLayers).map(([id, layer]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => { clearMissing(id); setBaseLayer(id); }}
-                          className={`min-h-[30px] rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:text-xs ${
-                            baseLayer === id
-                              ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white"
-                              : "border-transparent bg-transparent text-white/58 hover:bg-white/[0.08] hover:text-white"
-                          }`}
-                        >
-                          {layer.shortLabel}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("stars"); setShowStars((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showStars
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showStars ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showStars ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Stars
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showPelicanOverlay
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showPelicanOverlay ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showPelicanOverlay ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Pelican Overlay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showAnnotation
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showAnnotation ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showAnnotation ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Annotation
-                    </button>
-                    <div className="ml-0 hidden items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 sm:ml-2 sm:flex">
-                      <button type="button" onClick={zoomOut} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">−</button>
-                      <div className="min-w-12 text-center text-xs font-semibold text-white/72">{Math.round(zoom * 100)}%</div>
-                      <button type="button" onClick={zoomIn} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">+</button>
-                      <button type="button" onClick={resetView} className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/72 hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
-                    </div>
-                  </div>
-                  <div className="hidden mt-2 text-center text-[11px] text-white/45 sm:hidden">Pinch or scroll to zoom • Drag to pan • High-res layers</div>
-                </div>
-              </div>
-              <div
-                ref={viewerRef}
-                className="h-[calc(100svh-104px)] cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh]"
-                onMouseDown={beginPan}
-                onMouseMove={pan}
-                onMouseUp={endPan}
-                onMouseLeave={endPan}
-                onTouchStart={handleViewerTouchStart}
-                onTouchMove={handleViewerTouchMove}
-                onTouchEnd={handleViewerTouchEnd}
-                onTouchCancel={handleViewerTouchEnd}
-                style={{ touchAction: "none", overscrollBehavior: "none", overscrollBehaviorY: "contain", overscrollBehaviorX: "contain" }}
-              >
-                <div style={{ width: `${100 * zoom}%`, maxWidth: "none", willChange: "width" }} className="relative inline-block min-w-full select-none align-top">
-                  {missingLayers[baseLayer] ? (
-                    <div className="flex h-[520px] min-w-[720px] items-center justify-center p-8 text-center">
-                      <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">
-                        <div className="text-lg font-semibold">{activeBase.label} could not be loaded</div>
-                        <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBase.src} exists in the gallery image folder.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <img
-                      src={activeBase.src}
-                      alt={`North American Nebula ${activeBase.label}`}
-                      draggable="false"
-                      decoding="async"
-                      loading="eager"
-                      fetchPriority="high"
-                      onLoad={() => clearMissing(baseLayer)}
-                      onError={() => markMissing(baseLayer)}
-                      className="block w-full select-none"
-                    />
-                  )}
-                  {showStars && !missingLayers.stars && (
-                    <img
-                      src={overlayLayers.stars.src}
-                      alt="North American Nebula stars-only overlay"
-                      draggable="false"
-                      decoding="async"
-                      loading="lazy"
-                      onLoad={() => clearMissing("stars")}
-                      onError={() => markMissing("stars")}
-                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
-                      style={{ mixBlendMode: "screen" }}
-                    />
-                  )}
-                  {showPelicanOverlay && !missingLayers.pelican && (
-                    <>
-                      <img
-                        src={overlayLayers.pelican.src}
-                        alt="North American Nebula Pelican overlay"
-                        draggable="false"
-                        decoding="async"
-                        loading="lazy"
-                        onLoad={() => clearMissing("pelican")}
-                        onError={() => markMissing("pelican")}
-                        className="pointer-events-none absolute inset-0 block h-full w-full select-none"
-                      />
-                    </>
-                  )}
-                  {showAnnotation && !missingLayers.annotation && (
-                    <img
-                      src={overlayLayers.annotation.src}
-                      alt="North American Nebula annotation overlay"
-                      draggable="false"
-                      decoding="async"
-                      loading="lazy"
-                      onLoad={() => clearMissing("annotation")}
-                      onError={() => markMissing("annotation")}
-                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="hidden border-t border-white/10 bg-black/45 px-5 py-4 sm:block sm:px-8">
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/65">
-                <div><span className="text-white/40">Viewing:</span> <span className="font-semibold text-white/86">{activeLayerSummary}</span></div>
-                <div className="flex flex-wrap gap-2 text-xs text-white/50">
-                  {metadata.slice(0, 5).map(([label, value]) => (
-                    <span key={label} className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5"><span className="text-white/35">{label}:</span> {value}</span>
-                  ))}
-                </div>
-                <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/70 px-4 py-2 text-xs font-semibold text-white hover:bg-[#6b5745]">
-                  AstroBin <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-              {(missingLayers.annotation || missingLayers[baseLayer] || missingLayers.stars || missingLayers.pelican) && (
-                <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-100/80">
-                  One or more layer files could not be loaded. Re-merge the public folder from this patch into your site.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : mode === "objects" ? (
-          <div className="bg-black">
-            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
-              <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
-              <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
-            </div>
-            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" loading="lazy" className="h-[82vh] w-full border-0" />
-          </div>
-        ) : (
-          <div className="bg-black">
-            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
-              <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
-              <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
-            </div>
-            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" loading="lazy" className="h-[82vh] w-full border-0" />
-          </div>
-        )}
-
-        <div className="border-t border-white/10 bg-black/46 px-4 py-5 sm:px-7 sm:py-6">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
-            <div className="space-y-4">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/20 bg-[#5A4939]/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.20em] text-[#e9d8bc]">
-                  Project Card + Data Log
-                </div>
-                <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">Capture Data & Project Notes</h2>
-                <p className="mt-2 max-w-5xl text-xs leading-6 text-white/62 sm:text-sm">
-                  This project combines modern RGB data with older C2 narrowband data into one aligned North American Nebula dataset. The RGB sessions provide natural broadband star color and dust structure, while the C2 sessions isolate the S-II and O-III signal with the Askar Colour Magic C2 duo-band filter. Together they produce the finished RGB + C2 image, with separate high-resolution layers for comparing the starless bases, full star field, annotation map, and the Pelican Nebula framing overlay.
-                </p>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                {projectSummary.map(([label, value]) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-black/24 p-2.5">
-                    <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#d8b175]/70">{label}</div>
-                    <div className="mt-1 text-xs font-semibold text-white/86 sm:text-sm">{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid gap-3 lg:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Capture / Equipment</h3>
-                  <div className="mt-2 space-y-1.5">
-                    {captureEquipment.map(([label, value]) => (
-                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
-                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Location / Sky</h3>
-                  <div className="mt-2 space-y-1.5">
-                    {locationSky.map(([label, value]) => (
-                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
-                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Processing / Files</h3>
-                  <div className="mt-2 space-y-1.5">
-                    {processingFiles.map(([label, value]) => (
-                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
-                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <a href="/images/project-cards/north-american-nebula-project-card.png" target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-2xl border border-white/12 bg-black/34 shadow-[0_18px_60px_rgba(0,0,0,0.34)] transition duration-300 hover:rotate-0 hover:scale-[1.01] xl:origin-top xl:rotate-[-1deg]">
-              <img src="/images/project-cards/north-american-nebula-project-card.png" alt="NGC 7000 North America Nebula project card" loading="lazy" decoding="async" className="block w-full transition duration-500 group-hover:scale-[1.012]" />
-              <div className="border-t border-white/10 bg-black/55 px-3 py-2 text-[11px] text-white/52">Click to open the full project card.</div>
-            </a>
-          </div>
-
-          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/24">
-            <div className="border-b border-white/10 bg-[#071326]/75 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#d8b175]">Dataset Log</div>
-            <div className="overflow-x-auto">
-              <table className="min-w-[760px] w-full text-left text-xs sm:text-sm">
-                <thead className="bg-black/45 text-[11px] uppercase tracking-[0.16em] text-white/48">
-                  <tr>
-                    <th className="px-3 py-2.5">Session</th>
-                    <th className="px-3 py-2.5">Date Range</th>
-                    <th className="px-3 py-2.5">Lights</th>
-                    <th className="px-3 py-2.5">Exposure</th>
-                    <th className="px-3 py-2.5">Integration</th>
-                    <th className="px-3 py-2.5">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {datasetRows.map(([session, dateRange, lights, exposure, integration, notes]) => (
-                    <tr key={session} className="text-white/72">
-                      <td className="px-3 py-2.5 font-semibold text-white/88">{session}</td>
-                      <td className="px-3 py-2.5">{dateRange}</td>
-                      <td className="px-3 py-2.5">{lights}</td>
-                      <td className="px-3 py-2.5">{exposure}</td>
-                      <td className="px-3 py-2.5">{integration}</td>
-                      <td className="px-3 py-2.5">{notes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            {datasetTotals.map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-[#d8b175]/22 bg-[#5A4939]/26 px-3 py-2.5">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d8b175]/78">{label}</div>
-                <div className="mt-1 text-sm font-semibold text-white/88">{value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-
-      </div>
-    </section>
-  );
-}
-
-
-function GalleryPage({ heroFallback }) {
-  const gallery = useMemo(
-    () => [
-      {
-        title: "North American Nebula",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
-        detailPath: "/gallery/north-american-nebula",
-      },
-      {
-        title: "IC 1396 — Elephant Trunk Nebula",
-        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
-      },
-      {
-        title: "M31 Andromeda Galaxy",
-        src: "/images/gallery/M31-andromeda-galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
-      },
-      {
-        title: "M33 Triangulum Galaxy",
-        src: "/images/gallery/M33-Triangulum-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=s2kavm#gallery",
-      },
-      {
-        title: "M42 Orion Nebula",
-        src: "/images/gallery/M42-orion-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=v04416#gallery",
-      },
-      {
-        title: "M45 Pleiades",
-        src: "/images/gallery/M45-pleiades.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=07i1mm#gallery",
-      },
-      {
-        title: "M3 Star Cluster",
-        src: "/images/gallery/M3-star-cluster.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
-      },
-      {
-        title: "M13 Great Hercules Cluster",
-        src: "/images/gallery/M13.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
-      },
-      {
-        title: "Iris Nebula",
-        src: "/images/gallery/Iris-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
-      },
-      {
-        title: "M104 Sombrero Galaxy",
-        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
-      },
-      {
-        title: "Crescent Nebula",
-        src: "/images/gallery/crescent-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
-      },
-      {
-        title: "Cygnus Loop",
-        src: "/images/gallery/cygnus-loop.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=iuprk1#gallery",
-      },
-      {
-        title: "Eastern Veil Nebula",
-        src: "/images/gallery/eastern-veil-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ckddjp#gallery",
-      },
-      {
-        title: "Flame and Horsehead Nebula",
-        src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
-      },
-      {
-        title: "Pacman Nebula",
-        src: "/images/gallery/pacman-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=0petis#gallery",
-      },
-      {
-        title: "Pelican Nebula",
-        src: "/images/gallery/pelican-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=rfg4iu#gallery",
-      },
-      {
-        title: "Rosette Nebula",
-        src: "/images/gallery/rosette-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ql9o7q#gallery",
-      },
-      {
-        title: "California Nebula",
-        src: "/images/gallery/California-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=kep4o2#gallery",
-      },
-      {
-        title: "Comet C/2023 A3 (Tsuchinshan-ATLAS)",
-        src: "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=gua7l8#gallery",
-      },
-      {
-        title: "Milky Way at Jubilee",
-        src: "/images/gallery/milky-way-at-jubilee.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jomm01#gallery",
-      },
-      {
-        title: "Auroras",
-        src: "/images/gallery/auroras.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7v0n71#gallery",
-      },
-      {
-        title: "Auroras at Jubilee Observatory",
-        src: "/images/gallery/auroras-at-jubilee-observatory.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ro5i8r#gallery",
-      },
-      {
-        title: "Harvest Moon",
-        src: "/images/gallery/harvest-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=3ntchk#gallery",
-      },
-      {
-        title: "Venus and Crescent Moon",
-        src: "/images/gallery/venus-and-crescent-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=nbzfce#gallery",
-      },
-      {
-        title: "Totality",
-        src: "/images/gallery/totality.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jikvvk#gallery",
-      },
-      {
-        title: "Moon",
-        src: "/images/gallery/moon-1.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=52ev9v#gallery",
-      },
-      {
-        title: "Moon Close-Up",
-        src: "/images/gallery/moon-2.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=tecn9s#gallery",
-      },
-    ],
-    []
-  );
-
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
-                <ImageIcon className="h-3.5 w-3.5" />
-                Gallery
-              </div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Featured Astrophotography</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/74 sm:text-base">
-                Explore the dedicated gallery page for deep-sky work, lunar images, aurora captures, and wide-field scenes. Click any image to open its feature page or AstroBin source.
-              </p>
-            </div>
-            <a
-              href="#calendar"
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
-            >
-              <ShoppingBag className="h-4 w-4" />
-              Shop Calendar
-            </a>
-          </div>
-        </div>
-
-        <div className="px-6 py-6 sm:px-8 sm:py-8">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {gallery.map((item) => (
-              <motion.a
-                key={item.title}
-                href={item.detailPath || item.astrobin}
-                target={item.detailPath ? undefined : "_blank"}
-                rel={item.detailPath ? undefined : "noreferrer"}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.35 }}
-                className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-                title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
-              >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <img
-                    src={item.src}
-                    alt={item.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => {
-                      e.currentTarget.src = heroFallback;
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                    <span>{item.title}</span>
-                    {item.detailPath ? (
-                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
-                        Interactive
-                      </span>
-                    ) : null}
-                  </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.a>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LiveTelescopePage({ liveConfig }) {
-  const status = liveConfig?.status || DEFAULT_LIVE_TELESCOPE.status;
-  const projectedNextStream = liveConfig?.projectedNextStream || DEFAULT_LIVE_TELESCOPE.projectedNextStream;
-  const askJakeText = liveConfig?.askJakeText || DEFAULT_LIVE_TELESCOPE.askJakeText;
-  const currentTarget = { ...DEFAULT_LIVE_TELESCOPE.currentTarget, ...(liveConfig?.currentTarget || {}) };
-  const targetInfo = { ...DEFAULT_LIVE_TELESCOPE.targetInfo, ...(liveConfig?.targetInfo || {}) };
-  const skyConditions = { ...DEFAULT_LIVE_TELESCOPE.skyConditions, ...(liveConfig?.skyConditions || {}) };
-  const whereToLook = { ...DEFAULT_LIVE_TELESCOPE.whereToLook, ...(liveConfig?.whereToLook || {}) };
-  const imageProgress = { ...DEFAULT_LIVE_TELESCOPE.imageProgress, ...(liveConfig?.imageProgress || {}) };
-  const equipment = { ...DEFAULT_LIVE_TELESCOPE.equipment, ...(liveConfig?.equipment || {}) };
-
-  const currentTargetVisible = Boolean(currentTarget.name || currentTarget.constellation || currentTarget.objectType || currentTarget.description);
-  const targetInfoVisible = Boolean(targetInfo.title || targetInfo.summary || targetInfo.astrobinUrl);
-  const imageProgressVisible = Boolean(imageProgress.subsCaptured || imageProgress.exposureLength || imageProgress.totalIntegration || imageProgress.currentFilter || imageProgress.guidingStable);
-  const skyVisible = Boolean(skyConditions.cloudCover || skyConditions.transparency || skyConditions.seeing || skyConditions.moonPhase || skyConditions.wind);
-  const whereToLookVisible = Boolean(whereToLook.pointedNear || whereToLook.direction || whereToLook.altitude || whereToLook.constellation || whereToLook.note);
-
-  const displayEquipment = (key) => {
-    const value = equipment?.[key] || "";
-    const customValue = equipment?.[`${key}Custom`] || "";
-    return value === "Other" ? (customValue || "Other") : value;
-  };
-
-  const equipmentItems = [
-    ["Telescope", displayEquipment("telescope")],
-    ["Mount", displayEquipment("mount")],
-    ["Main Camera", displayEquipment("mainCamera")],
-    ["Guide Camera", displayEquipment("guideCamera")],
-    ["Filter", displayEquipment("filter")],
-    ["Software", displayEquipment("software")],
-  ].filter(([, value]) => Boolean(value));
-
-  const skyItems = [
-    ["Cloud cover", skyConditions.cloudCover],
-    ["Transparency", skyConditions.transparency],
-    ["Seeing", skyConditions.seeing],
-    ["Moon phase", skyConditions.moonPhase],
-    ["Wind", skyConditions.wind],
-  ].filter(([, value]) => Boolean(value));
-  const whereToLookItems = [
-    ["Pointed near", whereToLook.pointedNear],
-    ["Direction", whereToLook.direction],
-    ["Altitude", whereToLook.altitude],
-    ["Constellation", whereToLook.constellation],
-  ].filter(([, value]) => Boolean(value));
-
-  const progressItems = [
-    ["Subs captured", imageProgress.subsCaptured],
-    ["Exposure length", imageProgress.exposureLength],
-    ["Total integration", imageProgress.totalIntegration],
-    ["Current filter", imageProgress.currentFilter],
-    ["Guiding", imageProgress.guidingStable],
-  ].filter(([, value]) => Boolean(value));
-
-  let liveVideoId = "";
-  const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  const currentUrl = typeof window !== "undefined" ? window.location.href : "/live-telescope";
-  try {
-    liveVideoId = new URLSearchParams(window.location.search).get("liveVideo") || "";
-  } catch {}
-
-  const liveEmbedSrc = liveVideoId
-    ? `https://www.youtube.com/embed/${liveVideoId}?autoplay=0&mute=0`
-    : YOUTUBE_LIVE_EMBED_URL;
-  const liveChatSrc = liveVideoId
-    ? `https://www.youtube.com/live_chat?v=${liveVideoId}&embed_domain=${host}`
-    : "";
-
-  const statusMeta = {
-    live: {
-      label: "Live now",
-      dot: "bg-emerald-400",
-      shell: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
-      headline: "The telescope is live.",
-      body: "Join the feed, ask questions in chat, and follow tonight’s session in real time.",
-    },
-    startingSoon: {
-      label: "Starting soon",
-      dot: "bg-amber-300",
-      shell: "border-amber-300/25 bg-amber-300/10 text-amber-50",
-      headline: "Starting soon.",
-      body: "I am getting the telescope, capture software, and framing ready for tonight’s stream.",
-    },
-    offline: {
-      label: "Offline",
-      dot: "bg-white/40",
-      shell: "border-white/10 bg-white/5 text-white/80",
-      headline: "Offline right now.",
-      body: "The live page automatically becomes a planning hub between sessions so you can still see the next window, featured content, and support links.",
-    },
-  }[status] || {
-    label: "Offline",
-    dot: "bg-white/40",
-    shell: "border-white/10 bg-white/5 text-white/80",
-    headline: "Offline right now.",
-    body: "The live page automatically becomes a planning hub between sessions.",
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(currentUrl);
-      alert("Live stream page link copied.");
-    } catch {
-      window.prompt("Copy this link:", currentUrl);
-    }
-  };
-
-  const handleShare = async () => {
-    const payload = {
-      title: "Jake Schultz Astrophotography — Live Telescope",
-      text: "Watch the telescope live on Jake Schultz Astrophotography.",
-      url: currentUrl,
-    };
-    try {
-      if (navigator.share) await navigator.share(payload);
-      else await handleCopyLink();
-    } catch {}
-  };
-
-  const heroCard = status === "live" ? (
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-      <div className="aspect-video w-full">
-        <iframe
-          title="Jake Schultz Astrophotography live telescope stream"
-          src={liveEmbedSrc}
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="h-full w-full border-0"
-        />
-      </div>
-    </div>
-  ) : (
-    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(138,180,255,0.18),_transparent_42%),linear-gradient(180deg,rgba(8,12,28,0.95),rgba(5,7,16,0.98))] px-6 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.45)] sm:px-8 sm:py-10">
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, transparent 2px), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.25) 0, transparent 1.5px), radial-gradient(circle at 60% 72%, rgba(255,255,255,0.25) 0, transparent 2px)" }} />
-      <div className="relative">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/75">
-          <Camera className="h-3.5 w-3.5" />
-          {status === "startingSoon" ? "Starting soon screen" : "Offline mode"}
-        </div>
-        <h2 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{statusMeta.headline}</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/74 sm:text-base">{statusMeta.body}</p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Projected next stream</div>
-            <div className="mt-2 text-sm leading-6 text-white/85">{projectedNextStream}</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Featured while offline</div>
-            <div className="mt-2 text-sm leading-6 text-white/85">Browse the gallery, Starcast, and the latest site updates while the scope is down.</div>
-          </div>
-        </div>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
-            <ExternalLink className="h-4 w-4" />
-            Open YouTube Channel
-          </a>
-          <a href="/gallery" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
-            <ImageIcon className="h-4 w-4" />
-            Featured astrophotography
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
-              <Camera className="h-3.5 w-3.5" />
-              Live Telescope
-            </div>
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${statusMeta.shell}`}>
-              <span className={`h-2.5 w-2.5 rounded-full ${statusMeta.dot} ${status === "live" ? "animate-pulse" : ""}`} />
-              {statusMeta.label}
-            </div>
-          </div>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Watch the telescope live.</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-white/70 sm:text-base">
-            Watch live deep-sky imaging sessions, telescope views, and live processing here whenever I’m streaming.
-          </p>
-        </div>
-
-        <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.78fr)]">
-          <div className="space-y-4">
-            {heroCard}
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="text-lg font-semibold text-white">Live chat</div>
-              {liveChatSrc ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
-                  <iframe title="YouTube live chat" src={liveChatSrc} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" className="h-[420px] w-full border-0" />
-                </div>
-              ) : (
-                <p className="mt-3 text-sm leading-7 text-white/74">
-                  Add the current live video ID to the Live Telescope page URL to display chat during a stream.
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-lg font-semibold text-white">Ask Jake</div>
-                    <p className="mt-2 text-sm leading-7 text-white/74">{askJakeText}</p>
-                  </div>
-                  <MessageCircle className="mt-1 h-5 w-5 text-white/55" />
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="text-lg font-semibold text-white">Share this stream</div>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button onClick={handleCopyLink} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
-                    <LinkIcon className="h-4 w-4" />
-                    Copy link
-                  </button>
-                  <button onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </button>
-                  <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
-                    <ExternalLink className="h-4 w-4" />
-                    YouTube
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              {targetInfoVisible ? (
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-lg font-semibold text-white">Target info</div>
-                      {targetInfo.title ? <div className="mt-2 text-sm font-medium text-white">{targetInfo.title}</div> : null}
-                    </div>
-                    <Target className="mt-1 h-5 w-5 text-white/55" />
-                  </div>
-                  {targetInfo.summary ? <p className="mt-3 text-sm leading-7 text-white/74">{targetInfo.summary}</p> : null}
-                  {targetInfo.astrobinUrl ? (
-                    <a href={targetInfo.astrobinUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-cyan-200 hover:text-cyan-100">
-                      <ExternalLink className="h-4 w-4" />
-                      Open related image / AstroBin
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {imageProgressVisible ? (
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                  <div className="text-lg font-semibold text-white">Image progress</div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {progressItems.map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
-                        <div className="mt-1 text-white">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <ObservingConditionsWidget
-              variant="stream"
-              className="border-white/8 bg-white/[0.02]"
-            />
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="text-lg font-semibold text-white">Projected next stream</div>
-              <p className="mt-3 text-sm leading-7 text-white/74">{projectedNextStream}</p>
-            </div>
-
-            {currentTargetVisible ? (
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="text-lg font-semibold text-white">Current target</div>
-                <div className="mt-3 space-y-2 text-sm text-white/74">
-                  {currentTarget.name ? <div><span className="text-white/48">Target:</span> <span className="text-white">{currentTarget.name}</span></div> : null}
-                  {currentTarget.constellation ? <div><span className="text-white/48">Constellation:</span> <span className="text-white">{currentTarget.constellation}</span></div> : null}
-                  {currentTarget.objectType ? <div><span className="text-white/48">Object type:</span> <span className="text-white">{currentTarget.objectType}</span></div> : null}
-                  {currentTarget.description ? <p className="pt-1 leading-7">{currentTarget.description}</p> : null}
-                </div>
-              </div>
-            ) : null}
-
-            {whereToLookVisible ? (
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-lg font-semibold text-white">Where to look in the sky</div>
-                    <p className="mt-2 text-sm leading-7 text-white/68">A quick pointer for where the scope is aimed tonight.</p>
-                  </div>
-                  <Compass className="mt-1 h-5 w-5 text-white/55" />
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {whereToLookItems.map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
-                      <div className="mt-1 text-white">{value}</div>
-                    </div>
-                  ))}
-                </div>
-                {whereToLook.note ? <p className="mt-4 text-sm leading-7 text-white/70">{whereToLook.note}</p> : null}
-              </div>
-            ) : null}
-
-            {skyVisible ? (
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="text-lg font-semibold text-white">Live sky conditions</div>
-                  <Compass className="mt-1 h-5 w-5 text-white/55" />
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {skyItems.map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
-                      <div className="mt-1 text-white">{value}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="text-lg font-semibold text-white">Equipment tonight</div>
-              {equipmentItems.length ? (
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {equipmentItems.map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
-                      <div className="mt-1 text-white">{value}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-lg font-semibold text-white">Support the stream</div>
-                  <p className="mt-2 text-sm leading-7 text-white/74">If you enjoy the live sessions, supporting the prints, calendar, and future member features helps keep the observatory side of the site growing.</p>
-                </div>
-                <ShoppingBag className="mt-1 h-5 w-5 text-white/55" />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a href="/#calendar" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
-                  <ShoppingBag className="h-4 w-4" />
-                  Shop calendar
-                </a>
-                <a href="https://dot.cards/jakeschultzastrophotography" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
-                  <ExternalLink className="h-4 w-4" />
-                  Support Jake
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
+function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   const [orbOpen, setOrbOpen] = useState(false);
   const ORB_ANIMS = ["bloom","bloomSoft","bloomNeon","bloomRipple","bloomGlitch","bloomStardust","bloomOrbit","bloomMagnetic"];
   const isDev = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"));
@@ -7306,7 +4991,7 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 type="button"
                 onClick={() => {
                   setOrbOpen(false);
-                  navigate("/gallery");
+                  goSection("gallery");
                 }}
                 className={`${orbItemBase} bg-white/5`}
               >
@@ -7329,21 +5014,6 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 <div className="min-w-0">
                   <div className="truncate leading-snug">Starcast</div>
                   <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Forecast & best targets</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOrbOpen(false);
-                  navigate("/live-telescope");
-                }}
-                className={`${orbItemBase} ${path === "/live-telescope" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
-              >
-                <Camera className="h-5 w-5 opacity-90 shrink-0" />
-                <div className="min-w-0">
-                  <div className="truncate leading-snug">Live Telescope</div>
-                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Watch live sessions</div>
                 </div>
               </button>
 
@@ -7376,7 +5046,6 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                   <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Free wallpapers</div>
                 </div>
               </button>
-
 
               <a
                 href="https://www.instagram.com/jakeschultzastrophotography"
@@ -7466,8 +5135,8 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               label: "Gallery",
               subtitle: "Deep-sky images",
               icon: ImageIcon,
-              active: path === "/gallery",
-              onClick: () => navigate("/gallery"),
+              active: false,
+              onClick: () => goSection("gallery"),
             },
             {
               key: "starcast",
@@ -7476,14 +5145,6 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               icon: Star,
               active: path === "/starcast" || path === "/astrocast",
               onClick: () => navigate("/starcast"),
-            },
-            {
-              key: "live-telescope",
-              label: "Live Telescope",
-              subtitle: "Watch live sessions",
-              icon: Camera,
-              active: path === "/live-telescope",
-              onClick: () => navigate("/live-telescope"),
             },
             {
               key: "eclipse",
@@ -7527,7 +5188,7 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   );
 }
 
-function AstrophotographySite() {
+export default function AstrophotographySite() {
   useNoHorizontalScroll();
 
   const breakpoint = useBreakpoint();
@@ -7578,61 +5239,21 @@ function AstrophotographySite() {
 
   const { path, navigate } = usePathname();
   
+  // Jake admin routes
+  if (path === "/admin") {
+    return <DashboardHome navigate={navigate} />;
+  }
 
-// Jake-only admin tools (not linked in UI)
-if (path === "/admin") {
-  return (
-    <Suspense fallback={null}>
-      <DashboardHome navigate={navigate} />
-    </Suspense>
-  );
-}
-if (path === "/admin/editor") {
-  return (
-    <Suspense fallback={null}>
-      <AdminDashboard onExit={() => navigate("/admin")} initialTab="canvas" />
-    </Suspense>
-  );
-}
-if (path === "/admin/news") {
-  return (
-    <Suspense fallback={null}>
-      <AdminDashboard onExit={() => navigate("/admin")} initialTab="news" />
-    </Suspense>
-  );
-}
-if (path === "/admin/theme") {
-  return (
-    <Suspense fallback={null}>
-      <AdminDashboard onExit={() => navigate("/admin")} initialTab="theme" />
-    </Suspense>
-  );
-}
-if (path === "/admin/sections") {
-  return (
-    <Suspense fallback={null}>
-      <AdminDashboard onExit={() => navigate("/admin")} initialTab="sections" />
-    </Suspense>
-  );
-}
-if (path === "/admin/persistence") {
-  return (
-    <Suspense fallback={null}>
-      <AdminDashboard onExit={() => navigate("/admin")} initialTab="persistence" />
-    </Suspense>
-  );
-}
-
+  if (path === "/admin/editor") {
+    return <AdminDashboard onExit={() => navigate("/admin")} />;
+  }
 
 const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
-  const onGallery = path === "/gallery";
-  const onImageDetail = path === "/gallery/north-american-nebula";
   const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
   const onStarcast = path === "/starcast";
-  const onLiveTelescope = path === "/live-telescope";
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -7664,7 +5285,7 @@ const onHome = path === "/";
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onGallery || onImageDetail || onPlanetarium || onEclipseGuide || onStarcast || onLiveTelescope) ? (
+            {(onWallpapers || onPlanetarium || onEclipseGuide || onStarcast) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -7722,18 +5343,6 @@ const onHome = path === "/";
             </button>
 
 
-
-            <button
-              type="button"
-              onClick={() => navigate("/live-telescope")}
-              className={`hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 ${
-                onLiveTelescope ? "bg-white/15" : "bg-white/5"
-              }`}
-              title="Live Telescope"
-            >
-              <Camera className="h-4 w-4" />
-              Live Telescope
-            </button>
 
             <button
               type="button"
@@ -7813,49 +5422,16 @@ const onHome = path === "/";
       </header>
 
       <div className="relative">
-        <SiteSideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
+        <SideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
-          ) : onGallery ? (
-            <GalleryPage heroFallback={heroFallback} />
-          ) : onImageDetail ? (
-            <NorthAmericanNebulaPage navigate={navigate} />
           ) : onPlanetarium ? (
             <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
-            <Suspense fallback={null}><Starcast navigate={navigate} embedded /></Suspense>
-          ) : onLiveTelescope ? (
-            <LiveTelescopePage liveConfig={{
-              ...DEFAULT_LIVE_TELESCOPE,
-              ...(siteConfig?.liveTelescope || {}),
-              currentTarget: {
-                ...DEFAULT_LIVE_TELESCOPE.currentTarget,
-                ...(siteConfig?.liveTelescope?.currentTarget || {}),
-              },
-              targetInfo: {
-                ...DEFAULT_LIVE_TELESCOPE.targetInfo,
-                ...(siteConfig?.liveTelescope?.targetInfo || {}),
-              },
-              skyConditions: {
-                ...DEFAULT_LIVE_TELESCOPE.skyConditions,
-                ...(siteConfig?.liveTelescope?.skyConditions || {}),
-              },
-              whereToLook: {
-                ...DEFAULT_LIVE_TELESCOPE.whereToLook,
-                ...(siteConfig?.liveTelescope?.whereToLook || {}),
-              },
-              imageProgress: {
-                ...DEFAULT_LIVE_TELESCOPE.imageProgress,
-                ...(siteConfig?.liveTelescope?.imageProgress || {}),
-              },
-              equipment: {
-                ...DEFAULT_LIVE_TELESCOPE.equipment,
-                ...(siteConfig?.liveTelescope?.equipment || {}),
-              },
-            }} />
+            <Starcast navigate={navigate} embedded />
           ) : (
             <HomePage
               sectionScrollMargin={sectionScrollMargin}
@@ -7863,20 +5439,11 @@ const onHome = path === "/";
               navigate={navigate}
               latestNews={latestNewsOverride}
               sectionEnabled={sectionEnabled}
-              breakpoint={breakpoint}
-              siteConfig={siteConfig}
             />
           )}
         </main>
       </div>
 
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[120] rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-white/65 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
-        {SITE_VERSION}
-      </div>
-
     </div>
   );
 }
-
-export default AstrophotographySite;
-export { AstrophotographySite };

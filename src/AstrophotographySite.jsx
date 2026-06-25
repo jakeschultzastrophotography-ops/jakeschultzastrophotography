@@ -5583,9 +5583,13 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [viewerLocked, setViewerLocked] = useState(false);
   const [missingLayers, setMissingLayers] = useState({});
   const viewerRef = useRef(null);
-  const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, left: 0, top: 0 });
-  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
+  const imageStageRef = useRef(null);
+  const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, viewX: 0, viewY: 0 });
+  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, viewX: 0, viewY: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
   const zoomRef = useRef(1);
+  const viewRef = useRef({ zoom: 1, x: 0, y: 0 });
+  const transformFrameRef = useRef(0);
+  const zoomUiFrameRef = useRef(0);
   const zoomAnimationRef = useRef({ frame: 0, targetZoom: 1, anchorX: 0, anchorY: 0, imageX: 0, imageY: 0 });
 
   const baseLayers = {
@@ -5647,9 +5651,9 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [mode, viewerLocked]);
 
   useEffect(() => () => {
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-    }
+    if (zoomAnimationRef.current.frame) cancelAnimationFrame(zoomAnimationRef.current.frame);
+    if (transformFrameRef.current) cancelAnimationFrame(transformFrameRef.current);
+    if (zoomUiFrameRef.current) cancelAnimationFrame(zoomUiFrameRef.current);
   }, []);
 
   useEffect(() => {
@@ -5702,84 +5706,139 @@ function NorthAmericanNebulaPage({ navigate }) {
     return next;
   });
 
-  const clampZoom = (value) => Math.max(minZoom, Math.min(maxZoom, Number(value.toFixed(3))));
+  const clampZoom = (value) => Math.max(1, Math.min(maxZoom, Number(value.toFixed(4))));
+  const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
-  const applyZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || zoom) => {
+  const constrainView = (nextZoom, nextX, nextY) => {
+    const el = viewerRef.current;
+    const stage = imageStageRef.current;
+    const safeZoom = clampZoom(nextZoom || 1);
+    if (!el || !stage) return { zoom: safeZoom, x: nextX || 0, y: nextY || 0 };
+
+    const viewportW = el.clientWidth || 1;
+    const viewportH = el.clientHeight || 1;
+    const baseW = stage.offsetWidth || viewportW;
+    const baseH = stage.offsetHeight || viewportH;
+    const scaledW = baseW * safeZoom;
+    const scaledH = baseH * safeZoom;
+
+    let x = Number.isFinite(nextX) ? nextX : 0;
+    let y = Number.isFinite(nextY) ? nextY : 0;
+
+    if (scaledW <= viewportW) {
+      x = (viewportW - scaledW) / 2;
+    } else {
+      x = clampValue(x, viewportW - scaledW, 0);
+    }
+
+    if (scaledH <= viewportH) {
+      y = (viewportH - scaledH) / 2;
+    } else {
+      y = clampValue(y, viewportH - scaledH, 0);
+    }
+
+    return { zoom: safeZoom, x, y };
+  };
+
+  const paintView = () => {
+    const stage = imageStageRef.current;
+    transformFrameRef.current = 0;
+    if (!stage) return;
+    const { zoom: nextZoom, x, y } = viewRef.current;
+    stage.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${nextZoom})`;
+  };
+
+  const scheduleZoomUi = () => {
+    if (zoomUiFrameRef.current) return;
+    zoomUiFrameRef.current = requestAnimationFrame(() => {
+      zoomUiFrameRef.current = 0;
+      setZoom(Number((zoomRef.current || 1).toFixed(3)));
+    });
+  };
+
+  const applyView = (nextZoom, nextX, nextY, updateZoomUi = true) => {
+    const constrained = constrainView(nextZoom, nextX, nextY);
+    viewRef.current = constrained;
+    zoomRef.current = constrained.zoom;
+    if (!transformFrameRef.current) {
+      transformFrameRef.current = requestAnimationFrame(paintView);
+    }
+    if (updateZoomUi) scheduleZoomUi();
+  };
+
+  const stopZoomAnimation = () => {
+    if (zoomAnimationRef.current.frame) {
+      cancelAnimationFrame(zoomAnimationRef.current.frame);
+      zoomAnimationRef.current.frame = 0;
+    }
+  };
+
+  const zoomAtPoint = (nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1, immediate = true) => {
     const safeCurrentZoom = currentZoom || 1;
+    const { x, y } = viewRef.current;
+    const imageX = (anchorX - x) / safeCurrentZoom;
+    const imageY = (anchorY - y) / safeCurrentZoom;
     const safeNextZoom = clampZoom(nextZoom);
-    if (Math.abs(safeNextZoom - safeCurrentZoom) < 0.0005) return;
-    const imageX = (el.scrollLeft + anchorX) / safeCurrentZoom;
-    const imageY = (el.scrollTop + anchorY) / safeCurrentZoom;
-    zoomRef.current = safeNextZoom;
-    setZoom(safeNextZoom);
-    requestAnimationFrame(() => {
-      el.scrollLeft = imageX * safeNextZoom - anchorX;
-      el.scrollTop = imageY * safeNextZoom - anchorY;
-    });
+    const nextX = anchorX - imageX * safeNextZoom;
+    const nextY = anchorY - imageY * safeNextZoom;
+    applyView(safeNextZoom, nextX, nextY, true);
   };
 
-  const animateSmoothZoom = (el) => {
+  const animateSmoothZoom = () => {
     const state = zoomAnimationRef.current;
-    const currentZoom = zoomRef.current || zoom;
+    const currentZoom = zoomRef.current || 1;
     const difference = state.targetZoom - currentZoom;
-    const nextZoom = Math.abs(difference) < 0.003 ? state.targetZoom : currentZoom + difference * 0.30;
+    const nextZoom = Math.abs(difference) < 0.004 ? state.targetZoom : currentZoom + difference * 0.34;
+    const nextX = state.anchorX - state.imageX * nextZoom;
+    const nextY = state.anchorY - state.imageY * nextZoom;
+    applyView(nextZoom, nextX, nextY, true);
 
-    zoomRef.current = nextZoom;
-    setZoom(nextZoom);
-
-    requestAnimationFrame(() => {
-      el.scrollLeft = state.imageX * nextZoom - state.anchorX;
-      el.scrollTop = state.imageY * nextZoom - state.anchorY;
-
-      if (Math.abs(state.targetZoom - nextZoom) >= 0.003) {
-        state.frame = requestAnimationFrame(() => animateSmoothZoom(el));
-      } else {
-        state.frame = 0;
-      }
-    });
+    if (Math.abs(state.targetZoom - nextZoom) >= 0.004) {
+      state.frame = requestAnimationFrame(animateSmoothZoom);
+    } else {
+      state.frame = 0;
+    }
   };
 
-  const smoothZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || zoom) => {
+  const smoothZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1) => {
     const safeCurrentZoom = currentZoom || 1;
+    const { x, y } = viewRef.current;
     const safeNextZoom = clampZoom(nextZoom);
     const state = zoomAnimationRef.current;
     state.targetZoom = safeNextZoom;
     state.anchorX = anchorX;
     state.anchorY = anchorY;
-    state.imageX = (el.scrollLeft + anchorX) / safeCurrentZoom;
-    state.imageY = (el.scrollTop + anchorY) / safeCurrentZoom;
+    state.imageX = (anchorX - x) / safeCurrentZoom;
+    state.imageY = (anchorY - y) / safeCurrentZoom;
 
     if (!state.frame) {
-      state.frame = requestAnimationFrame(() => animateSmoothZoom(el));
+      state.frame = requestAnimationFrame(animateSmoothZoom);
     }
   };
 
   const beginPan = (event) => {
     const el = viewerRef.current;
     if (!el || !isImageMode || event.button !== 0) return;
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-      zoomAnimationRef.current.frame = 0;
-    }
+    stopZoomAnimation();
     dragRef.current = {
       active: true,
       moved: false,
       x: event.clientX,
       y: event.clientY,
-      left: el.scrollLeft,
-      top: el.scrollTop,
+      viewX: viewRef.current.x,
+      viewY: viewRef.current.y,
     };
   };
 
   const pan = (event) => {
-    const el = viewerRef.current;
-    if (!el || !dragRef.current.active) return;
+    if (!dragRef.current.active) return;
     event.preventDefault();
-    if (Math.abs(event.clientX - dragRef.current.x) > 4 || Math.abs(event.clientY - dragRef.current.y) > 4) {
+    const dx = event.clientX - dragRef.current.x;
+    const dy = event.clientY - dragRef.current.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       dragRef.current.moved = true;
     }
-    el.scrollLeft = dragRef.current.left - (event.clientX - dragRef.current.x);
-    el.scrollTop = dragRef.current.top - (event.clientY - dragRef.current.y);
+    applyView(zoomRef.current || 1, dragRef.current.viewX + dx, dragRef.current.viewY + dy, false);
   };
 
   const endPan = () => {
@@ -5796,10 +5855,10 @@ function NorthAmericanNebulaPage({ navigate }) {
     const rect = el.getBoundingClientRect();
     const anchorX = event.clientX - rect.left;
     const anchorY = event.clientY - rect.top;
-    const currentZoom = zoomRef.current || zoom || 1;
+    const currentZoom = zoomRef.current || 1;
     setViewerLocked(true);
     if (currentZoom < 1.8) {
-      smoothZoomAtPoint(el, 2.25, anchorX, anchorY, currentZoom);
+      smoothZoomAtPoint(el, 2.15, anchorX, anchorY, currentZoom);
     }
   };
 
@@ -5810,54 +5869,57 @@ function NorthAmericanNebulaPage({ navigate }) {
     return Math.hypot(dx, dy);
   };
 
+  const getTouchCenter = (touches, el) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      x: ((touches[0].clientX + touches[1].clientX) / 2) - rect.left,
+      y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top,
+    };
+  };
+
   const handleViewerTouchStart = (event) => {
     const el = viewerRef.current;
     if (!el || !isImageMode) return;
     dragRef.current.active = false;
-    if (zoomAnimationRef.current.frame) {
-      cancelAnimationFrame(zoomAnimationRef.current.frame);
-      zoomAnimationRef.current.frame = 0;
-    }
+    stopZoomAnimation();
+
     if (!viewerLocked) {
-      touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: zoomRef.current || zoom || 1 };
+      touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: zoomRef.current || 1 };
       return;
     }
+
     if (event.touches.length === 2) {
       event.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-      const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-      const currentZoom = zoomRef.current || zoom;
+      const center = getTouchCenter(event.touches, el);
+      const currentZoom = zoomRef.current || 1;
+      const { x, y } = viewRef.current;
       touchRef.current = {
         mode: "pinch",
         distance: touchDistance(event.touches),
         zoom: currentZoom,
         x: 0,
         y: 0,
-        left: el.scrollLeft,
-        top: el.scrollTop,
-        centerX,
-        centerY,
-        imageX: (el.scrollLeft + centerX) / currentZoom,
-        imageY: (el.scrollTop + centerY) / currentZoom,
+        viewX: x,
+        viewY: y,
+        centerX: center.x,
+        centerY: center.y,
+        imageX: (center.x - x) / currentZoom,
+        imageY: (center.y - y) / currentZoom,
       };
       return;
     }
+
     if (event.touches.length === 1) {
-      const currentZoom = zoomRef.current || zoom;
-      if (currentZoom <= 1.02) {
-        touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: currentZoom };
-        return;
-      }
+      event.preventDefault();
       const touch = event.touches[0];
       touchRef.current = {
         mode: "pan",
         distance: 0,
-        zoom: currentZoom,
+        zoom: zoomRef.current || 1,
         x: touch.clientX,
         y: touch.clientY,
-        left: el.scrollLeft,
-        top: el.scrollTop,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
         centerX: 0,
         centerY: 0,
         imageX: 0,
@@ -5868,60 +5930,43 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const handleViewerTouchMove = (event) => {
     const el = viewerRef.current;
-    if (!el || !isImageMode) return;
-    if (!viewerLocked) return;
+    if (!el || !isImageMode || !viewerLocked) return;
+
     if (event.touches.length === 2) {
       event.preventDefault();
-      const rect = el.getBoundingClientRect();
       const currentDistance = touchDistance(event.touches);
+      const center = getTouchCenter(event.touches, el);
       if (touchRef.current.mode !== "pinch" || !touchRef.current.distance) {
-        const currentZoom = zoomRef.current || zoom;
-        const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-        const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
+        const currentZoom = zoomRef.current || 1;
+        const { x, y } = viewRef.current;
         touchRef.current = {
           mode: "pinch",
           distance: currentDistance,
           zoom: currentZoom,
           x: 0,
           y: 0,
-          left: el.scrollLeft,
-          top: el.scrollTop,
-          centerX,
-          centerY,
-          imageX: (el.scrollLeft + centerX) / currentZoom,
-          imageY: (el.scrollTop + centerY) / currentZoom,
+          viewX: x,
+          viewY: y,
+          centerX: center.x,
+          centerY: center.y,
+          imageX: (center.x - x) / currentZoom,
+          imageY: (center.y - y) / currentZoom,
         };
         return;
       }
-      const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
-      const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-      const currentZoom = zoomRef.current || zoom || 1;
-      const imageX = (el.scrollLeft + centerX) / currentZoom;
-      const imageY = (el.scrollTop + centerY) / currentZoom;
-      const nextZoom = clampZoom(currentZoom * (currentDistance / touchRef.current.distance));
-      zoomRef.current = nextZoom;
-      setZoom(nextZoom);
-      touchRef.current = {
-        ...touchRef.current,
-        distance: currentDistance,
-        zoom: nextZoom,
-        centerX,
-        centerY,
-        imageX,
-        imageY,
-      };
-      requestAnimationFrame(() => {
-        el.scrollLeft = imageX * nextZoom - centerX;
-        el.scrollTop = imageY * nextZoom - centerY;
-      });
+      const nextZoom = clampZoom(touchRef.current.zoom * (currentDistance / touchRef.current.distance));
+      const nextX = center.x - touchRef.current.imageX * nextZoom;
+      const nextY = center.y - touchRef.current.imageY * nextZoom;
+      applyView(nextZoom, nextX, nextY, true);
       return;
     }
+
     if (event.touches.length === 1 && touchRef.current.mode === "pan") {
-      if ((zoomRef.current || zoom) <= 1.02) return;
       event.preventDefault();
       const touch = event.touches[0];
-      el.scrollLeft = touchRef.current.left - (touch.clientX - touchRef.current.x);
-      el.scrollTop = touchRef.current.top - (touch.clientY - touchRef.current.y);
+      const dx = touch.clientX - touchRef.current.x;
+      const dy = touch.clientY - touchRef.current.y;
+      applyView(zoomRef.current || 1, touchRef.current.viewX + dx, touchRef.current.viewY + dy, false);
     }
   };
 
@@ -5936,13 +5981,13 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (event.touches && event.touches.length === 1) {
       const touch = event.touches[0];
       touchRef.current = {
-        mode: (zoomRef.current || zoom) > 1.02 ? "pan" : "page-scroll",
+        mode: "pan",
         distance: 0,
-        zoom: zoomRef.current || zoom,
+        zoom: zoomRef.current || 1,
         x: touch.clientX,
         y: touch.clientY,
-        left: el.scrollLeft,
-        top: el.scrollTop,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
         centerX: 0,
         centerY: 0,
         imageX: 0,
@@ -5963,10 +6008,10 @@ function NorthAmericanNebulaPage({ navigate }) {
     const rect = el.getBoundingClientRect();
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
-    const currentZoom = zoomRef.current || zoom;
+    const currentZoom = zoomRef.current || 1;
     const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-    const rawFactor = Math.exp(-normalizedDelta * 0.00075);
-    const scaleFactor = Math.max(0.925, Math.min(1.085, rawFactor));
+    const rawFactor = Math.exp(-normalizedDelta * 0.00082);
+    const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
     smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
   };
 
@@ -5979,10 +6024,10 @@ function NorthAmericanNebulaPage({ navigate }) {
       const rect = el.getBoundingClientRect();
       const cursorX = event.clientX - rect.left;
       const cursorY = event.clientY - rect.top;
-      const currentZoom = zoomRef.current || zoom;
+      const currentZoom = zoomRef.current || 1;
       const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-      const rawFactor = Math.exp(-normalizedDelta * 0.00075);
-      const scaleFactor = Math.max(0.925, Math.min(1.085, rawFactor));
+      const rawFactor = Math.exp(-normalizedDelta * 0.00082);
+      const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
       smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
     };
     el.addEventListener("wheel", onNativeWheel, { passive: false });
@@ -5992,24 +6037,21 @@ function NorthAmericanNebulaPage({ navigate }) {
   const zoomIn = () => {
     const el = viewerRef.current;
     if (!el) return;
-    smoothZoomAtPoint(el, (zoomRef.current || zoom) * 1.45, el.clientWidth / 2, el.clientHeight / 2);
+    smoothZoomAtPoint(el, (zoomRef.current || 1) * 1.42, el.clientWidth / 2, el.clientHeight / 2);
   };
   const zoomOut = () => {
     const el = viewerRef.current;
     if (!el) return;
-    smoothZoomAtPoint(el, (zoomRef.current || zoom) / 1.45, el.clientWidth / 2, el.clientHeight / 2);
+    smoothZoomAtPoint(el, (zoomRef.current || 1) / 1.42, el.clientWidth / 2, el.clientHeight / 2);
   };
   const resetView = () => {
     setViewerLocked(false);
+    stopZoomAnimation();
+    viewRef.current = { zoom: 1, x: 0, y: 0 };
     zoomRef.current = 1;
     setZoom(1);
-    requestAnimationFrame(() => {
-      const el = viewerRef.current;
-      if (el) {
-        el.scrollLeft = 0;
-        el.scrollTop = 0;
-      }
-    });
+    const stage = imageStageRef.current;
+    if (stage) stage.style.transform = "translate3d(0px, 0px, 0) scale(1)";
   };
 
   const modeTabClass = (id) =>
@@ -6228,7 +6270,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               )}
               <div
                 ref={viewerRef}
-                className="cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh]"
+                className="cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:h-[88vh]"
                 onMouseDown={beginPan}
                 onMouseMove={pan}
                 onMouseUp={endPan}
@@ -6240,7 +6282,11 @@ function NorthAmericanNebulaPage({ navigate }) {
                 onTouchCancel={handleViewerTouchEnd}
                 style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain" }}
               >
-                <div style={{ width: `${100 * zoom}%`, maxWidth: "none", willChange: "width" }} className="relative inline-block min-w-full select-none align-top">
+                <div
+                  ref={imageStageRef}
+                  style={{ transform: `translate3d(${viewRef.current.x}px, ${viewRef.current.y}px, 0) scale(${zoomRef.current || zoom})`, transformOrigin: "0 0", willChange: "transform" }}
+                  className="relative block w-full min-w-full select-none align-top"
+                >
                   {missingLayers[baseLayer] ? (
                     <div className="flex h-[520px] min-w-[720px] items-center justify-center p-8 text-center">
                       <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">

@@ -5800,11 +5800,16 @@ function NorthAmericanNebulaPage({ navigate }) {
       return;
     }
     if (event.touches.length === 1) {
+      const currentZoom = zoomRef.current || zoom;
+      if (currentZoom <= 1.02) {
+        touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: currentZoom };
+        return;
+      }
       const touch = event.touches[0];
       touchRef.current = {
         mode: "pan",
         distance: 0,
-        zoom: zoomRef.current || zoom,
+        zoom: currentZoom,
         x: touch.clientX,
         y: touch.clientY,
         left: el.scrollLeft,
@@ -5855,6 +5860,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       return;
     }
     if (event.touches.length === 1 && touchRef.current.mode === "pan") {
+      if ((zoomRef.current || zoom) <= 1.02) return;
       event.preventDefault();
       const touch = event.touches[0];
       el.scrollLeft = touchRef.current.left - (touch.clientX - touchRef.current.x);
@@ -5868,7 +5874,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (event.touches && event.touches.length === 1) {
       const touch = event.touches[0];
       touchRef.current = {
-        mode: "pan",
+        mode: (zoomRef.current || zoom) > 1.02 ? "pan" : "page-scroll",
         distance: 0,
         zoom: zoomRef.current || zoom,
         x: touch.clientX,
@@ -6071,7 +6077,7 @@ function NorthAmericanNebulaPage({ navigate }) {
 
         {isImageMode ? (
           <div className="bg-black">
-            <div className="relative min-h-[calc(100svh-88px)] overflow-hidden bg-black sm:min-h-[calc(100vh-146px)] lg:min-h-[calc(100vh-130px)]">
+            <div className="relative overflow-hidden bg-black sm:min-h-[calc(100vh-146px)] lg:min-h-[calc(100vh-130px)]">
               <div className="pointer-events-none absolute left-2 right-2 top-2 z-30 flex justify-center sm:left-5 sm:right-5 sm:top-3">
                 <div className="pointer-events-auto max-w-full rounded-full border border-white/12 bg-black/68 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:rounded-2xl sm:bg-black/62 sm:p-2.5">
                   <div className="flex flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:flex-wrap sm:gap-2">
@@ -6145,7 +6151,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               </div>
               <div
                 ref={viewerRef}
-                className="max-h-[calc(100svh-210px)] cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh] sm:max-h-none"
+                className="cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh]"
                 onMouseDown={beginPan}
                 onMouseMove={pan}
                 onMouseUp={endPan}
@@ -6154,7 +6160,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 onTouchMove={handleViewerTouchMove}
                 onTouchEnd={handleViewerTouchEnd}
                 onTouchCancel={handleViewerTouchEnd}
-                style={{ touchAction: "none", overscrollBehavior: "none", overscrollBehaviorY: "contain", overscrollBehaviorX: "contain" }}
+                style={{ touchAction: zoom > 1.02 ? "none" : "pan-y pinch-zoom", overscrollBehavior: zoom > 1.02 ? "none" : "auto", overscrollBehaviorY: zoom > 1.02 ? "contain" : "auto", overscrollBehaviorX: "contain" }}
               >
                 <div style={{ width: `${100 * zoom}%`, maxWidth: "none", willChange: "width" }} className="relative inline-block min-w-full select-none align-top">
                   {missingLayers[baseLayer] ? (

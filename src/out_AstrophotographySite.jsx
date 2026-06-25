@@ -635,7 +635,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
       },
       {
         title: "North America Nebula",
-        src: "/images/gallery/north-american-nebula.jpg",
+        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
       },
       {

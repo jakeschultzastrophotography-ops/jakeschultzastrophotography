@@ -5850,12 +5850,24 @@ function NorthAmericanNebulaPage({ navigate }) {
       }
       const centerX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
       const centerY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
-      const nextZoom = clampZoom(touchRef.current.zoom * (currentDistance / touchRef.current.distance));
+      const currentZoom = zoomRef.current || zoom || 1;
+      const imageX = (el.scrollLeft + centerX) / currentZoom;
+      const imageY = (el.scrollTop + centerY) / currentZoom;
+      const nextZoom = clampZoom(currentZoom * (currentDistance / touchRef.current.distance));
       zoomRef.current = nextZoom;
       setZoom(nextZoom);
+      touchRef.current = {
+        ...touchRef.current,
+        distance: currentDistance,
+        zoom: nextZoom,
+        centerX,
+        centerY,
+        imageX,
+        imageY,
+      };
       requestAnimationFrame(() => {
-        el.scrollLeft = touchRef.current.imageX * nextZoom - centerX;
-        el.scrollTop = touchRef.current.imageY * nextZoom - centerY;
+        el.scrollLeft = imageX * nextZoom - centerX;
+        el.scrollTop = imageY * nextZoom - centerY;
       });
       return;
     }
@@ -6160,7 +6172,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 onTouchMove={handleViewerTouchMove}
                 onTouchEnd={handleViewerTouchEnd}
                 onTouchCancel={handleViewerTouchEnd}
-                style={{ touchAction: zoom > 1.02 ? "none" : "pan-y pinch-zoom", overscrollBehavior: zoom > 1.02 ? "none" : "auto", overscrollBehaviorY: zoom > 1.02 ? "contain" : "auto", overscrollBehaviorX: "contain" }}
+                style={{ touchAction: zoom > 1.02 ? "none" : "pan-y", overscrollBehavior: zoom > 1.02 ? "none" : "auto", overscrollBehaviorY: zoom > 1.02 ? "contain" : "auto", overscrollBehaviorX: "contain" }}
               >
                 <div style={{ width: `${100 * zoom}%`, maxWidth: "none", willChange: "width" }} className="relative inline-block min-w-full select-none align-top">
                   {missingLayers[baseLayer] ? (

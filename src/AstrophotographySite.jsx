@@ -6145,7 +6145,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               </div>
               <div
                 ref={viewerRef}
-                className="h-[calc(100svh-104px)] cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh]"
+                className="max-h-[calc(100svh-210px)] cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh] sm:max-h-none"
                 onMouseDown={beginPan}
                 onMouseMove={pan}
                 onMouseUp={endPan}

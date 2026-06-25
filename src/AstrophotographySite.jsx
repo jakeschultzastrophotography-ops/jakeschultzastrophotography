@@ -5580,9 +5580,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [showAnnotation, setShowAnnotation] = useState(false);
   const [showPelicanOverlay, setShowPelicanOverlay] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [viewerLocked, setViewerLocked] = useState(false);
   const [missingLayers, setMissingLayers] = useState({});
   const viewerRef = useRef(null);
-  const dragRef = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 });
+  const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, left: 0, top: 0 });
   const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, left: 0, top: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
   const zoomRef = useRef(1);
   const zoomAnimationRef = useRef({ frame: 0, targetZoom: 1, anchorX: 0, anchorY: 0, imageX: 0, imageY: 0 });
@@ -5639,11 +5640,29 @@ function NorthAmericanNebulaPage({ navigate }) {
     zoomRef.current = zoom;
   }, [zoom]);
 
+  useEffect(() => {
+    if (mode !== "image" && viewerLocked) {
+      setViewerLocked(false);
+    }
+  }, [mode, viewerLocked]);
+
   useEffect(() => () => {
     if (zoomAnimationRef.current.frame) {
       cancelAnimationFrame(zoomAnimationRef.current.frame);
     }
   }, []);
+
+  useEffect(() => {
+    if (!viewerLocked) return undefined;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    const previousTouchAction = document.body.style.touchAction;
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overscrollBehavior = previousOverscroll;
+      document.body.style.touchAction = previousTouchAction;
+    };
+  }, [viewerLocked]);
 
   useEffect(() => {
     const preloadUrls = [
@@ -5744,6 +5763,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
     dragRef.current = {
       active: true,
+      moved: false,
       x: event.clientX,
       y: event.clientY,
       left: el.scrollLeft,
@@ -5755,12 +5775,32 @@ function NorthAmericanNebulaPage({ navigate }) {
     const el = viewerRef.current;
     if (!el || !dragRef.current.active) return;
     event.preventDefault();
+    if (Math.abs(event.clientX - dragRef.current.x) > 4 || Math.abs(event.clientY - dragRef.current.y) > 4) {
+      dragRef.current.moved = true;
+    }
     el.scrollLeft = dragRef.current.left - (event.clientX - dragRef.current.x);
     el.scrollTop = dragRef.current.top - (event.clientY - dragRef.current.y);
   };
 
   const endPan = () => {
     dragRef.current.active = false;
+  };
+
+  const handleViewerClick = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const anchorX = event.clientX - rect.left;
+    const anchorY = event.clientY - rect.top;
+    const currentZoom = zoomRef.current || zoom || 1;
+    setViewerLocked(true);
+    if (currentZoom < 1.8) {
+      smoothZoomAtPoint(el, 2.25, anchorX, anchorY, currentZoom);
+    }
   };
 
   const touchDistance = (touches) => {
@@ -5777,6 +5817,10 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (zoomAnimationRef.current.frame) {
       cancelAnimationFrame(zoomAnimationRef.current.frame);
       zoomAnimationRef.current.frame = 0;
+    }
+    if (!viewerLocked) {
+      touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: zoomRef.current || zoom || 1 };
+      return;
     }
     if (event.touches.length === 2) {
       event.preventDefault();
@@ -5825,6 +5869,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const handleViewerTouchMove = (event) => {
     const el = viewerRef.current;
     if (!el || !isImageMode) return;
+    if (!viewerLocked) return;
     if (event.touches.length === 2) {
       event.preventDefault();
       const rect = el.getBoundingClientRect();
@@ -5883,6 +5928,11 @@ function NorthAmericanNebulaPage({ navigate }) {
   const handleViewerTouchEnd = (event) => {
     const el = viewerRef.current;
     if (!el) return;
+    if (!viewerLocked) {
+      touchRef.current.mode = null;
+      touchRef.current.distance = 0;
+      return;
+    }
     if (event.touches && event.touches.length === 1) {
       const touch = event.touches[0];
       touchRef.current = {
@@ -5950,6 +6000,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     smoothZoomAtPoint(el, (zoomRef.current || zoom) / 1.45, el.clientWidth / 2, el.clientHeight / 2);
   };
   const resetView = () => {
+    setViewerLocked(false);
     zoomRef.current = 1;
     setZoom(1);
     requestAnimationFrame(() => {
@@ -6157,10 +6208,24 @@ function NorthAmericanNebulaPage({ navigate }) {
                       <button type="button" onClick={zoomIn} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">+</button>
                       <button type="button" onClick={resetView} className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/72 hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
                     </div>
+                    {viewerLocked && (
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); resetView(); }}
+                        className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-[#d8b175]/45 bg-[#5A4939]/90 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_0_22px_rgba(216,177,117,0.14)] transition hover:bg-[#6b5745] sm:text-xs"
+                      >
+                        Done viewing
+                      </button>
+                    )}
                   </div>
-                  <div className="hidden mt-2 text-center text-[11px] text-white/45 sm:hidden">Pinch or scroll to zoom • Drag to pan • High-res layers</div>
+                  <div className="mt-1 hidden text-center text-[11px] text-white/45 sm:block">Scroll to zoom • Drag to pan • High-res layers</div>
                 </div>
               </div>
+              {!viewerLocked && (
+                <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
+                  Tap image to zoom
+                </div>
+              )}
               <div
                 ref={viewerRef}
                 className="cursor-grab overflow-auto bg-black active:cursor-grabbing sm:h-[88vh]"
@@ -6168,11 +6233,12 @@ function NorthAmericanNebulaPage({ navigate }) {
                 onMouseMove={pan}
                 onMouseUp={endPan}
                 onMouseLeave={endPan}
+                onClick={handleViewerClick}
                 onTouchStart={handleViewerTouchStart}
                 onTouchMove={handleViewerTouchMove}
                 onTouchEnd={handleViewerTouchEnd}
                 onTouchCancel={handleViewerTouchEnd}
-                style={{ touchAction: zoom > 1.02 ? "none" : "pan-y", overscrollBehavior: zoom > 1.02 ? "none" : "auto", overscrollBehaviorY: zoom > 1.02 ? "contain" : "auto", overscrollBehaviorX: "contain" }}
+                style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain" }}
               >
                 <div style={{ width: `${100 * zoom}%`, maxWidth: "none", willChange: "width" }} className="relative inline-block min-w-full select-none align-top">
                   {missingLayers[baseLayer] ? (

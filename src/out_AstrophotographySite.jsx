@@ -5800,8 +5800,6 @@ function NorthAmericanNebulaPage({ navigate }) {
     width: typeof window !== "undefined" ? window.innerWidth : 390,
     height: typeof window !== "undefined" ? window.innerHeight : 800,
   }));
-  const [embeddedToolZoom, setEmbeddedToolZoom] = useState({ objects: 1, depth: 1 });
-  const [embeddedPanMode, setEmbeddedPanMode] = useState(false);
   const transformFrameRef = useRef(0);
   const zoomUiFrameRef = useRef(0);
   const zoomUiTimeoutRef = useRef(0);
@@ -7027,7 +7025,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
   const embeddedInteractiveFrameStyle = {
-    touchAction: "pan-x pan-y pinch-zoom",
+    touchAction: "none",
     overscrollBehavior: "contain",
     WebkitOverflowScrolling: "touch",
   };
@@ -7035,13 +7033,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const mobileEmbeddedFrameHeight = Math.max(420, Math.min(660, (mobileFrameViewport.height || 800) - 382));
   const mobileObjectFrameWidth = 980;
   const mobileDepthFrameWidth = 1180;
-  const mobileObjectFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
-  const mobileDepthFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
-  const mobileObjectFrameScale = mobileObjectFrameBaseScale;
-  const mobileDepthFrameScale = mobileDepthFrameBaseScale;
+  const mobileObjectFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
+  const mobileDepthFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
   const embeddedObjectShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
   const embeddedDepthShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
-  const embeddedMobileFramePointerEvents = "auto";
   const embeddedObjectFrameStyle = {
     ...embeddedInteractiveFrameStyle,
     ...(mobileEmbeddedFrame ? {
@@ -7049,9 +7044,8 @@ function NorthAmericanNebulaPage({ navigate }) {
       maxWidth: "none",
       height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileObjectFrameScale))}px`,
       transform: `scale(${mobileObjectFrameScale})`,
-      transformOrigin: "top left",
+      transformOrigin: "top center",
       flex: "0 0 auto",
-      pointerEvents: embeddedMobileFramePointerEvents,
     } : {}),
   };
   const embeddedDepthFrameStyle = {
@@ -7061,9 +7055,8 @@ function NorthAmericanNebulaPage({ navigate }) {
       maxWidth: "none",
       height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileDepthFrameScale))}px`,
       transform: `scale(${mobileDepthFrameScale})`,
-      transformOrigin: "top left",
+      transformOrigin: "top center",
       flex: "0 0 auto",
-      pointerEvents: embeddedMobileFramePointerEvents,
     } : {}),
   };
 
@@ -7082,24 +7075,19 @@ function NorthAmericanNebulaPage({ navigate }) {
         viewport.setAttribute("name", "viewport");
         frameDocument.head?.appendChild(viewport);
       }
-      viewport.setAttribute(
-        "content",
-        objectExplorer
-          ? "width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
-          : "width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
-      );
+      viewport.setAttribute("content", "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
 
       const html = frameDocument.documentElement;
       const body = frameDocument.body;
       if (html) {
         html.style.overscrollBehavior = "contain";
-        html.style.touchAction = "pan-x pan-y pinch-zoom";
+        html.style.touchAction = "none";
         html.style.margin = "0";
         html.style.background = "#000";
       }
       if (body) {
         body.style.overscrollBehavior = "contain";
-        body.style.touchAction = "pan-x pan-y pinch-zoom";
+        body.style.touchAction = "none";
         body.style.margin = "0";
         body.style.background = "#000";
       }
@@ -7143,7 +7131,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               width: 100% !important;
               max-width: 100% !important;
               overflow-x: hidden !important;
-              touch-action: auto !important;
+              touch-action: none !important;
             }
             canvas, svg, img, video {
               display: block;
@@ -7159,9 +7147,7 @@ function NorthAmericanNebulaPage({ navigate }) {
         style.textContent = `
           @media (max-width: 767px) {
             body {
-              overflow: auto !important;
-              -webkit-overflow-scrolling: touch !important;
-              touch-action: auto !important;
+              overflow: hidden !important;
             }
             main, #root, #app, .app, .container, .wrapper,
             [class*="explorer" i], [class*="viewer" i], [class*="stage" i], [class*="canvas" i], [class*="map" i] {
@@ -7182,9 +7168,7 @@ function NorthAmericanNebulaPage({ navigate }) {
         style.textContent = `
           @media (max-width: 767px) {
             body {
-              overflow: auto !important;
-              -webkit-overflow-scrolling: touch !important;
-              touch-action: pan-x pan-y pinch-zoom !important;
+              overflow: hidden !important;
             }
             main, #root, #app, .app, .container, .wrapper {
               margin-left: auto !important;
@@ -7194,328 +7178,6 @@ function NorthAmericanNebulaPage({ navigate }) {
         `;
         frameDocument.head?.appendChild(style);
       }
-      const installImageOnlyMobileGestures = () => {
-        if (!mobileEmbeddedFrame) return;
-
-        try {
-          if (!frameDocument.getElementById("jake-mobile-image-only-gesture-installer")) {
-            const script = frameDocument.createElement("script");
-            script.id = "jake-mobile-image-only-gesture-installer";
-            script.textContent = `
-              (() => {
-                const badRegionPattern = /(sidebar|side[-_\\s]*panel|details?|drawer|info|metadata|card|catalog|list|table|controls?|toolbar|button|nav|menu|footer|header|legend|caption)/i;
-                const goodRegionPattern = /(image|viewer|stage|map|scene|canvas|viewport|photo|frame|explore)/i;
-                const visualSelector = [
-                  "canvas",
-                  "svg",
-                  "img",
-                  "video",
-                  "[class*=\"image\" i]",
-                  "[class*=\"viewer\" i]",
-                  "[class*=\"stage\" i]",
-                  "[class*=\"map\" i]",
-                  "[class*=\"scene\" i]",
-                  "[class*=\"canvas\" i]",
-                  "[class*=\"viewport\" i]",
-                  "[class*=\"photo\" i]",
-                  "[id*=\"image\" i]",
-                  "[id*=\"viewer\" i]",
-                  "[id*=\"stage\" i]",
-                  "[id*=\"map\" i]",
-                  "[id*=\"scene\" i]",
-                  "[id*=\"canvas\" i]",
-                  "[id*=\"viewport\" i]"
-                ].join(",");
-
-                const descriptor = (element) => {
-                  if (!element) return "";
-                  const className = typeof element.className === "string" ? element.className : (element.className?.baseVal || "");
-                  return [
-                    element.id || "",
-                    className,
-                    element.getAttribute?.("aria-label") || "",
-                    element.getAttribute?.("role") || "",
-                    element.getAttribute?.("data-panel") || ""
-                  ].join(" ");
-                };
-
-                const isVisible = (element) => {
-                  if (!element || element === document.documentElement || element === document.body) return false;
-                  const rect = element.getBoundingClientRect();
-                  if (rect.width < 180 || rect.height < 150) return false;
-                  const style = window.getComputedStyle(element);
-                  return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) !== 0;
-                };
-
-                const isBadRegion = (element) => {
-                  for (let node = element; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
-                    const name = descriptor(node);
-                    if (badRegionPattern.test(name)) return true;
-                  }
-                  return false;
-                };
-
-                const textWeight = (element) => ((element?.innerText || element?.textContent || "").replace(/\\s+/g, " ").trim().length);
-
-                const chooseGestureTarget = () => {
-                  const nodes = Array.from(document.querySelectorAll(visualSelector));
-                  let best = null;
-
-                  nodes.forEach((node) => {
-                    if (!isVisible(node) || isBadRegion(node)) return;
-                    const nodeRect = node.getBoundingClientRect();
-                    let target = node;
-
-                    for (let current = node.parentElement, depth = 0; current && current !== document.body && current !== document.documentElement && depth < 5; current = current.parentElement, depth += 1) {
-                      if (!isVisible(current) || isBadRegion(current)) break;
-                      const currentRect = current.getBoundingClientRect();
-                      const name = descriptor(current);
-                      const text = textWeight(current);
-                      const similarToVisual = currentRect.width >= nodeRect.width * 0.82 && currentRect.height >= nodeRect.height * 0.82;
-                      const notFullPage = currentRect.width <= window.innerWidth * 1.06 && currentRect.height <= window.innerHeight * 1.08;
-                      if (similarToVisual && notFullPage && goodRegionPattern.test(name) && text < 2600) {
-                        target = current;
-                      }
-                    }
-
-                    const rect = target.getBoundingClientRect();
-                    const name = descriptor(target);
-                    const tag = target.tagName || "";
-                    const text = textWeight(target);
-                    if (text > 3800 && !/^(CANVAS|SVG|IMG|VIDEO)$/i.test(tag)) return;
-
-                    let score = rect.width * rect.height;
-                    if (/^(CANVAS|SVG|IMG|VIDEO)$/i.test(tag)) score += 250000;
-                    if (/map|viewer|stage|scene|image|canvas|viewport/i.test(name)) score += 125000;
-                    if (text < 600) score += 35000;
-
-                    if (!best || score > best.score) best = { target, score };
-                  });
-
-                  return best?.target || null;
-                };
-
-                const cleanupPrevious = () => {
-                  if (window.__jakeImagePaneGestureCleanup) {
-                    try { window.__jakeImagePaneGestureCleanup(); } catch (error) {}
-                    window.__jakeImagePaneGestureCleanup = null;
-                  }
-                };
-
-                const install = () => {
-                  const target = chooseGestureTarget();
-                  if (!target) return false;
-
-                  cleanupPrevious();
-
-                  const paneCandidate = target.parentElement && target.parentElement !== document.body ? target.parentElement : target;
-                  const paneName = descriptor(paneCandidate);
-                  const paneText = textWeight(paneCandidate);
-                  const targetTag = target.tagName || "";
-                  let pane = target;
-                  if (paneCandidate && paneCandidate !== target && !isBadRegion(paneCandidate)) {
-                    const parentLooksLikeImagePane = goodRegionPattern.test(paneName) && paneText < 2600;
-                    const parentIsSmallVisualWrapper = /^(CANVAS|SVG|IMG|VIDEO)$/i.test(targetTag) && paneText < 1200 && paneCandidate.children.length <= 8;
-                    if (parentLooksLikeImagePane || parentIsSmallVisualWrapper) pane = paneCandidate;
-                  }
-                  const originalTargetTransform = target.style.transform || "";
-                  const originalTargetTransformOrigin = target.style.transformOrigin || "";
-                  const originalTargetWillChange = target.style.willChange || "";
-                  const originalPaneOverflow = pane.style.overflow || "";
-                  const originalPaneTouchAction = pane.style.touchAction || "";
-                  const originalPaneOverscroll = pane.style.overscrollBehavior || "";
-                  const originalPanePosition = pane.style.position || "";
-
-                  const state = {
-                    scale: 1,
-                    x: 0,
-                    y: 0,
-                    baseWidth: Math.max(1, target.offsetWidth || target.getBoundingClientRect().width),
-                    baseHeight: Math.max(1, target.offsetHeight || target.getBoundingClientRect().height),
-                    pointers: new Map(),
-                    lastCenter: null,
-                    lastDistance: 0,
-                    moved: false
-                  };
-
-                  pane.dataset.jakeImageGesturePane = "true";
-                  target.dataset.jakeImageGestureTarget = "true";
-                  pane.style.overflow = "hidden";
-                  pane.style.touchAction = "none";
-                  pane.style.overscrollBehavior = "contain";
-                  if (!window.getComputedStyle(pane).position || window.getComputedStyle(pane).position === "static") {
-                    pane.style.position = "relative";
-                  }
-                  target.style.transformOrigin = "0 0";
-                  target.style.willChange = "transform";
-
-                  const getPaneRect = () => pane.getBoundingClientRect();
-                  const clamp = () => {
-                    const paneRect = getPaneRect();
-                    const contentW = state.baseWidth * state.scale;
-                    const contentH = state.baseHeight * state.scale;
-                    const minX = Math.min(0, paneRect.width - contentW);
-                    const minY = Math.min(0, paneRect.height - contentH);
-                    state.x = Math.min(0, Math.max(minX, state.x));
-                    state.y = Math.min(0, Math.max(minY, state.y));
-                    if (state.scale <= 1.001) {
-                      state.x = 0;
-                      state.y = 0;
-                    }
-                  };
-
-                  const apply = () => {
-                    clamp();
-                    const base = originalTargetTransform && originalTargetTransform !== "none" ? " " + originalTargetTransform : "";
-                    target.style.transform = "translate3d(" + state.x + "px, " + state.y + "px, 0) scale(" + state.scale + ")" + base;
-                  };
-
-                  const getCenter = () => {
-                    const rect = getPaneRect();
-                    const points = Array.from(state.pointers.values());
-                    const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
-                    return {
-                      x: (sum.x / points.length) - rect.left,
-                      y: (sum.y / points.length) - rect.top,
-                    };
-                  };
-
-                  const getDistance = () => {
-                    const points = Array.from(state.pointers.values());
-                    if (points.length < 2) return 0;
-                    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
-                  };
-
-                  const zoomAt = (nextScale, center) => {
-                    const scale = Math.max(1, Math.min(4.5, nextScale));
-                    const imageX = (center.x - state.x) / state.scale;
-                    const imageY = (center.y - state.y) / state.scale;
-                    state.scale = scale;
-                    state.x = center.x - imageX * state.scale;
-                    state.y = center.y - imageY * state.scale;
-                    apply();
-                  };
-
-                  const onPointerDown = (event) => {
-                    if (event.pointerType === "mouse") return;
-                    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-                    state.lastCenter = getCenter();
-                    state.lastDistance = getDistance();
-                    state.moved = false;
-                    try { pane.setPointerCapture?.(event.pointerId); } catch (error) {}
-                  };
-
-                  const onPointerMove = (event) => {
-                    if (!state.pointers.has(event.pointerId)) return;
-                    event.preventDefault();
-                    const previousCenter = state.lastCenter || getCenter();
-                    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-                    const nextCenter = getCenter();
-                    const dx = nextCenter.x - previousCenter.x;
-                    const dy = nextCenter.y - previousCenter.y;
-                    if (Math.abs(dx) + Math.abs(dy) > 1.5) state.moved = true;
-
-                    if (state.pointers.size >= 2) {
-                      const nextDistance = getDistance();
-                      if (state.lastDistance > 0 && nextDistance > 0) {
-                        zoomAt(state.scale * (nextDistance / state.lastDistance), nextCenter);
-                      }
-                      state.lastDistance = nextDistance;
-                    } else if (state.scale > 1.001) {
-                      state.x += dx;
-                      state.y += dy;
-                      apply();
-                    }
-                    state.lastCenter = nextCenter;
-                  };
-
-                  const onPointerUp = (event) => {
-                    if (state.pointers.has(event.pointerId)) state.pointers.delete(event.pointerId);
-                    state.lastCenter = state.pointers.size ? getCenter() : null;
-                    state.lastDistance = state.pointers.size >= 2 ? getDistance() : 0;
-                    try { pane.releasePointerCapture?.(event.pointerId); } catch (error) {}
-                  };
-
-                  const onDoubleClick = (event) => {
-                    event.preventDefault();
-                    const rect = getPaneRect();
-                    const center = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-                    zoomAt(state.scale > 1.05 ? 1 : 2, center);
-                  };
-
-                  pane.addEventListener("pointerdown", onPointerDown, { passive: false });
-                  pane.addEventListener("pointermove", onPointerMove, { passive: false });
-                  pane.addEventListener("pointerup", onPointerUp, { passive: true });
-                  pane.addEventListener("pointercancel", onPointerUp, { passive: true });
-                  pane.addEventListener("dblclick", onDoubleClick);
-
-                  window.__jakeEmbeddedImagePane = {
-                    zoomIn: () => {
-                      const rect = getPaneRect();
-                      zoomAt(state.scale * 1.35, { x: rect.width / 2, y: rect.height / 2 });
-                    },
-                    zoomOut: () => {
-                      const rect = getPaneRect();
-                      zoomAt(state.scale / 1.35, { x: rect.width / 2, y: rect.height / 2 });
-                    },
-                    reset: () => {
-                      state.scale = 1;
-                      state.x = 0;
-                      state.y = 0;
-                      apply();
-                    }
-                  };
-
-                  window.__jakeImagePaneGestureCleanup = () => {
-                    pane.removeEventListener("pointerdown", onPointerDown);
-                    pane.removeEventListener("pointermove", onPointerMove);
-                    pane.removeEventListener("pointerup", onPointerUp);
-                    pane.removeEventListener("pointercancel", onPointerUp);
-                    pane.removeEventListener("dblclick", onDoubleClick);
-                    target.style.transform = originalTargetTransform;
-                    target.style.transformOrigin = originalTargetTransformOrigin;
-                    target.style.willChange = originalTargetWillChange;
-                    pane.style.overflow = originalPaneOverflow;
-                    pane.style.touchAction = originalPaneTouchAction;
-                    pane.style.overscrollBehavior = originalPaneOverscroll;
-                    pane.style.position = originalPanePosition;
-                    delete pane.dataset.jakeImageGesturePane;
-                    delete target.dataset.jakeImageGestureTarget;
-                  };
-
-                  apply();
-                  return true;
-                };
-
-                window.__jakeInstallImageOnlyGestures = install;
-
-                let attempts = 0;
-                const retryInstall = () => {
-                  attempts += 1;
-                  if (install() || attempts >= 24) return;
-                  window.setTimeout(retryInstall, 250);
-                };
-                retryInstall();
-
-                let resizeTimer = 0;
-                window.addEventListener("resize", () => {
-                  window.clearTimeout(resizeTimer);
-                  resizeTimer = window.setTimeout(() => window.__jakeInstallImageOnlyGestures?.(), 250);
-                }, { passive: true });
-              })();
-            `;
-            (frameDocument.body || frameDocument.documentElement)?.appendChild(script);
-          } else {
-            frameWindow?.__jakeInstallImageOnlyGestures?.();
-          }
-        } catch (gestureError) {
-          // If injection is blocked, the iframe remains usable with its native behavior.
-        }
-      };
-
-      installImageOnlyMobileGestures();
-      window.setTimeout(installImageOnlyMobileGestures, 350);
-      window.setTimeout(installImageOnlyMobileGestures, 1100);
 
       const resetFrameScroll = () => {
         try {
@@ -7533,26 +7195,28 @@ function NorthAmericanNebulaPage({ navigate }) {
         }
       };
 
-      const resetParentScroll = () => {
-        try {
-          const shell = frame.parentElement;
-          if (!shell) return;
-          shell.scrollLeft = 0;
-          shell.scrollTop = 0;
-        } catch (scrollError) {
-          // Ignore shell scroll failures.
-        }
-      };
-
       resetFrameScroll();
-      resetParentScroll();
-      window.setTimeout(() => { resetFrameScroll(); resetParentScroll(); }, 80);
-      window.setTimeout(() => { resetFrameScroll(); resetParentScroll(); }, 300);
+      window.setTimeout(resetFrameScroll, 80);
+      window.setTimeout(resetFrameScroll, 300);
 
-      // Object Explorer and the 4D AstroDepth Map need their own touch gestures
-      // on mobile. Do not install the parent page's pinch/double-tap blockers
-      // inside these embedded tools; the outer document lock is enough to keep
-      // the site page itself from zooming.
+      if (!frameDocument.defaultView?.__jakeMobileGestureLockInstalled) {
+        let lastTouchEnd = 0;
+        const preventFrameBrowserZoom = (frameEvent) => {
+          if (frameEvent.touches?.length > 1) frameEvent.preventDefault();
+        };
+        const preventFrameGesture = (frameEvent) => frameEvent.preventDefault();
+        const preventFrameDoubleTapZoom = (frameEvent) => {
+          const now = Date.now();
+          if (now - lastTouchEnd <= 330) frameEvent.preventDefault();
+          lastTouchEnd = now;
+        };
+
+        frameDocument.addEventListener("touchmove", preventFrameBrowserZoom, { passive: false, capture: true });
+        frameDocument.addEventListener("touchend", preventFrameDoubleTapZoom, { passive: false, capture: true });
+        frameDocument.addEventListener("gesturestart", preventFrameGesture, { passive: false, capture: true });
+        frameDocument.addEventListener("gesturechange", preventFrameGesture, { passive: false, capture: true });
+        if (frameDocument.defaultView) frameDocument.defaultView.__jakeMobileGestureLockInstalled = true;
+      }
     } catch (error) {
       // If the browser treats the iframe as inaccessible, the parent-level
       // touch-action styles still keep the page from zooming.
@@ -7914,7 +7578,6 @@ function NorthAmericanNebulaPage({ navigate }) {
     </button>
   ) : null;
 
-  const renderEmbeddedToolMobileControls = () => null;
 
   const collapsedToolbar = (
     <div className="pointer-events-auto flex w-full items-center gap-2 border-b border-white/12 bg-black/58 px-2 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-4">
@@ -8282,14 +7945,13 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
               <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
             </div>
-            <div className="north-america-embedded-shell relative flex justify-center overflow-auto bg-black" data-embedded-interactive-zone="true" style={embeddedObjectShellStyle}>
-              {renderEmbeddedToolMobileControls("objects")}
+            <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
               <iframe
-                key="north-america-object-explorer-mobile-scroll-2830"
+                key="north-america-object-explorer-mobile-clean-2823"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&scroll=2830&lite=1#top"
+                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&clean=2823#top"
                 loading="eager"
-                scrolling="auto"
+                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedObjectFrameStyle}
@@ -8303,14 +7965,13 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
               <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
             </div>
-            <div className="north-america-embedded-shell relative flex justify-center overflow-auto bg-black text-center" data-embedded-interactive-zone="true" style={embeddedDepthShellStyle}>
-              {renderEmbeddedToolMobileControls("depth")}
+            <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black text-center" style={embeddedDepthShellStyle}>
               <iframe
-                key="north-america-astrodepth-map-mobile-centered-2830"
+                key="north-america-astrodepth-map-mobile-centered-2823"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2830&lite=1#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2823#top"
                 loading="eager"
-                scrolling="auto"
+                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedDepthFrameStyle}

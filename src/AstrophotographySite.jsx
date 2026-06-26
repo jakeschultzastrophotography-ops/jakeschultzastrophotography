@@ -7924,7 +7924,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               <iframe
                 key="north-america-object-explorer-source-2836"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?v=2836#top"
+                src="/interactive/north-american-nebula/object-explorer.html?v=2837#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -7943,7 +7943,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               <iframe
                 key="north-america-astrodepth-map-source-2836"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?v=2836#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?v=2837#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"

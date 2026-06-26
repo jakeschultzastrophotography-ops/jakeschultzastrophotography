@@ -67,7 +67,7 @@ html,body { margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(
   #cards { padding:9px 10px 14px; }
   .card { border-radius:13px;margin-bottom:8px; }
 }
-/* 4DADM IOE v1.4 fix37 warning clean */
+/* 4DADM IOE v1.4 fix38 mobile tap select restore */
 </style>
 </head>
 <body>
@@ -823,19 +823,55 @@ function touchDistance(touches){
   var dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);
 }
+function shouldLetNativeViewerControlHandle(e){
+  return !!(e.target && e.target.closest && e.target.closest('.topbar, #navigator'));
+}
+function objectAtClientPoint(clientX, clientY){
+  var stageRect = imageStage.getBoundingClientRect();
+  var scaleX = stageRect.width / Math.max(data.imageWidth, 1);
+  var scaleY = stageRect.height / Math.max(data.imageHeight, 1);
+  var scale = Math.max(scaleX || 0, scaleY || 0, 0.000001);
+  var imageX = (clientX - stageRect.left) / scale;
+  var imageY = (clientY - stageRect.top) / scale;
+  if (imageX < 0 || imageY < 0 || imageX > data.imageWidth || imageY > data.imageHeight) return null;
+  var best = null;
+  var bestScore = Infinity;
+  currentFilteredObjects().forEach(function(o){
+    var screenRadius = Math.max(18, (Math.max(10, o.radius || 10) * scale));
+    var dx = (o.x - imageX) * scale;
+    var dy = (o.y - imageY) * scale;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= screenRadius && dist < bestScore) {
+      best = o;
+      bestScore = dist;
+    }
+  });
+  return best;
+}
+function maybeSelectObjectFromTap(clientX, clientY){
+  var hit = objectAtClientPoint(clientX, clientY);
+  if (!hit) return false;
+  selectObject(hit.id, true, true);
+  return true;
+}
 viewerWrap.addEventListener('touchstart', function(e){
+  if (shouldLetNativeViewerControlHandle(e)) return;
   if (e.touches.length === 1) {
-    touchState = { mode:'pan', lastX:e.touches[0].clientX, lastY:e.touches[0].clientY };
+    touchState = { mode:'pan', startX:e.touches[0].clientX, startY:e.touches[0].clientY, lastX:e.touches[0].clientX, lastY:e.touches[0].clientY, moved:false };
   } else if (e.touches.length >= 2) {
     var mid = touchMidpoint(e.touches);
-    touchState = { mode:'pinch', lastDistance:touchDistance(e.touches), lastMidX:mid.x, lastMidY:mid.y };
+    touchState = { mode:'pinch', moved:true, lastDistance:touchDistance(e.touches), lastMidX:mid.x, lastMidY:mid.y };
   }
   e.preventDefault();
 }, { passive:false });
 viewerWrap.addEventListener('touchmove', function(e){
+  if (shouldLetNativeViewerControlHandle(e)) return;
   if (!touchState) return;
   if (e.touches.length === 1 && touchState.mode === 'pan') {
     var t = e.touches[0];
+    var dxTotal = t.clientX - touchState.startX;
+    var dyTotal = t.clientY - touchState.startY;
+    if (Math.abs(dxTotal) + Math.abs(dyTotal) > 8) touchState.moved = true;
     view.panX += t.clientX - touchState.lastX;
     view.panY += t.clientY - touchState.lastY;
     touchState.lastX = t.clientX;
@@ -852,14 +888,19 @@ viewerWrap.addEventListener('touchmove', function(e){
       view.panY += mid.y - touchState.lastMidY;
       applyView();
     }
-    touchState = { mode:'pinch', lastDistance:distance, lastMidX:mid.x, lastMidY:mid.y };
+    touchState = { mode:'pinch', moved:true, lastDistance:distance, lastMidX:mid.x, lastMidY:mid.y };
   }
   e.preventDefault();
 }, { passive:false });
 viewerWrap.addEventListener('touchend', function(e){
+  if (shouldLetNativeViewerControlHandle(e)) return;
+  var endedTouch = e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : null;
   if (e.touches.length === 1) {
-    touchState = { mode:'pan', lastX:e.touches[0].clientX, lastY:e.touches[0].clientY };
+    touchState = { mode:'pan', startX:e.touches[0].clientX, startY:e.touches[0].clientY, lastX:e.touches[0].clientX, lastY:e.touches[0].clientY, moved:false };
   } else if (e.touches.length === 0) {
+    if (touchState && touchState.mode === 'pan' && !touchState.moved && endedTouch) {
+      maybeSelectObjectFromTap(endedTouch.clientX, endedTouch.clientY);
+    }
     touchState = null;
   }
   e.preventDefault();

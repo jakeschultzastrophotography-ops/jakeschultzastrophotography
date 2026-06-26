@@ -52,7 +52,21 @@ html,body { margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(
 .badge { display:inline-block;font-size:9px;line-height:1.25;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:999px;margin-bottom:8px;border:1px solid currentColor; }
 .badge.deep { color:var(--warm); } .badge.star { color:var(--star); } .badge.unknown { color:var(--muted); }
 .empty { color:var(--muted);padding:16px;line-height:1.4;font-size:13px; }
-@media (max-width:900px) { .app { grid-template-columns:1fr;grid-template-rows:62vh 38vh; } .side { border-left:none;border-top:1px solid var(--border); } }
+@media (max-width:900px) {
+  .app { grid-template-columns:1fr;grid-template-rows:minmax(0,66vh) minmax(230px,34vh);height:100dvh;max-height:100dvh; }
+  .viewerWrap { height:100%;max-height:none;background:radial-gradient(circle at center,#151821 0%,#05060a 74%); }
+  .side { height:100%;max-height:none;border-left:none;border-top:1px solid var(--border); }
+  .topbar { left:50%;top:10px;width:calc(100% - 20px);max-width:520px;justify-content:center;transform:translateX(-50%);padding:8px 9px;border-radius:16px;background:rgba(0,0,0,.64); }
+  .topbar strong { width:100%;text-align:center;font-size:13px; }
+  .topbar button { padding:7px 9px;font-size:12px;border-radius:999px; }
+  #navigator { right:10px;top:88px;width:116px;max-width:30vw;border-radius:10px;overflow:hidden;opacity:.88; }
+  .hint { left:50%;bottom:10px;width:calc(100% - 20px);max-width:520px;text-align:center;transform:translateX(-50%);font-size:11px;padding:8px 10px;border-radius:14px;background:rgba(0,0,0,.58); }
+  .sideHeader { padding:11px 12px 8px;text-align:center; }
+  .sideHeader h1 { font-size:16px; }
+  .controls { padding:9px 12px;gap:7px; }
+  #cards { padding:9px 10px 14px; }
+  .card { border-radius:13px;margin-bottom:8px; }
+}
 /* 4DADM IOE v1.4 fix37 warning clean */
 </style>
 </head>
@@ -213,6 +227,16 @@ function copyObjectResearchPrompt(objectId){
 function viewportRect(){
   return document.querySelector('.viewerWrap').getBoundingClientRect();
 }
+function isMobileViewport(){
+  return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches);
+}
+function mobileHomePanY(){
+  if (!isMobileViewport()) return 0;
+  var r = viewportRect();
+  // Start the mobile object explorer slightly lower in the viewing window while keeping the full frame
+  // visually centered and clean in the upper image pane.
+  return Math.round(clamp(r.height * 0.08, 28, 58));
+}
 function fitScale(){
   var r = viewportRect();
   return Math.min(r.width / Math.max(data.imageWidth,1), r.height / Math.max(data.imageHeight,1));
@@ -220,13 +244,15 @@ function fitScale(){
 function clampPanForSize(w, h){
   var r = viewportRect();
   if (w <= r.width) {
-    view.panX = 0;
+    var limitXSmall = Math.max(0, (r.width - w) / 2);
+    view.panX = clamp(view.panX, -limitXSmall, limitXSmall);
   } else {
     var limitX = (w - r.width) / 2;
     view.panX = clamp(view.panX, -limitX, limitX);
   }
   if (h <= r.height) {
-    view.panY = 0;
+    var limitYSmall = Math.max(0, (r.height - h) / 2);
+    view.panY = clamp(view.panY, -limitYSmall, limitYSmall);
   } else {
     var limitY = (h - r.height) / 2;
     view.panY = clamp(view.panY, -limitY, limitY);
@@ -251,7 +277,7 @@ function applyView(){
 function home(){
   view.zoom = 1;
   view.panX = 0;
-  view.panY = 0;
+  view.panY = mobileHomePanY();
   applyView();
 }
 function oneToOne(){

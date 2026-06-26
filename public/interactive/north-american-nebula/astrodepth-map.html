@@ -252,6 +252,79 @@ g.updatemenu-button:hover text {
   fill: #000000 !important;
   font-weight: 650 !important;
 }
+
+@media (max-width: 900px) {
+  .plotly-graph-div,
+  .js-plotly-plot {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    overflow: hidden !important;
+  }
+  .astrodepth-sidepanel {
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 16px;
+    width: min(324px, calc(100vw - 28px));
+    min-width: 0;
+    max-width: calc(100vw - 28px);
+    height: 176px;
+    border-radius: 15px;
+    transform: translateX(-50%);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+    overflow: visible;
+  }
+  .astrodepth-panel-content {
+    inset: 0 0 42px 0;
+    padding: 10px 12px 6px 12px;
+    font-size: 11px;
+  }
+  .astrodepth-panel-section h2 {
+    margin-bottom: 8px;
+    font-size: 16px;
+    text-align: center;
+  }
+  .astrodepth-panel-footer {
+    left: 12px;
+    right: 12px;
+    bottom: 8px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .astrodepth-sidepanel-tabs {
+    left: 50%;
+    top: -38px;
+    width: auto;
+    display: flex;
+    gap: 7px;
+    transform: translateX(-50%);
+  }
+  .astrodepth-panel-button {
+    width: 88px;
+    height: 32px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+  .astrodepth-scale-overlay {
+    max-width: calc(100vw - 28px);
+  }
+  .astrodepth-scale-card {
+    padding: 10px 12px 9px 12px;
+    border-radius: 12px;
+  }
+  .astrodepth-scale-title {
+    font-size: 14px;
+  }
+  .astrodepth-scale-subtitle {
+    font-size: 11px;
+  }
+  .astrodepth-scale-caption {
+    font-size: 10px;
+    margin-top: 6px;
+  }
+}
 @media (max-height: 760px) {
   .astrodepth-sidepanel { top: 104px; bottom: 132px; }
   .astrodepth-panel-content { font-size: 12px; }
@@ -714,9 +787,31 @@ html, body { touch-action: none; }
     if (typeof Plotly === 'undefined') { return; }
     const plot = document.querySelector('.plotly-graph-div');
     if (!plot) { return; }
-    const width = Math.max(900, window.innerWidth || document.documentElement.clientWidth || 1200);
-    const height = Math.max(620, window.innerHeight || document.documentElement.clientHeight || 760);
-    return Plotly.relayout(plot, { width: width, height: height }).then(function() {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 760;
+    const isMobile = viewportWidth <= 900;
+    const width = isMobile ? Math.max(360, viewportWidth) : Math.max(900, viewportWidth);
+    const height = isMobile ? Math.max(560, viewportHeight) : Math.max(620, viewportHeight);
+    const layout = { width: width, height: height };
+
+    if (isMobile) {
+      // Mobile framing: center the 4D scene cleanly above the compact info panel.
+      layout['scene.domain.x'] = [0.02, 0.98];
+      layout['scene.domain.y'] = [0.27, 0.96];
+      layout['margin.l'] = 0;
+      layout['margin.r'] = 0;
+      layout['margin.t'] = 56;
+      layout['margin.b'] = 186;
+    } else {
+      layout['scene.domain.x'] = [0.0, 0.735];
+      layout['scene.domain.y'] = [0.12, 1.0];
+      layout['margin.l'] = 150;
+      layout['margin.r'] = 36;
+      layout['margin.t'] = 90;
+      layout['margin.b'] = 145;
+    }
+
+    return Plotly.relayout(plot, layout).then(function() {
       positionScaleOverlay();
     });
   }

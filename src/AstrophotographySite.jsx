@@ -5730,7 +5730,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [openingViewerHeight, setOpeningViewerHeight] = useState(null);
   const [activeControlNote, setActiveControlNote] = useState(null);
   const [baseImageLoading, setBaseImageLoading] = useState(true);
-  const [mobileOptimizedViewer, setMobileOptimizedViewer] = useState(() => isMobileLikeViewport());
+  const [readyBaseDisplaySrc, setReadyBaseDisplaySrc] = useState(null);
+  // Keep the mobile viewer quality-first. Earlier Netlify resizing helped download size,
+  // but it reduced the effective zoom resolution on phones.
+  const [mobileOptimizedViewer, setMobileOptimizedViewer] = useState(false);
   const [mobileImageFallbacks, setMobileImageFallbacks] = useState({});
   const controlNoteTimeoutRef = useRef(0);
   const controlNoteLongPressRef = useRef({ timer: 0, fired: false });
@@ -5845,11 +5848,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const isImageMode = mode === "image";
   const activeBase = baseLayers[baseLayer] || baseLayers.combined;
   const activeBaseSrc = showStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
-  const getResponsiveLayerSrc = (src, width = 2400) =>
-    mobileOptimizedViewer && !mobileImageFallbacks[src] ? getNetlifyOptimizedImageUrl(src, width, 84) : src;
-  const baseDisplaySrc = getResponsiveLayerSrc(activeBaseSrc, 2400);
-  const annotationDisplaySrc = getResponsiveLayerSrc(overlayLayers.annotation.src, 2400);
-  const pelicanDisplaySrc = getResponsiveLayerSrc(overlayLayers.pelican.src, 2400);
+  const getResponsiveLayerSrc = (src) => src;
+  const baseDisplaySrc = activeBaseSrc;
+  const annotationDisplaySrc = overlayLayers.annotation.src;
+  const pelicanDisplaySrc = overlayLayers.pelican.src;
   const masterImageUrls = useMemo(() => [
     "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
     "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
@@ -5931,20 +5933,14 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [viewerLocked]);
 
   useEffect(() => {
-    const updateMobileMode = () => setMobileOptimizedViewer(isMobileLikeViewport());
-    updateMobileMode();
-    window.addEventListener("resize", updateMobileMode);
-    window.addEventListener("orientationchange", updateMobileMode);
-    return () => {
-      window.removeEventListener("resize", updateMobileMode);
-      window.removeEventListener("orientationchange", updateMobileMode);
-    };
+    // Force native image sources on mobile so zooming always reaches the real captured resolution.
+    setMobileOptimizedViewer(false);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const mobileViewer = isMobileLikeViewport();
-    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2).map((src) => getNetlifyOptimizedImageUrl(src, 2400, 84)) : masterImageUrls;
+    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2) : masterImageUrls;
     const cachedImages = urlsToCache.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
@@ -5965,8 +5961,9 @@ function NorthAmericanNebulaPage({ navigate }) {
     const mobileViewer = isMobileLikeViewport();
     const layerSources = Object.values(baseLayers).flatMap((layer) => [layer.src, layer.starSrc]).filter(Boolean);
     const overlaySources = [overlayLayers.annotation.src, overlayLayers.pelican.src].filter(Boolean);
+    const activeLayerSources = [activeBase.src, activeBase.starSrc].filter(Boolean);
     const priorityImages = (mobileViewer
-      ? [...layerSources, ...overlaySources].map((src) => getNetlifyOptimizedImageUrl(src, 2400, 84))
+      ? activeLayerSources
       : [...layerSources, ...overlaySources]
     ).filter(Boolean);
 
@@ -5981,8 +5978,8 @@ function NorthAmericanNebulaPage({ navigate }) {
       }
       return img;
     });
-    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-30);
-  }, [baseDisplaySrc, mobileOptimizedViewer]);
+    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
+  }, [baseLayer, baseDisplaySrc]);
 
   useEffect(() => {
     if (!enableTiledDetail) return undefined;
@@ -6679,18 +6676,14 @@ function NorthAmericanNebulaPage({ navigate }) {
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
   const handleLayerFallbackOrMissing = (src, key) => {
-    const usingOptimizedSrc = mobileOptimizedViewer && !mobileImageFallbacks[src];
-    if (usingOptimizedSrc) {
-      setMobileImageFallbacks((current) => ({ ...current, [src]: true }));
-      return;
-    }
-    if (key === baseLayer) setBaseImageLoading(false);
+    if (key === baseLayer || src === activeBaseSrc) setBaseImageLoading(false);
     markMissing(key);
   };
 
   const handleBaseImageLoad = () => {
     clearMissing(baseLayer);
     loadedLayerSrcsRef.current[baseDisplaySrc] = true;
+    setReadyBaseDisplaySrc(baseDisplaySrc);
     setBaseImageLoading(false);
     paintViewImmediate();
   };
@@ -7168,18 +7161,32 @@ function NorthAmericanNebulaPage({ navigate }) {
                       </div>
                     </div>
                   ) : (
-                    <img
-                      key={`${baseLayer}-${showStars ? "with-stars" : "starless"}-${baseDisplaySrc}`}
-                      src={baseDisplaySrc}
-                      alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
-                      draggable="false"
-                      decoding="async"
-                      loading="eager"
-                      fetchPriority="high"
-                      onLoad={handleBaseImageLoad}
-                      onError={() => handleLayerFallbackOrMissing(activeBaseSrc, baseLayer)}
-                      className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill ${baseImageLoading ? "opacity-0" : "opacity-100"}`}
-                    />
+                    <>
+                      {readyBaseDisplaySrc && readyBaseDisplaySrc !== baseDisplaySrc && baseImageLoading && (
+                        <img
+                          key={`ready-${readyBaseDisplaySrc}`}
+                          src={readyBaseDisplaySrc}
+                          alt=""
+                          aria-hidden="true"
+                          draggable="false"
+                          decoding="async"
+                          loading="eager"
+                          className="pointer-events-none absolute inset-0 block h-full w-full select-none object-fill opacity-100"
+                        />
+                      )}
+                      <img
+                        key={`${baseLayer}-${showStars ? "with-stars" : "starless"}-${baseDisplaySrc}`}
+                        src={baseDisplaySrc}
+                        alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
+                        draggable="false"
+                        decoding="async"
+                        loading="eager"
+                        fetchPriority="high"
+                        onLoad={handleBaseImageLoad}
+                        onError={() => handleLayerFallbackOrMissing(activeBaseSrc, baseLayer)}
+                        className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill ${(baseImageLoading && readyBaseDisplaySrc && readyBaseDisplaySrc !== baseDisplaySrc) ? "opacity-0" : "opacity-100"}`}
+                      />
+                    </>
                   )}
                   {shouldShowHighResolutionTiles && (
                     <div className="pointer-events-none absolute inset-0 z-10 select-none transition-opacity duration-150" aria-hidden="true">
@@ -7248,7 +7255,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 {baseImageLoading && !missingLayers[baseLayer] && (
                   <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
                     <div className="rounded-full border border-[#d8b175]/25 bg-black/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#f2dfbd]/80 shadow-[0_18px_60px_rgba(0,0,0,0.48)] backdrop-blur-md">
-                      Loading image layer
+                      Loading full-resolution layer
                     </div>
                   </div>
                 )}

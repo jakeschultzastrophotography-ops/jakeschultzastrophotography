@@ -74,25 +74,58 @@ function useContainerWidth(ref) {
 }
 
 
-/** Prevent horizontal scrolling (mobile + desktop) without blocking vertical scroll */
+/** Prevent horizontal scrolling (mobile + desktop) and keep mobile zoom behavior predictable. */
 function useNoHorizontalScroll() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
+    const existingViewport = document.querySelector('meta[name="viewport"]');
+    const viewport = existingViewport || document.createElement("meta");
+    const createdViewport = !existingViewport;
+    const previousViewportContent = viewport.getAttribute("content");
 
-    const prevHtml = { maxWidth: html.style.maxWidth, overflowX: html.style.overflowX };
-    const prevBody = { maxWidth: body.style.maxWidth, overflowX: body.style.overflowX };
+    if (createdViewport) {
+      viewport.setAttribute("name", "viewport");
+      document.head.appendChild(viewport);
+    }
+
+    viewport.setAttribute(
+      "content",
+      "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    );
+
+    const prevHtml = {
+      maxWidth: html.style.maxWidth,
+      overflowX: html.style.overflowX,
+      overscrollBehaviorX: html.style.overscrollBehaviorX,
+    };
+    const prevBody = {
+      maxWidth: body.style.maxWidth,
+      overflowX: body.style.overflowX,
+      overscrollBehaviorX: body.style.overscrollBehaviorX,
+    };
 
     html.style.maxWidth = "100vw";
     html.style.overflowX = "hidden";
+    html.style.overscrollBehaviorX = "none";
     body.style.maxWidth = "100vw";
     body.style.overflowX = "hidden";
+    body.style.overscrollBehaviorX = "none";
 
     return () => {
+      if (createdViewport) {
+        viewport.remove();
+      } else if (previousViewportContent == null) {
+        viewport.removeAttribute("content");
+      } else {
+        viewport.setAttribute("content", previousViewportContent);
+      }
       html.style.maxWidth = prevHtml.maxWidth;
       html.style.overflowX = prevHtml.overflowX;
+      html.style.overscrollBehaviorX = prevHtml.overscrollBehaviorX;
       body.style.maxWidth = prevBody.maxWidth;
       body.style.overflowX = prevBody.overflowX;
+      body.style.overscrollBehaviorX = prevBody.overscrollBehaviorX;
     };
   }, []);
 }
@@ -5986,7 +6019,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
 
     if (scaledH <= viewportH) {
-      y = (viewportH - scaledH) / 2;
+      const mobileTopInset = isCoarseMobileViewer() ? 54 : 0;
+      y = isCoarseMobileViewer() ? mobileTopInset : (viewportH - scaledH) / 2;
     } else {
       y = clampValue(y, viewportH - scaledH, 0);
     }
@@ -6095,11 +6129,14 @@ function NorthAmericanNebulaPage({ navigate }) {
         const viewportH = window.innerHeight || document.documentElement.clientHeight || 800;
         const viewportW = window.innerWidth || document.documentElement.clientWidth || el.clientWidth || 1;
         const viewerW = el.clientWidth || viewportW || 1;
+        const mobileViewer = viewportW < 640 || window.matchMedia?.("(pointer: coarse)")?.matches;
         const naturalFitHeight = viewerW * (tileImageHeight / tileImageWidth);
-        const bottomPadding = viewportW < 640 ? 76 : 28;
-        const minHeight = viewportW < 640 ? 235 : 320;
+        const bottomPadding = mobileViewer ? 76 : 28;
+        const minHeight = mobileViewer ? 300 : 320;
         const visibleHeight = Math.max(minHeight, viewportH - rect.top - bottomPadding);
-        const nextHeight = Math.max(minHeight, Math.round(Math.min(naturalFitHeight, visibleHeight)));
+        const mobileControlsInset = mobileViewer ? 64 : 0;
+        const preferredHeight = mobileViewer ? naturalFitHeight + mobileControlsInset : naturalFitHeight;
+        const nextHeight = Math.max(minHeight, Math.round(Math.min(preferredHeight, visibleHeight)));
 
         setOpeningViewerHeight((current) => (Math.abs((current || 0) - nextHeight) > 2 ? nextHeight : current));
 
@@ -6257,6 +6294,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const handleViewerClick = (event) => {
     const el = viewerRef.current;
     if (!el || !isImageMode) return;
+    if (isCoarseMobileViewer()) return;
     if (dragRef.current.moved) {
       dragRef.current.moved = false;
       return;
@@ -6295,10 +6333,13 @@ function NorthAmericanNebulaPage({ navigate }) {
     dragRef.current.active = false;
     stopZoomAnimation();
 
-    if (!viewerLocked) {
+    const captureTouch = shouldCaptureViewerTouch();
+    if (!captureTouch) {
       touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: zoomRef.current || 1 };
       return;
     }
+
+    getFitScale();
 
     if (event.touches.length === 2) {
       event.preventDefault();
@@ -6341,7 +6382,7 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const handleViewerTouchMove = (event) => {
     const el = viewerRef.current;
-    if (!el || !isImageMode || !viewerLocked) return;
+    if (!el || !isImageMode || !shouldCaptureViewerTouch()) return;
 
     if (event.touches.length === 2) {
       event.preventDefault();
@@ -6384,7 +6425,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const handleViewerTouchEnd = (event) => {
     const el = viewerRef.current;
     if (!el) return;
-    if (!viewerLocked) {
+    if (!shouldCaptureViewerTouch()) {
       touchRef.current.mode = null;
       touchRef.current.distance = 0;
       return;
@@ -6534,6 +6575,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const activeToolbarOption = toolbarOptions.find((option) => option.id === viewerControlOption) || toolbarOptions[0];
   const compactBaseLabel = baseLayer === "combined" ? "Mix" : activeBase.shortLabel;
   const controlNotePanelId = "north-america-control-note";
+  const isCoarseMobileViewer = () =>
+    typeof window !== "undefined" &&
+    (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
+  const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
   const showControlNote = (event, id, label) => {
     const text = toolbarNotes[id];
@@ -6916,14 +6961,23 @@ function NorthAmericanNebulaPage({ navigate }) {
               </div>
               {!viewerLocked && (
                 <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
-                  Tap image to zoom
+                  Pinch to zoom · drag to pan
                 </div>
               )}
               <div
                 ref={viewerRef}
-                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[calc(100dvh-260px)] min-h-[420px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
+                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[360px] min-h-[300px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
                 onClick={handleViewerClick}
-                style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" }}
+                style={{
+                  height: !viewerLocked && openingViewerHeight ? `${openingViewerHeight}px` : undefined,
+                  touchAction: viewerLocked || isCoarseMobileViewer() ? "none" : "pan-y",
+                  overscrollBehavior: viewerLocked || isCoarseMobileViewer() ? "none" : "auto",
+                  overscrollBehaviorY: viewerLocked || isCoarseMobileViewer() ? "contain" : "auto",
+                  overscrollBehaviorX: "contain",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitUserDrag: "none",
+                }}
               >
                 <div
                   ref={imageStageRef}

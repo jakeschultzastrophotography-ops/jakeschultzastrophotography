@@ -575,7 +575,7 @@ const NORTH_AMERICAN_NEBULA_INTERACTIVE_NEWS_POST = {
   image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
   href: "/gallery/north-american-nebula",
   external: false,
-  shareHref: "/share/north-american-nebula/",
+  shareHref: "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
   description:
     "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
   cta: "View Interactive Image",
@@ -882,22 +882,49 @@ function ShareBar({ title, shareHref, text }) {
   );
 }
 
-function InteractiveImageShareIcons({ title, shareHref, text }) {
+function InteractiveImageShareIcons({ title, shareHref, text, imageHref }) {
   const [copied, setCopied] = useState(false);
-  const url = useMemo(() => getAbsoluteUrl(shareHref), [shareHref]);
+  const [sharing, setSharing] = useState(false);
+  const url = useMemo(() => getAbsoluteUrl(imageHref || shareHref), [imageHref, shareHref]);
   const shareText = text || title;
+  const nativeShareAvailable = typeof navigator !== "undefined" && !!navigator.share;
 
   const handleNativeShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+
     try {
-      if (navigator.share) {
+      if (nativeShareAvailable) {
+        // Mobile browsers that support Web Share files will share the actual image file.
+        // Others fall back to sharing the direct image URL, not the site share page.
+        if (imageHref && navigator.canShare) {
+          try {
+            const response = await fetch(url, { cache: "force-cache" });
+            const blob = await response.blob();
+            const fileType = blob.type || "image/jpeg";
+            const file = new File([blob], "north-american-nebula.jpg", { type: fileType });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ title, text: shareText, files: [file] });
+              setSharing(false);
+              return;
+            }
+          } catch (e) {
+            // Fall through to direct image URL sharing.
+          }
+        }
+
         await navigator.share({ title, text: shareText, url });
+        setSharing(false);
         return;
       }
     } catch (e) {
+      setSharing(false);
       return;
     }
+
     const ok = await copyToClipboard(url);
     setCopied(ok);
+    setSharing(false);
     if (ok) setTimeout(() => setCopied(false), 1500);
   };
 
@@ -913,17 +940,17 @@ function InteractiveImageShareIcons({ title, shareHref, text }) {
   const iconClass = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/76 transition hover:border-[#d8b175]/35 hover:bg-[#5A4939]/64 hover:text-white";
 
   return (
-    <div className="inline-flex items-center gap-1.5" aria-label="Share this interactive image page">
-      <button type="button" onClick={handleNativeShare} className={iconClass} title={navigator.share ? "Share this image page" : "Copy share link"} aria-label={navigator.share ? "Share this image page" : "Copy share link"}>
+    <div className="inline-flex items-center gap-1.5" aria-label="Share the North American Nebula image">
+      <button type="button" onClick={handleNativeShare} className={iconClass} title={nativeShareAvailable ? "Share image" : "Copy image link"} aria-label={nativeShareAvailable ? "Share image" : "Copy image link"}>
         <Share2 className="h-4 w-4" />
       </button>
-      <a href={fbShareUrl} target="_blank" rel="noreferrer" className={iconClass} title="Share to Facebook" aria-label="Share to Facebook">
+      <a href={fbShareUrl} target="_blank" rel="noreferrer" className={iconClass} title="Share image to Facebook" aria-label="Share image to Facebook">
         <Facebook className="h-4 w-4" />
       </a>
-      <a href={smsShareUrl} className={iconClass} title="Share by text message" aria-label="Share by text message">
+      <a href={smsShareUrl} className={iconClass} title="Share image by text message" aria-label="Share image by text message">
         <MessageCircle className="h-4 w-4" />
       </a>
-      <button type="button" onClick={handleCopy} className={iconClass} title={copied ? "Copied" : "Copy share link"} aria-label={copied ? "Copied" : "Copy share link"}>
+      <button type="button" onClick={handleCopy} className={iconClass} title={copied ? "Copied" : "Copy image link"} aria-label={copied ? "Copied" : "Copy image link"}>
         <LinkIcon className="h-4 w-4" />
       </button>
       {copied && <span className="ml-1 hidden rounded-full border border-[#d8b175]/25 bg-[#5A4939]/58 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.10em] text-[#f3dfbd] sm:inline">Copied</span>}
@@ -5741,6 +5768,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const loadedLayerSrcsRef = useRef({});
   const [missingLayers, setMissingLayers] = useState({});
   const [preloadedTileLayers, setPreloadedTileLayers] = useState({});
+  const [tileLayerFailures, setTileLayerFailures] = useState({});
   const preloadedTileLayersRef = useRef({});
   const viewerRef = useRef(null);
   const imageStageRef = useRef(null);
@@ -5829,7 +5857,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   };
 
   const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=wz2g3f";
-  const sharePageHref = "/share/north-american-nebula/";
+  const sharePageHref = "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg";
   const shareTitle = "NGC 7000 — North American Nebula Interactive Image";
   const shareText = "Explore Jake Schultz Astrophotography's interactive North American Nebula image with high-resolution layers, overlays, and project data.";
   const pelicanAstrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=rfg4iu";
@@ -5858,11 +5886,12 @@ function NorthAmericanNebulaPage({ navigate }) {
   const baseDisplaySrc = activeBaseSrc;
   const annotationDisplaySrc = overlayLayers.annotation.src;
   const pelicanDisplaySrc = overlayLayers.pelican.src;
-  const mobileLowZoomOverviewActive = isImageMode && isMobileLikeViewport() && zoom <= 1.14;
-  const mobileBaseOverviewSrc = getMobileOverviewLayerSrc(activeBaseSrc, 1900, 90);
-  const baseRenderSrc = mobileLowZoomOverviewActive ? mobileBaseOverviewSrc : baseDisplaySrc;
-  const annotationRenderSrc = mobileLowZoomOverviewActive ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 1900, 90) : annotationDisplaySrc;
-  const pelicanRenderSrc = mobileLowZoomOverviewActive ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 1900, 90) : pelicanDisplaySrc;
+  const mobileStableViewerActive = isImageMode && isMobileLikeViewport();
+  const mobileBaseOverviewSrc = getMobileOverviewLayerSrc(activeBaseSrc, 2200, 92);
+  const mobileLowZoomOverviewActive = mobileStableViewerActive;
+  const baseRenderSrc = mobileStableViewerActive ? mobileBaseOverviewSrc : baseDisplaySrc;
+  const annotationRenderSrc = mobileStableViewerActive ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 2200, 92) : annotationDisplaySrc;
+  const pelicanRenderSrc = mobileStableViewerActive ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 2200, 92) : pelicanDisplaySrc;
   const masterImageUrls = useMemo(() => [
     "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
     "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
@@ -5875,9 +5904,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   // Use a native-pixel image stage: the rendered image keeps its true 7887 × 6086 canvas
   // and the viewer scales that native stage down/up, instead of enlarging a viewport-sized raster.
   // This matches the feel of AstroBin/GIMP much more closely for star detail.
-  const enableTiledDetail = false;
-  const tileActivationZoom = 1.04;
-  const shouldShowHighResolutionTiles = enableTiledDetail && isImageMode && !missingLayers[baseLayer] && zoom >= tileActivationZoom && preloadedTileLayers[activeTileLayer];
+  const enableTiledDetail = true;
+  const preloadAllTilesForDetail = false;
+  const tileActivationZoom = 1.08;
+  const shouldShowHighResolutionTiles = enableTiledDetail && isImageMode && !missingLayers[baseLayer] && !tileLayerFailures[activeTileLayer] && zoom >= tileActivationZoom;
   const minZoom = 1;
   const getFitScale = () => {
     const el = viewerRef.current;
@@ -5886,7 +5916,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     const viewportH = el.clientHeight || viewerMetricsRef.current.viewportH || viewportW * (tileImageHeight / tileImageWidth);
     const mobileViewer = isCoarseMobileViewer();
     const widthFitScale = viewportW / tileImageWidth;
-    const fitScale = Math.max(0.0001, mobileViewer ? widthFitScale : Math.min(widthFitScale, viewportH / tileImageHeight));
+    const heightFitScale = viewportH / tileImageHeight;
+    const fitScale = Math.max(0.0001, mobileViewer ? Math.min(widthFitScale, heightFitScale) : Math.min(widthFitScale, heightFitScale));
     fitScaleRef.current = fitScale;
     viewerMetricsRef.current = { viewportW, viewportH, fitScale };
     return fitScale;
@@ -5951,7 +5982,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   useEffect(() => {
     let cancelled = false;
     const mobileViewer = isMobileLikeViewport();
-    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2) : masterImageUrls;
+    const urlsToCache = mobileViewer ? [] : masterImageUrls;
     const cachedImages = urlsToCache.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
@@ -5975,13 +6006,13 @@ function NorthAmericanNebulaPage({ navigate }) {
     const activeLayerSources = [activeBase.src, activeBase.starSrc].filter(Boolean);
     const mobileOverviewSources = mobileViewer
       ? [
-          getMobileOverviewLayerSrc(activeBaseSrc, 1900, 90),
-          showPelicanOverlay ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 1900, 90) : null,
-          showAnnotation ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 1900, 90) : null,
+          getMobileOverviewLayerSrc(activeBaseSrc, 2200, 92),
+          showPelicanOverlay ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 2200, 92) : null,
+          showAnnotation ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 2200, 92) : null,
         ]
       : [];
     const priorityImages = (mobileViewer
-      ? [...mobileOverviewSources, ...activeLayerSources]
+      ? [...mobileOverviewSources]
       : [...layerSources, ...overlaySources]
     ).filter(Boolean);
 
@@ -6000,7 +6031,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [baseLayer, baseDisplaySrc, activeBaseSrc, showPelicanOverlay, showAnnotation, mobileImageFallbacks]);
 
   useEffect(() => {
-    if (!enableTiledDetail) return undefined;
+    if (!enableTiledDetail || !preloadAllTilesForDetail) return undefined;
     let cancelled = false;
     const layerName = activeTileLayer;
     if (preloadedTileLayersRef.current[layerName]) {
@@ -6051,7 +6082,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [activeTileLayer, highResolutionTiles]);
 
   useEffect(() => {
-    if (!enableTiledDetail) return undefined;
+    if (!enableTiledDetail || !preloadAllTilesForDetail) return undefined;
     const alternateStarLayer = `${baseLayer}-${showStars ? "starless" : "with-stars"}`;
     if (preloadedTileLayersRef.current[alternateStarLayer]) return undefined;
 
@@ -6107,7 +6138,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     // Preserve the current pan/zoom position while switching base layers.
     // The viewer should feel like changing layers in an image editor, not resetting the canvas.
     // On mobile, the fully zoomed-out view uses a smaller overview raster so Chrome does not
-    // break the huge 7887px image into missing GPU texture chunks. Full resolution returns as soon
+    // break the huge 7887px image into missing GPU texture chunks. High-resolution tiled detail appears as soon
     // as the viewer is zoomed in enough to inspect detail.
     setBaseImageLoading(!loadedLayerSrcsRef.current[baseRenderSrc]);
   }, [baseDisplaySrc, baseRenderSrc]);
@@ -6139,7 +6170,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
 
     if (scaledH <= viewportH) {
-      y = isCoarseMobileViewer() ? 0 : (viewportH - scaledH) / 2;
+      y = (viewportH - scaledH) / 2;
     } else {
       y = clampValue(y, viewportH - scaledH, 0);
     }
@@ -7334,7 +7365,7 @@ function NorthAmericanNebulaPage({ navigate }) {
           <ChevronLeft className="h-4 w-4" /> Gallery
         </button>
         <div className="flex items-center gap-2">
-          <InteractiveImageShareIcons title={shareTitle} shareHref={sharePageHref} text={shareText} />
+          <InteractiveImageShareIcons title={shareTitle} shareHref={sharePageHref} imageHref={sharePageHref} text={shareText} />
           <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6b5745]">
             View on AstroBin <ExternalLink className="h-4 w-4" />
           </a>
@@ -7456,6 +7487,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                           decoding="async"
                           loading="eager"
                           fetchPriority={zoom >= 2 ? "high" : "auto"}
+                          onError={() => setTileLayerFailures((current) => current[activeTileLayer] ? current : { ...current, [activeTileLayer]: true })}
                           className="absolute block select-none"
                           style={{
                             left: `${(tile.x / tileImageWidth) * 100}%`,

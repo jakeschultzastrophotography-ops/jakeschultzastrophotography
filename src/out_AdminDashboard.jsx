@@ -209,7 +209,7 @@ function makeDefaultConfig() {
         image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
         href: "/gallery/north-american-nebula",
         external: false,
-        shareHref: "/share/north-american-nebula/",
+        shareHref: "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
         description:
           "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
         cta: "View Interactive Image",

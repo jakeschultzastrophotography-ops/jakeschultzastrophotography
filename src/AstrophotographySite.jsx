@@ -5772,6 +5772,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const preloadedTileLayersRef = useRef({});
   const viewerRef = useRef(null);
   const imageStageRef = useRef(null);
+  const mobileCanvasRef = useRef(null);
+  const mobileCanvasImagesRef = useRef({});
+  const mobileCanvasDrawFrameRef = useRef(0);
+  const [mobileCanvasReady, setMobileCanvasReady] = useState(false);
   const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, viewX: 0, viewY: 0 });
   const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, viewX: 0, viewY: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
   const zoomRef = useRef(1);
@@ -5887,11 +5891,14 @@ function NorthAmericanNebulaPage({ navigate }) {
   const annotationDisplaySrc = overlayLayers.annotation.src;
   const pelicanDisplaySrc = overlayLayers.pelican.src;
   const mobileStableViewerActive = isImageMode && isMobileLikeViewport();
+  // Mobile uses a canvas renderer instead of scaled DOM <img> layers.
+  // This avoids Chrome/Android breaking huge astrophotography images into missing GPU chunks.
+  const mobileCanvasViewerActive = mobileStableViewerActive;
   const mobileBaseOverviewSrc = getMobileOverviewLayerSrc(activeBaseSrc, 2200, 92);
-  const mobileLowZoomOverviewActive = mobileStableViewerActive;
-  const baseRenderSrc = mobileStableViewerActive ? mobileBaseOverviewSrc : baseDisplaySrc;
-  const annotationRenderSrc = mobileStableViewerActive ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 2200, 92) : annotationDisplaySrc;
-  const pelicanRenderSrc = mobileStableViewerActive ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 2200, 92) : pelicanDisplaySrc;
+  const mobileLowZoomOverviewActive = false;
+  const baseRenderSrc = baseDisplaySrc;
+  const annotationRenderSrc = annotationDisplaySrc;
+  const pelicanRenderSrc = pelicanDisplaySrc;
   const masterImageUrls = useMemo(() => [
     "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
     "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
@@ -5958,6 +5965,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (transformFrameRef.current) cancelAnimationFrame(transformFrameRef.current);
     if (zoomUiFrameRef.current) cancelAnimationFrame(zoomUiFrameRef.current);
     if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
+    if (mobileCanvasDrawFrameRef.current) cancelAnimationFrame(mobileCanvasDrawFrameRef.current);
     if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
     if (controlNoteLongPressRef.current.timer) window.clearTimeout(controlNoteLongPressRef.current.timer);
   }, []);
@@ -6004,7 +6012,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     const layerSources = Object.values(baseLayers).flatMap((layer) => [layer.src, layer.starSrc]).filter(Boolean);
     const overlaySources = [overlayLayers.annotation.src, overlayLayers.pelican.src].filter(Boolean);
     const activeLayerSources = [activeBase.src, activeBase.starSrc].filter(Boolean);
-    const mobileOverviewSources = mobileViewer
+    const mobileOverviewSources = mobileViewer && !mobileCanvasViewerActive
       ? [
           getMobileOverviewLayerSrc(activeBaseSrc, 2200, 92),
           showPelicanOverlay ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 2200, 92) : null,
@@ -6028,7 +6036,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       return img;
     });
     masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
-  }, [baseLayer, baseDisplaySrc, activeBaseSrc, showPelicanOverlay, showAnnotation, mobileImageFallbacks]);
+  }, [baseLayer, baseDisplaySrc, activeBaseSrc, showPelicanOverlay, showAnnotation, mobileImageFallbacks, mobileCanvasViewerActive]);
 
   useEffect(() => {
     if (!enableTiledDetail || !preloadAllTilesForDetail) return undefined;
@@ -6137,11 +6145,159 @@ function NorthAmericanNebulaPage({ navigate }) {
   useEffect(() => {
     // Preserve the current pan/zoom position while switching base layers.
     // The viewer should feel like changing layers in an image editor, not resetting the canvas.
-    // On mobile, the fully zoomed-out view uses a smaller overview raster so Chrome does not
-    // break the huge 7887px image into missing GPU texture chunks. High-resolution tiled detail appears as soon
-    // as the viewer is zoomed in enough to inspect detail.
+    // Mobile canvas loading is handled separately so the DOM image stage never flashes broken chunks.
+    if (mobileCanvasViewerActive) return;
     setBaseImageLoading(!loadedLayerSrcsRef.current[baseRenderSrc]);
-  }, [baseDisplaySrc, baseRenderSrc]);
+  }, [baseDisplaySrc, baseRenderSrc, mobileCanvasViewerActive]);
+
+  const loadMobileCanvasImage = (src) => new Promise((resolve, reject) => {
+    if (!src) {
+      resolve(null);
+      return;
+    }
+    const cached = mobileCanvasImagesRef.current[src];
+    if (cached?.complete && cached.naturalWidth > 0) {
+      resolve(cached);
+      return;
+    }
+    const img = new window.Image();
+    img.decoding = "async";
+    img.loading = "eager";
+    img.onload = () => {
+      mobileCanvasImagesRef.current[src] = img;
+      loadedLayerSrcsRef.current[src] = true;
+      resolve(img);
+    };
+    img.onerror = () => reject(new Error(`Unable to load ${src}`));
+    img.src = src;
+    mobileCanvasImagesRef.current[src] = img;
+    if (img.decode) {
+      img.decode().then(() => {
+        mobileCanvasImagesRef.current[src] = img;
+        loadedLayerSrcsRef.current[src] = true;
+        resolve(img);
+      }).catch(() => {});
+    }
+  });
+
+  const drawMobileCanvasLayer = (ctx, img, canvasW, canvasH, displayScale) => {
+    if (!img || !img.complete || !img.naturalWidth || !img.naturalHeight || !displayScale) return false;
+    const viewX = viewRef.current.x || 0;
+    const viewY = viewRef.current.y || 0;
+    const logicalLeft = Math.max(0, (0 - viewX) / displayScale);
+    const logicalTop = Math.max(0, (0 - viewY) / displayScale);
+    const logicalRight = Math.min(tileImageWidth, (canvasW - viewX) / displayScale);
+    const logicalBottom = Math.min(tileImageHeight, (canvasH - viewY) / displayScale);
+    const logicalW = logicalRight - logicalLeft;
+    const logicalH = logicalBottom - logicalTop;
+    if (logicalW <= 0 || logicalH <= 0) return false;
+
+    const sourceScaleX = img.naturalWidth / tileImageWidth;
+    const sourceScaleY = img.naturalHeight / tileImageHeight;
+    const sx = logicalLeft * sourceScaleX;
+    const sy = logicalTop * sourceScaleY;
+    const sw = logicalW * sourceScaleX;
+    const sh = logicalH * sourceScaleY;
+    const dx = viewX + logicalLeft * displayScale;
+    const dy = viewY + logicalTop * displayScale;
+    const dw = logicalW * displayScale;
+    const dh = logicalH * displayScale;
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    return true;
+  };
+
+  const drawMobileCanvas = () => {
+    mobileCanvasDrawFrameRef.current = 0;
+    if (!mobileCanvasViewerActive) return;
+    const canvas = mobileCanvasRef.current;
+    const viewer = viewerRef.current;
+    if (!canvas || !viewer) return;
+
+    const cssW = Math.max(1, Math.round(viewer.clientWidth || viewer.getBoundingClientRect().width || 1));
+    const cssH = Math.max(1, Math.round(viewer.clientHeight || viewer.getBoundingClientRect().height || 1));
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const pixelW = Math.max(1, Math.round(cssW * dpr));
+    const pixelH = Math.max(1, Math.round(cssH * dpr));
+
+    if (canvas.width !== pixelW || canvas.height !== pixelH) {
+      canvas.width = pixelW;
+      canvas.height = pixelH;
+    }
+
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = (zoomRef.current || 1) > 1.25 ? "high" : "medium";
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    const displayScale = getDisplayScale(zoomRef.current || 1);
+    const baseImg = mobileCanvasImagesRef.current[baseDisplaySrc];
+    const drewBase = drawMobileCanvasLayer(ctx, baseImg, cssW, cssH, displayScale);
+    if (showPelicanOverlay) {
+      drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.pelican.src], cssW, cssH, displayScale);
+    }
+    if (showAnnotation) {
+      drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.annotation.src], cssW, cssH, displayScale);
+    }
+    if (drewBase) setMobileCanvasReady(true);
+  };
+
+  const scheduleMobileCanvasDraw = () => {
+    if (!mobileCanvasViewerActive) return;
+    if (mobileCanvasDrawFrameRef.current) return;
+    mobileCanvasDrawFrameRef.current = requestAnimationFrame(drawMobileCanvas);
+  };
+
+  useEffect(() => {
+    if (!mobileCanvasViewerActive) return undefined;
+    let cancelled = false;
+    setMobileCanvasReady(false);
+    setBaseImageLoading(!loadedLayerSrcsRef.current[baseDisplaySrc]);
+
+    const neededSources = [
+      baseDisplaySrc,
+      showPelicanOverlay ? overlayLayers.pelican.src : null,
+      showAnnotation ? overlayLayers.annotation.src : null,
+    ].filter(Boolean);
+
+    Promise.allSettled(neededSources.map((src) => loadMobileCanvasImage(src))).then((results) => {
+      if (cancelled) return;
+      const baseLoaded = results[0]?.status === "fulfilled" && results[0]?.value;
+      if (!baseLoaded) {
+        markMissing(baseLayer);
+        setBaseImageLoading(false);
+        return;
+      }
+      clearMissing(baseLayer);
+      setReadyBaseDisplaySrc(baseDisplaySrc);
+      setBaseImageLoading(false);
+      setMobileCanvasReady(true);
+      requestAnimationFrame(() => {
+        getFitScale();
+        applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false, true);
+        scheduleMobileCanvasDraw();
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mobileCanvasViewerActive, baseLayer, baseDisplaySrc, showPelicanOverlay, showAnnotation]);
+
+  useEffect(() => {
+    if (!mobileCanvasViewerActive) return undefined;
+    scheduleMobileCanvasDraw();
+    window.addEventListener("resize", scheduleMobileCanvasDraw);
+    window.addEventListener("orientationchange", scheduleMobileCanvasDraw);
+    window.visualViewport?.addEventListener?.("resize", scheduleMobileCanvasDraw);
+    return () => {
+      window.removeEventListener("resize", scheduleMobileCanvasDraw);
+      window.removeEventListener("orientationchange", scheduleMobileCanvasDraw);
+      window.visualViewport?.removeEventListener?.("resize", scheduleMobileCanvasDraw);
+    };
+  }, [mobileCanvasViewerActive, baseDisplaySrc, showPelicanOverlay, showAnnotation, zoom]);
 
   const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -6181,6 +6337,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   const paintView = () => {
     const stage = imageStageRef.current;
     transformFrameRef.current = 0;
+    if (mobileCanvasViewerActive) {
+      scheduleMobileCanvasDraw();
+      return;
+    }
     if (!stage) return;
     const { zoom: nextZoom, x, y } = viewRef.current;
     const displayScale = (fitScaleRef.current || getFitScale()) * (nextZoom || 1);
@@ -6236,6 +6396,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     } else if (!transformFrameRef.current) {
       transformFrameRef.current = requestAnimationFrame(paintView);
     }
+    if (mobileCanvasViewerActive) scheduleMobileCanvasDraw();
     if (updateZoomUi) scheduleZoomUi();
   };
 
@@ -6703,7 +6864,9 @@ function NorthAmericanNebulaPage({ navigate }) {
     zoomRef.current = 1;
     setZoom(1);
     const stage = imageStageRef.current;
-    if (stage) {
+    if (mobileCanvasViewerActive) {
+      scheduleMobileCanvasDraw();
+    } else if (stage) {
       const displayScale = getDisplayScale(1);
       stage.style.transform = `translate3d(${reset.x}px, ${reset.y}px, 0) scale(${displayScale})`;
     }
@@ -7433,6 +7596,14 @@ function NorthAmericanNebulaPage({ navigate }) {
                   WebkitUserDrag: "none",
                 }}
               >
+                {mobileCanvasViewerActive && (
+                  <canvas
+                    ref={mobileCanvasRef}
+                    aria-label={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
+                    className="pointer-events-none absolute inset-0 block h-full w-full select-none bg-black"
+                  />
+                )}
+                {!mobileCanvasViewerActive && (
                 <div
                   ref={imageStageRef}
                   style={{ width: `${tileImageWidth}px`, height: `${tileImageHeight}px`, transform: `translate3d(${viewRef.current.x}px, ${viewRef.current.y}px, 0) scale(${(fitScaleRef.current || 0.08) * (zoomRef.current || zoom)})`, transformOrigin: "0 0", willChange: "transform", contain: "layout paint", backfaceVisibility: "hidden", pointerEvents: "none" }}
@@ -7547,10 +7718,11 @@ function NorthAmericanNebulaPage({ navigate }) {
                     />
                   )}
                 </div>
+                )}
                 {baseImageLoading && !missingLayers[baseLayer] && (
                   <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
                     <div className="rounded-full border border-[#d8b175]/25 bg-black/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#f2dfbd]/80 shadow-[0_18px_60px_rgba(0,0,0,0.48)] backdrop-blur-md">
-                      Loading full-resolution layer
+                      {mobileCanvasViewerActive ? "Loading stable mobile render" : "Loading full-resolution layer"}
                     </div>
                   </div>
                 )}

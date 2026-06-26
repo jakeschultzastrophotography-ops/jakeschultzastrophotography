@@ -5706,6 +5706,17 @@ function EclipseGuidePage({ navigate }) {
 const DEFAULT_NA_SHOW_ANNOTATION = false;
 const DEFAULT_NA_SHOW_PELICAN_OVERLAY = false;
 
+const isMobileLikeViewport = () =>
+  typeof window !== "undefined" &&
+  (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
+
+const getNetlifyOptimizedImageUrl = (src, width = 2400, quality = 84) => {
+  if (!src || typeof src !== "string") return src;
+  if (src.startsWith("data:") || src.startsWith("blob:") || src.startsWith("http")) return src;
+  const imageUrl = src.startsWith("/") ? src : encodeURIComponent(src);
+  return `/.netlify/images?url=${imageUrl}&w=${width}&q=${quality}`;
+};
+
 function NorthAmericanNebulaPage({ navigate }) {
   const [mode, setMode] = useState("image");
   const [baseLayer, setBaseLayer] = useState("combined");
@@ -5718,6 +5729,9 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [viewerControlsExpanded, setViewerControlsExpanded] = useState(true);
   const [openingViewerHeight, setOpeningViewerHeight] = useState(null);
   const [activeControlNote, setActiveControlNote] = useState(null);
+  const [baseImageLoading, setBaseImageLoading] = useState(true);
+  const [mobileOptimizedViewer, setMobileOptimizedViewer] = useState(() => isMobileLikeViewport());
+  const [mobileImageFallbacks, setMobileImageFallbacks] = useState({});
   const controlNoteTimeoutRef = useRef(0);
   const [missingLayers, setMissingLayers] = useState({});
   const [preloadedTileLayers, setPreloadedTileLayers] = useState({});
@@ -5827,6 +5841,11 @@ function NorthAmericanNebulaPage({ navigate }) {
   const isImageMode = mode === "image";
   const activeBase = baseLayers[baseLayer] || baseLayers.combined;
   const activeBaseSrc = showStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
+  const getResponsiveLayerSrc = (src, width = 2400) =>
+    mobileOptimizedViewer && !mobileImageFallbacks[src] ? getNetlifyOptimizedImageUrl(src, width, 84) : src;
+  const baseDisplaySrc = getResponsiveLayerSrc(activeBaseSrc, 2400);
+  const annotationDisplaySrc = getResponsiveLayerSrc(overlayLayers.annotation.src, 2400);
+  const pelicanDisplaySrc = getResponsiveLayerSrc(overlayLayers.pelican.src, 2400);
   const masterImageUrls = useMemo(() => [
     "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
     "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
@@ -5907,9 +5926,20 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [viewerLocked]);
 
   useEffect(() => {
+    const updateMobileMode = () => setMobileOptimizedViewer(isMobileLikeViewport());
+    updateMobileMode();
+    window.addEventListener("resize", updateMobileMode);
+    window.addEventListener("orientationchange", updateMobileMode);
+    return () => {
+      window.removeEventListener("resize", updateMobileMode);
+      window.removeEventListener("orientationchange", updateMobileMode);
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    const mobileViewer = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
-    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2) : masterImageUrls;
+    const mobileViewer = isMobileLikeViewport();
+    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2).map((src) => getNetlifyOptimizedImageUrl(src, 2400, 84)) : masterImageUrls;
     const cachedImages = urlsToCache.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
@@ -5927,8 +5957,8 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [masterImageUrls]);
 
   useEffect(() => {
-    const mobileViewer = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
-    const priorityImages = (mobileViewer ? [activeBaseSrc] : [activeBaseSrc, activeBase.src, activeBase.starSrc]).filter(Boolean);
+    const mobileViewer = isMobileLikeViewport();
+    const priorityImages = (mobileViewer ? [baseDisplaySrc] : [activeBaseSrc, activeBase.src, activeBase.starSrc]).filter(Boolean);
     const cachedPriority = priorityImages.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
@@ -5940,7 +5970,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       return img;
     });
     masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
-  }, [activeBaseSrc, activeBase.src, activeBase.starSrc]);
+  }, [activeBaseSrc, baseDisplaySrc, activeBase.src, activeBase.starSrc]);
 
   useEffect(() => {
     if (!enableTiledDetail) return undefined;
@@ -6045,6 +6075,16 @@ function NorthAmericanNebulaPage({ navigate }) {
     delete next[key];
     return next;
   });
+
+  useEffect(() => {
+    setBaseImageLoading(true);
+    if (isCoarseMobileViewer()) {
+      requestAnimationFrame(() => {
+        getFitScale();
+        applyView(1, 0, 0, false, true);
+      });
+    }
+  }, [activeBaseSrc]);
 
   const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -6627,10 +6667,29 @@ function NorthAmericanNebulaPage({ navigate }) {
   const activeToolbarOption = toolbarOptions.find((option) => option.id === viewerControlOption) || toolbarOptions[0];
   const compactBaseLabel = baseLayer === "combined" ? "Mix" : activeBase.shortLabel;
   const controlNotePanelId = "north-america-control-note";
-  const isCoarseMobileViewer = () =>
-    typeof window !== "undefined" &&
-    (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
+  const isCoarseMobileViewer = isMobileLikeViewport;
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
+
+  const handleLayerFallbackOrMissing = (src, key) => {
+    const usingOptimizedSrc = mobileOptimizedViewer && !mobileImageFallbacks[src];
+    if (usingOptimizedSrc) {
+      setMobileImageFallbacks((current) => ({ ...current, [src]: true }));
+      return;
+    }
+    if (key === baseLayer) setBaseImageLoading(false);
+    markMissing(key);
+  };
+
+  const handleBaseImageLoad = () => {
+    clearMissing(baseLayer);
+    setBaseImageLoading(false);
+    if (isCoarseMobileViewer() && (zoomRef.current || 1) <= 1.02) {
+      requestAnimationFrame(() => {
+        getFitScale();
+        applyView(1, 0, 0, false, true);
+      });
+    }
+  };
 
   const showControlNote = (event, id, label) => {
     const text = toolbarNotes[id];
@@ -7047,15 +7106,16 @@ function NorthAmericanNebulaPage({ navigate }) {
                     </div>
                   ) : (
                     <img
-                      src={activeBaseSrc}
+                      key={`${baseLayer}-${showStars ? "with-stars" : "starless"}-${baseDisplaySrc}`}
+                      src={baseDisplaySrc}
                       alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
                       draggable="false"
                       decoding="async"
                       loading="eager"
                       fetchPriority="high"
-                      onLoad={() => clearMissing(baseLayer)}
-                      onError={() => markMissing(baseLayer)}
-                      className="pointer-events-none absolute inset-0 block h-full w-full select-none object-fill"
+                      onLoad={handleBaseImageLoad}
+                      onError={() => handleLayerFallbackOrMissing(activeBaseSrc, baseLayer)}
+                      className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill transition-opacity duration-300 ${baseImageLoading ? "opacity-0" : "opacity-100"}`}
                     />
                   )}
                   {shouldShowHighResolutionTiles && (
@@ -7096,30 +7156,37 @@ function NorthAmericanNebulaPage({ navigate }) {
                   {showPelicanOverlay && !missingLayers.pelican && (
                     <>
                       <img
-                        src={overlayLayers.pelican.src}
+                        src={pelicanDisplaySrc}
                         alt="North American Nebula Pelican overlay"
                         draggable="false"
                         decoding="async"
                         loading="lazy"
                         onLoad={() => clearMissing("pelican")}
-                        onError={() => markMissing("pelican")}
+                        onError={() => handleLayerFallbackOrMissing(overlayLayers.pelican.src, "pelican")}
                         className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                       />
                     </>
                   )}
                   {showAnnotation && !missingLayers.annotation && (
                     <img
-                      src={overlayLayers.annotation.src}
+                      src={annotationDisplaySrc}
                       alt="North American Nebula annotation overlay"
                       draggable="false"
                       decoding="async"
                       loading="lazy"
                       onLoad={() => clearMissing("annotation")}
-                      onError={() => markMissing("annotation")}
+                      onError={() => handleLayerFallbackOrMissing(overlayLayers.annotation.src, "annotation")}
                       className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                     />
                   )}
                 </div>
+                {baseImageLoading && !missingLayers[baseLayer] && (
+                  <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
+                    <div className="rounded-full border border-[#d8b175]/25 bg-black/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#f2dfbd]/80 shadow-[0_18px_60px_rgba(0,0,0,0.48)] backdrop-blur-md">
+                      Loading image layer
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="hidden border-t border-white/10 bg-black/45 px-5 py-4 sm:block sm:px-8">

@@ -7025,40 +7025,15 @@ function NorthAmericanNebulaPage({ navigate }) {
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
   const embeddedInteractiveFrameStyle = {
-    touchAction: "none",
+    touchAction: "auto",
     overscrollBehavior: "contain",
     WebkitOverflowScrolling: "touch",
   };
-  const mobileEmbeddedFrame = mobileFrameViewport.width < 768 || isCoarseMobileViewer();
-  const mobileEmbeddedFrameHeight = Math.max(420, Math.min(660, (mobileFrameViewport.height || 800) - 382));
-  const mobileObjectFrameWidth = 980;
-  const mobileDepthFrameWidth = 1180;
-  const mobileObjectFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
-  const mobileDepthFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
-  const embeddedObjectShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
-  const embeddedDepthShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
-  const embeddedObjectFrameStyle = {
-    ...embeddedInteractiveFrameStyle,
-    ...(mobileEmbeddedFrame ? {
-      width: `${mobileObjectFrameWidth}px`,
-      maxWidth: "none",
-      height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileObjectFrameScale))}px`,
-      transform: `scale(${mobileObjectFrameScale})`,
-      transformOrigin: "top center",
-      flex: "0 0 auto",
-    } : {}),
-  };
-  const embeddedDepthFrameStyle = {
-    ...embeddedInteractiveFrameStyle,
-    ...(mobileEmbeddedFrame ? {
-      width: `${mobileDepthFrameWidth}px`,
-      maxWidth: "none",
-      height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileDepthFrameScale))}px`,
-      transform: `scale(${mobileDepthFrameScale})`,
-      transformOrigin: "top center",
-      flex: "0 0 auto",
-    } : {}),
-  };
+  const mobileEmbeddedFrame = false;
+  const embeddedObjectShellStyle = undefined;
+  const embeddedDepthShellStyle = undefined;
+  const embeddedObjectFrameStyle = embeddedInteractiveFrameStyle;
+  const embeddedDepthFrameStyle = embeddedInteractiveFrameStyle;
 
   const prepareEmbeddedInteractiveFrame = (event, { centerMobile = false, objectExplorer = false } = {}) => {
     const frame = event?.currentTarget;
@@ -7943,19 +7918,18 @@ function NorthAmericanNebulaPage({ navigate }) {
           <div className="bg-black">
             <div className="hidden border-b border-white/10 bg-black/70 px-5 py-4 sm:block sm:px-8">
               <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
-              <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
+              <p className="mt-1 text-sm text-white/62">Source object explorer loaded directly, with selectable markers, object information, filtering, and catalog-style side panel.</p>
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
               <iframe
-                key="north-america-object-explorer-mobile-clean-2823"
+                key="north-america-object-explorer-source-2833"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&clean=2823#top"
+                src="/interactive/north-american-nebula/object-explorer.html?v=2833#top"
                 loading="eager"
-                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
+                scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedObjectFrameStyle}
-                onLoad={(event) => prepareEmbeddedInteractiveFrame(event, { objectExplorer: true })}
               />
             </div>
           </div>
@@ -7963,19 +7937,18 @@ function NorthAmericanNebulaPage({ navigate }) {
           <div className="bg-black">
             <div className="hidden border-b border-white/10 bg-black/70 px-5 py-4 sm:block sm:px-8">
               <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
-              <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
+              <p className="mt-1 text-sm text-white/62">Source AstroDepth map loaded directly as the full informational depth tool.</p>
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black text-center" style={embeddedDepthShellStyle}>
               <iframe
-                key="north-america-astrodepth-map-mobile-centered-2823"
+                key="north-america-astrodepth-map-source-2833"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2823#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?v=2833#top"
                 loading="eager"
-                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
+                scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedDepthFrameStyle}
-                onLoad={(event) => prepareEmbeddedInteractiveFrame(event, { centerMobile: true })}
               />
             </div>
           </div>

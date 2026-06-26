@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>4D AstroDepth Mapper - North American Nebula - Interactive Object Explorer</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
 :root {
   --bg:#07090f; --panel:rgba(15,18,28,.97); --panel2:rgba(24,28,40,.95);
@@ -13,7 +13,7 @@
 * { box-sizing:border-box; }
 html,body { margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Segoe UI,Roboto,Arial,sans-serif; }
 .app { display:grid;grid-template-columns:minmax(0,1fr) 390px;height:100vh;max-height:100vh;width:100vw;overflow:hidden; }
-.viewerWrap { position:relative;min-width:0;min-height:0;height:100vh;max-height:100vh;background:#222;overflow:hidden;cursor:grab; }
+.viewerWrap { position:relative;min-width:0;min-height:0;height:100vh;max-height:100vh;background:#222;overflow:hidden;cursor:grab;touch-action:none; }
 .viewerWrap.dragging { cursor:grabbing; }
 #imageStage { position:absolute;left:0;top:0;width:100px;height:100px; }
 #astroImage { position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-drag:none;z-index:1; }
@@ -69,7 +69,7 @@ html,body { margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(
       <div id="navigatorRect"></div>
     </div>
     <div class="topbar"><strong>Interactive Object Explorer</strong><button id="homeBtn" title="Fit the full image in view">Home</button><button id="oneToOneBtn" title="Show image at 1:1 pixel scale, centered on the selected object">1:1</button><button id="zoomInBtn" title="Zoom in">+</button><button id="zoomOutBtn" title="Zoom out">−</button><button id="snapshotBtn" title="Download a JPG snapshot with the current view and selected object information">Download snapshot</button></div>
-    <div class="hint">Drag to pan, use the mouse wheel to zoom, or select an object card/circle to zoom to that object.</div>
+    <div class="hint">Drag or swipe to pan. Pinch, mouse wheel, or use +/− to zoom. Select an object card/circle to zoom to that object.</div>
   </main>
   <aside class="side">
     <div class="sideHeader"><h1>Interactive Object Explorer</h1><div class="sub" id="summary"></div></div>
@@ -781,6 +781,64 @@ viewerWrap.addEventListener('dblclick', function(e){
   e.preventDefault();
   zoomByAt(1.8, e.clientX, e.clientY);
 });
+
+
+// Native mobile image-pane gestures. The object list/info panel remains normal
+// page content; only the main image viewer captures finger pan and pinch zoom.
+var touchState = null;
+function touchMidpoint(touches){
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
+}
+function touchDistance(touches){
+  var dx = touches[0].clientX - touches[1].clientX;
+  var dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+viewerWrap.addEventListener('touchstart', function(e){
+  if (e.touches.length === 1) {
+    touchState = { mode:'pan', lastX:e.touches[0].clientX, lastY:e.touches[0].clientY };
+  } else if (e.touches.length >= 2) {
+    var mid = touchMidpoint(e.touches);
+    touchState = { mode:'pinch', lastDistance:touchDistance(e.touches), lastMidX:mid.x, lastMidY:mid.y };
+  }
+  e.preventDefault();
+}, { passive:false });
+viewerWrap.addEventListener('touchmove', function(e){
+  if (!touchState) return;
+  if (e.touches.length === 1 && touchState.mode === 'pan') {
+    var t = e.touches[0];
+    view.panX += t.clientX - touchState.lastX;
+    view.panY += t.clientY - touchState.lastY;
+    touchState.lastX = t.clientX;
+    touchState.lastY = t.clientY;
+    applyView();
+  } else if (e.touches.length >= 2) {
+    var mid = touchMidpoint(e.touches);
+    var distance = touchDistance(e.touches);
+    var previousDistance = Math.max(1, touchState.lastDistance || distance);
+    var factor = distance / previousDistance;
+    zoomByAt(factor, mid.x, mid.y);
+    if (touchState.lastMidX != null && touchState.lastMidY != null) {
+      view.panX += mid.x - touchState.lastMidX;
+      view.panY += mid.y - touchState.lastMidY;
+      applyView();
+    }
+    touchState = { mode:'pinch', lastDistance:distance, lastMidX:mid.x, lastMidY:mid.y };
+  }
+  e.preventDefault();
+}, { passive:false });
+viewerWrap.addEventListener('touchend', function(e){
+  if (e.touches.length === 1) {
+    touchState = { mode:'pan', lastX:e.touches[0].clientX, lastY:e.touches[0].clientY };
+  } else if (e.touches.length === 0) {
+    touchState = null;
+  }
+  e.preventDefault();
+}, { passive:false });
+viewerWrap.addEventListener('touchcancel', function(){ touchState = null; }, { passive:false });
 
 var navigatorDrag = false;
 navigatorBox.addEventListener('mousedown', function(e){

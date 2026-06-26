@@ -5744,6 +5744,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const viewRef = useRef({ zoom: 1, x: 0, y: 0 });
   const fitScaleRef = useRef(1);
   const viewerMetricsRef = useRef({ viewportW: 1, viewportH: 1, fitScale: 1 });
+  const projectInfoRef = useRef(null);
   const transformFrameRef = useRef(0);
   const zoomUiFrameRef = useRef(0);
   const zoomUiTimeoutRef = useRef(0);
@@ -6691,6 +6692,10 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
   };
 
+  const scrollToProjectInfo = () => {
+    projectInfoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const showControlNote = (event, id, label) => {
     const text = toolbarNotes[id];
     if (!text) return;
@@ -7071,10 +7076,18 @@ function NorthAmericanNebulaPage({ navigate }) {
                 {renderViewerToolbar()}
               </div>
               {!viewerLocked && (
-                <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
+                <div className="pointer-events-none absolute bottom-14 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
                   Pinch to zoom · drag to pan
                 </div>
               )}
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); scrollToProjectInfo(); }}
+                className="pointer-events-auto absolute bottom-3 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/88 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#f3dfbd] shadow-[0_18px_48px_rgba(0,0,0,0.48)] backdrop-blur-xl transition active:scale-[0.98] sm:hidden"
+                aria-label="See project information and data card"
+              >
+                See Info <span aria-hidden="true" className="text-sm leading-none">↓</span>
+              </button>
               <div
                 ref={viewerRef}
                 data-image-viewer-gesture-zone="true"
@@ -7226,7 +7239,7 @@ function NorthAmericanNebulaPage({ navigate }) {
           </div>
         )}
 
-        <div className="border-t border-white/10 bg-black/46 px-4 py-5 sm:px-7 sm:py-6">
+        <div id="north-american-nebula-info" ref={projectInfoRef} className="scroll-mt-4 border-t border-white/10 bg-black/46 px-4 py-5 sm:scroll-mt-6 sm:px-7 sm:py-6">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
             <div className="space-y-4">
               <div>

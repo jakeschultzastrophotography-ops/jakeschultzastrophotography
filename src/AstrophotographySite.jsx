@@ -7037,11 +7037,11 @@ function NorthAmericanNebulaPage({ navigate }) {
   const mobileDepthFrameWidth = 1180;
   const mobileObjectFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
   const mobileDepthFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
-  const mobileObjectFrameScale = Math.min(1.35, mobileObjectFrameBaseScale * (embeddedToolZoom.objects || 1));
-  const mobileDepthFrameScale = Math.min(1.35, mobileDepthFrameBaseScale * (embeddedToolZoom.depth || 1));
+  const mobileObjectFrameScale = mobileObjectFrameBaseScale;
+  const mobileDepthFrameScale = mobileDepthFrameBaseScale;
   const embeddedObjectShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
   const embeddedDepthShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
-  const embeddedMobileFramePointerEvents = mobileEmbeddedFrame && embeddedPanMode ? "none" : "auto";
+  const embeddedMobileFramePointerEvents = "auto";
   const embeddedObjectFrameStyle = {
     ...embeddedInteractiveFrameStyle,
     ...(mobileEmbeddedFrame ? {
@@ -7194,6 +7194,328 @@ function NorthAmericanNebulaPage({ navigate }) {
         `;
         frameDocument.head?.appendChild(style);
       }
+      const installImageOnlyMobileGestures = () => {
+        if (!mobileEmbeddedFrame) return;
+
+        try {
+          if (!frameDocument.getElementById("jake-mobile-image-only-gesture-installer")) {
+            const script = frameDocument.createElement("script");
+            script.id = "jake-mobile-image-only-gesture-installer";
+            script.textContent = `
+              (() => {
+                const badRegionPattern = /(sidebar|side[-_\\s]*panel|details?|drawer|info|metadata|card|catalog|list|table|controls?|toolbar|button|nav|menu|footer|header|legend|caption)/i;
+                const goodRegionPattern = /(image|viewer|stage|map|scene|canvas|viewport|photo|frame|explore)/i;
+                const visualSelector = [
+                  "canvas",
+                  "svg",
+                  "img",
+                  "video",
+                  "[class*=\"image\" i]",
+                  "[class*=\"viewer\" i]",
+                  "[class*=\"stage\" i]",
+                  "[class*=\"map\" i]",
+                  "[class*=\"scene\" i]",
+                  "[class*=\"canvas\" i]",
+                  "[class*=\"viewport\" i]",
+                  "[class*=\"photo\" i]",
+                  "[id*=\"image\" i]",
+                  "[id*=\"viewer\" i]",
+                  "[id*=\"stage\" i]",
+                  "[id*=\"map\" i]",
+                  "[id*=\"scene\" i]",
+                  "[id*=\"canvas\" i]",
+                  "[id*=\"viewport\" i]"
+                ].join(",");
+
+                const descriptor = (element) => {
+                  if (!element) return "";
+                  const className = typeof element.className === "string" ? element.className : (element.className?.baseVal || "");
+                  return [
+                    element.id || "",
+                    className,
+                    element.getAttribute?.("aria-label") || "",
+                    element.getAttribute?.("role") || "",
+                    element.getAttribute?.("data-panel") || ""
+                  ].join(" ");
+                };
+
+                const isVisible = (element) => {
+                  if (!element || element === document.documentElement || element === document.body) return false;
+                  const rect = element.getBoundingClientRect();
+                  if (rect.width < 180 || rect.height < 150) return false;
+                  const style = window.getComputedStyle(element);
+                  return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) !== 0;
+                };
+
+                const isBadRegion = (element) => {
+                  for (let node = element; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+                    const name = descriptor(node);
+                    if (badRegionPattern.test(name)) return true;
+                  }
+                  return false;
+                };
+
+                const textWeight = (element) => ((element?.innerText || element?.textContent || "").replace(/\\s+/g, " ").trim().length);
+
+                const chooseGestureTarget = () => {
+                  const nodes = Array.from(document.querySelectorAll(visualSelector));
+                  let best = null;
+
+                  nodes.forEach((node) => {
+                    if (!isVisible(node) || isBadRegion(node)) return;
+                    const nodeRect = node.getBoundingClientRect();
+                    let target = node;
+
+                    for (let current = node.parentElement, depth = 0; current && current !== document.body && current !== document.documentElement && depth < 5; current = current.parentElement, depth += 1) {
+                      if (!isVisible(current) || isBadRegion(current)) break;
+                      const currentRect = current.getBoundingClientRect();
+                      const name = descriptor(current);
+                      const text = textWeight(current);
+                      const similarToVisual = currentRect.width >= nodeRect.width * 0.82 && currentRect.height >= nodeRect.height * 0.82;
+                      const notFullPage = currentRect.width <= window.innerWidth * 1.06 && currentRect.height <= window.innerHeight * 1.08;
+                      if (similarToVisual && notFullPage && goodRegionPattern.test(name) && text < 2600) {
+                        target = current;
+                      }
+                    }
+
+                    const rect = target.getBoundingClientRect();
+                    const name = descriptor(target);
+                    const tag = target.tagName || "";
+                    const text = textWeight(target);
+                    if (text > 3800 && !/^(CANVAS|SVG|IMG|VIDEO)$/i.test(tag)) return;
+
+                    let score = rect.width * rect.height;
+                    if (/^(CANVAS|SVG|IMG|VIDEO)$/i.test(tag)) score += 250000;
+                    if (/map|viewer|stage|scene|image|canvas|viewport/i.test(name)) score += 125000;
+                    if (text < 600) score += 35000;
+
+                    if (!best || score > best.score) best = { target, score };
+                  });
+
+                  return best?.target || null;
+                };
+
+                const cleanupPrevious = () => {
+                  if (window.__jakeImagePaneGestureCleanup) {
+                    try { window.__jakeImagePaneGestureCleanup(); } catch (error) {}
+                    window.__jakeImagePaneGestureCleanup = null;
+                  }
+                };
+
+                const install = () => {
+                  const target = chooseGestureTarget();
+                  if (!target) return false;
+
+                  cleanupPrevious();
+
+                  const paneCandidate = target.parentElement && target.parentElement !== document.body ? target.parentElement : target;
+                  const paneName = descriptor(paneCandidate);
+                  const paneText = textWeight(paneCandidate);
+                  const targetTag = target.tagName || "";
+                  let pane = target;
+                  if (paneCandidate && paneCandidate !== target && !isBadRegion(paneCandidate)) {
+                    const parentLooksLikeImagePane = goodRegionPattern.test(paneName) && paneText < 2600;
+                    const parentIsSmallVisualWrapper = /^(CANVAS|SVG|IMG|VIDEO)$/i.test(targetTag) && paneText < 1200 && paneCandidate.children.length <= 8;
+                    if (parentLooksLikeImagePane || parentIsSmallVisualWrapper) pane = paneCandidate;
+                  }
+                  const originalTargetTransform = target.style.transform || "";
+                  const originalTargetTransformOrigin = target.style.transformOrigin || "";
+                  const originalTargetWillChange = target.style.willChange || "";
+                  const originalPaneOverflow = pane.style.overflow || "";
+                  const originalPaneTouchAction = pane.style.touchAction || "";
+                  const originalPaneOverscroll = pane.style.overscrollBehavior || "";
+                  const originalPanePosition = pane.style.position || "";
+
+                  const state = {
+                    scale: 1,
+                    x: 0,
+                    y: 0,
+                    baseWidth: Math.max(1, target.offsetWidth || target.getBoundingClientRect().width),
+                    baseHeight: Math.max(1, target.offsetHeight || target.getBoundingClientRect().height),
+                    pointers: new Map(),
+                    lastCenter: null,
+                    lastDistance: 0,
+                    moved: false
+                  };
+
+                  pane.dataset.jakeImageGesturePane = "true";
+                  target.dataset.jakeImageGestureTarget = "true";
+                  pane.style.overflow = "hidden";
+                  pane.style.touchAction = "none";
+                  pane.style.overscrollBehavior = "contain";
+                  if (!window.getComputedStyle(pane).position || window.getComputedStyle(pane).position === "static") {
+                    pane.style.position = "relative";
+                  }
+                  target.style.transformOrigin = "0 0";
+                  target.style.willChange = "transform";
+
+                  const getPaneRect = () => pane.getBoundingClientRect();
+                  const clamp = () => {
+                    const paneRect = getPaneRect();
+                    const contentW = state.baseWidth * state.scale;
+                    const contentH = state.baseHeight * state.scale;
+                    const minX = Math.min(0, paneRect.width - contentW);
+                    const minY = Math.min(0, paneRect.height - contentH);
+                    state.x = Math.min(0, Math.max(minX, state.x));
+                    state.y = Math.min(0, Math.max(minY, state.y));
+                    if (state.scale <= 1.001) {
+                      state.x = 0;
+                      state.y = 0;
+                    }
+                  };
+
+                  const apply = () => {
+                    clamp();
+                    const base = originalTargetTransform && originalTargetTransform !== "none" ? " " + originalTargetTransform : "";
+                    target.style.transform = "translate3d(" + state.x + "px, " + state.y + "px, 0) scale(" + state.scale + ")" + base;
+                  };
+
+                  const getCenter = () => {
+                    const rect = getPaneRect();
+                    const points = Array.from(state.pointers.values());
+                    const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
+                    return {
+                      x: (sum.x / points.length) - rect.left,
+                      y: (sum.y / points.length) - rect.top,
+                    };
+                  };
+
+                  const getDistance = () => {
+                    const points = Array.from(state.pointers.values());
+                    if (points.length < 2) return 0;
+                    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                  };
+
+                  const zoomAt = (nextScale, center) => {
+                    const scale = Math.max(1, Math.min(4.5, nextScale));
+                    const imageX = (center.x - state.x) / state.scale;
+                    const imageY = (center.y - state.y) / state.scale;
+                    state.scale = scale;
+                    state.x = center.x - imageX * state.scale;
+                    state.y = center.y - imageY * state.scale;
+                    apply();
+                  };
+
+                  const onPointerDown = (event) => {
+                    if (event.pointerType === "mouse") return;
+                    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                    state.lastCenter = getCenter();
+                    state.lastDistance = getDistance();
+                    state.moved = false;
+                    try { pane.setPointerCapture?.(event.pointerId); } catch (error) {}
+                  };
+
+                  const onPointerMove = (event) => {
+                    if (!state.pointers.has(event.pointerId)) return;
+                    event.preventDefault();
+                    const previousCenter = state.lastCenter || getCenter();
+                    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                    const nextCenter = getCenter();
+                    const dx = nextCenter.x - previousCenter.x;
+                    const dy = nextCenter.y - previousCenter.y;
+                    if (Math.abs(dx) + Math.abs(dy) > 1.5) state.moved = true;
+
+                    if (state.pointers.size >= 2) {
+                      const nextDistance = getDistance();
+                      if (state.lastDistance > 0 && nextDistance > 0) {
+                        zoomAt(state.scale * (nextDistance / state.lastDistance), nextCenter);
+                      }
+                      state.lastDistance = nextDistance;
+                    } else if (state.scale > 1.001) {
+                      state.x += dx;
+                      state.y += dy;
+                      apply();
+                    }
+                    state.lastCenter = nextCenter;
+                  };
+
+                  const onPointerUp = (event) => {
+                    if (state.pointers.has(event.pointerId)) state.pointers.delete(event.pointerId);
+                    state.lastCenter = state.pointers.size ? getCenter() : null;
+                    state.lastDistance = state.pointers.size >= 2 ? getDistance() : 0;
+                    try { pane.releasePointerCapture?.(event.pointerId); } catch (error) {}
+                  };
+
+                  const onDoubleClick = (event) => {
+                    event.preventDefault();
+                    const rect = getPaneRect();
+                    const center = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                    zoomAt(state.scale > 1.05 ? 1 : 2, center);
+                  };
+
+                  pane.addEventListener("pointerdown", onPointerDown, { passive: false });
+                  pane.addEventListener("pointermove", onPointerMove, { passive: false });
+                  pane.addEventListener("pointerup", onPointerUp, { passive: true });
+                  pane.addEventListener("pointercancel", onPointerUp, { passive: true });
+                  pane.addEventListener("dblclick", onDoubleClick);
+
+                  window.__jakeEmbeddedImagePane = {
+                    zoomIn: () => {
+                      const rect = getPaneRect();
+                      zoomAt(state.scale * 1.35, { x: rect.width / 2, y: rect.height / 2 });
+                    },
+                    zoomOut: () => {
+                      const rect = getPaneRect();
+                      zoomAt(state.scale / 1.35, { x: rect.width / 2, y: rect.height / 2 });
+                    },
+                    reset: () => {
+                      state.scale = 1;
+                      state.x = 0;
+                      state.y = 0;
+                      apply();
+                    }
+                  };
+
+                  window.__jakeImagePaneGestureCleanup = () => {
+                    pane.removeEventListener("pointerdown", onPointerDown);
+                    pane.removeEventListener("pointermove", onPointerMove);
+                    pane.removeEventListener("pointerup", onPointerUp);
+                    pane.removeEventListener("pointercancel", onPointerUp);
+                    pane.removeEventListener("dblclick", onDoubleClick);
+                    target.style.transform = originalTargetTransform;
+                    target.style.transformOrigin = originalTargetTransformOrigin;
+                    target.style.willChange = originalTargetWillChange;
+                    pane.style.overflow = originalPaneOverflow;
+                    pane.style.touchAction = originalPaneTouchAction;
+                    pane.style.overscrollBehavior = originalPaneOverscroll;
+                    pane.style.position = originalPanePosition;
+                    delete pane.dataset.jakeImageGesturePane;
+                    delete target.dataset.jakeImageGestureTarget;
+                  };
+
+                  apply();
+                  return true;
+                };
+
+                window.__jakeInstallImageOnlyGestures = install;
+
+                let attempts = 0;
+                const retryInstall = () => {
+                  attempts += 1;
+                  if (install() || attempts >= 24) return;
+                  window.setTimeout(retryInstall, 250);
+                };
+                retryInstall();
+
+                let resizeTimer = 0;
+                window.addEventListener("resize", () => {
+                  window.clearTimeout(resizeTimer);
+                  resizeTimer = window.setTimeout(() => window.__jakeInstallImageOnlyGestures?.(), 250);
+                }, { passive: true });
+              })();
+            `;
+            (frameDocument.body || frameDocument.documentElement)?.appendChild(script);
+          } else {
+            frameWindow?.__jakeInstallImageOnlyGestures?.();
+          }
+        } catch (gestureError) {
+          // If injection is blocked, the iframe remains usable with its native behavior.
+        }
+      };
+
+      installImageOnlyMobileGestures();
+      window.setTimeout(installImageOnlyMobileGestures, 350);
+      window.setTimeout(installImageOnlyMobileGestures, 1100);
 
       const resetFrameScroll = () => {
         try {
@@ -7592,33 +7914,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     </button>
   ) : null;
 
-  const renderEmbeddedToolMobileControls = (toolKey) => {
-    if (!mobileEmbeddedFrame) return null;
-    const currentZoom = embeddedToolZoom[toolKey] || 1;
-    const label = embeddedPanMode ? "Pan / zoom" : "Interact";
-
-    const adjustEmbeddedZoom = (nextZoom) => {
-      setEmbeddedToolZoom((current) => ({
-        ...current,
-        [toolKey]: Math.max(1, Math.min(3, nextZoom)),
-      }));
-    };
-
-    return (
-      <div className="pointer-events-auto absolute left-2 right-2 top-2 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/72 px-2.5 py-2 text-[11px] text-white/78 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:hidden">
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold text-white/90">{label}</div>
-          <div className="text-[10px] text-white/52">{embeddedPanMode ? "Drag this window or use zoom controls." : "Tap markers and controls inside the tool."}</div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={() => adjustEmbeddedZoom(currentZoom / 1.22)} className="grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/8 text-base font-semibold text-white hover:bg-white/14" aria-label="Zoom embedded tool out">−</button>
-          <button type="button" onClick={() => adjustEmbeddedZoom(1)} className="h-8 rounded-full border border-white/12 bg-white/8 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/75 hover:bg-white/14" aria-label="Reset embedded tool zoom">Reset</button>
-          <button type="button" onClick={() => adjustEmbeddedZoom(currentZoom * 1.22)} className="grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/8 text-base font-semibold text-white hover:bg-white/14" aria-label="Zoom embedded tool in">+</button>
-          <button type="button" onClick={() => setEmbeddedPanMode((value) => !value)} className="h-8 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/88 px-2.5 text-[10px] font-semibold text-white hover:bg-[#6b5745]" aria-label="Toggle embedded tool interaction mode">{embeddedPanMode ? "Interact" : "Pan"}</button>
-        </div>
-      </div>
-    );
-  };
+  const renderEmbeddedToolMobileControls = () => null;
 
   const collapsedToolbar = (
     <div className="pointer-events-auto flex w-full items-center gap-2 border-b border-white/12 bg-black/58 px-2 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-4">

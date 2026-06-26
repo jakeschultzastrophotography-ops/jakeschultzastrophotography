@@ -6692,6 +6692,112 @@ function NorthAmericanNebulaPage({ navigate }) {
   const isCoarseMobileViewer = isMobileLikeViewport;
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
+  const embeddedInteractiveFrameStyle = {
+    touchAction: "none",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
+  };
+
+  const prepareEmbeddedInteractiveFrame = (event, { centerMobile = false } = {}) => {
+    const frame = event?.currentTarget;
+    if (!frame) return;
+
+    try {
+      const frameDocument = frame.contentDocument || frame.contentWindow?.document;
+      if (!frameDocument) return;
+
+      let viewport = frameDocument.querySelector('meta[name="viewport"]');
+      if (!viewport) {
+        viewport = frameDocument.createElement("meta");
+        viewport.setAttribute("name", "viewport");
+        frameDocument.head?.appendChild(viewport);
+      }
+      viewport.setAttribute("content", "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+
+      const html = frameDocument.documentElement;
+      const body = frameDocument.body;
+      if (html) {
+        html.style.maxWidth = "100%";
+        html.style.overflowX = "hidden";
+        html.style.overscrollBehavior = "contain";
+        html.style.touchAction = "none";
+      }
+      if (body) {
+        body.style.maxWidth = "100%";
+        body.style.overflowX = "hidden";
+        body.style.overscrollBehavior = "contain";
+        body.style.touchAction = "none";
+      }
+
+      if (!frameDocument.getElementById("jake-mobile-frame-gesture-lock")) {
+        const style = frameDocument.createElement("style");
+        style.id = "jake-mobile-frame-gesture-lock";
+        style.textContent = `
+          html, body {
+            overscroll-behavior: contain !important;
+            -webkit-text-size-adjust: 100% !important;
+          }
+          @media (max-width: 767px) {
+            html, body {
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow-x: hidden !important;
+              touch-action: none !important;
+            }
+          }
+        `;
+        frameDocument.head?.appendChild(style);
+      }
+
+      if (centerMobile && !frameDocument.getElementById("jake-mobile-depth-center")) {
+        const style = frameDocument.createElement("style");
+        style.id = "jake-mobile-depth-center";
+        style.textContent = `
+          @media (max-width: 767px) {
+            html, body {
+              margin-left: auto !important;
+              margin-right: auto !important;
+              text-align: center !important;
+            }
+            body > * {
+              margin-left: auto !important;
+              margin-right: auto !important;
+              max-width: 100vw !important;
+            }
+            main, .app, .container, .wrapper, #app, #root, canvas, svg {
+              margin-left: auto !important;
+              margin-right: auto !important;
+              max-width: 100vw !important;
+            }
+          }
+        `;
+        frameDocument.head?.appendChild(style);
+      }
+
+      if (!frameDocument.defaultView?.__jakeMobileGestureLockInstalled) {
+        let lastTouchEnd = 0;
+        const preventFrameBrowserZoom = (frameEvent) => {
+          if (frameEvent.touches?.length > 1) frameEvent.preventDefault();
+        };
+        const preventFrameGesture = (frameEvent) => frameEvent.preventDefault();
+        const preventFrameDoubleTapZoom = (frameEvent) => {
+          const now = Date.now();
+          if (now - lastTouchEnd <= 330) frameEvent.preventDefault();
+          lastTouchEnd = now;
+        };
+
+        frameDocument.addEventListener("touchmove", preventFrameBrowserZoom, { passive: false, capture: true });
+        frameDocument.addEventListener("touchend", preventFrameDoubleTapZoom, { passive: false, capture: true });
+        frameDocument.addEventListener("gesturestart", preventFrameGesture, { passive: false, capture: true });
+        frameDocument.addEventListener("gesturechange", preventFrameGesture, { passive: false, capture: true });
+        if (frameDocument.defaultView) frameDocument.defaultView.__jakeMobileGestureLockInstalled = true;
+      }
+    } catch (error) {
+      // If the browser treats the iframe as inaccessible, the iframe-level
+      // touch-action styles above still help keep the parent page from zooming.
+    }
+  };
+
   const handleLayerFallbackOrMissing = (src, key) => {
     if (key === baseLayer || src === activeBaseSrc) setBaseImageLoading(false);
     markMissing(key);
@@ -7320,7 +7426,17 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
               <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
             </div>
-            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" loading="lazy" className="h-[82vh] w-full border-0" />
+            <div className="flex justify-center bg-black">
+              <iframe
+                title="North American Nebula Object Explorer"
+                src="/interactive/north-american-nebula/object-explorer.html"
+                loading="lazy"
+                className="mx-auto h-[calc(100dvh-220px)] min-h-[520px] w-full max-w-[100vw] border-0 sm:h-[82vh] sm:min-h-0"
+                data-embedded-interactive-frame="true"
+                style={embeddedInteractiveFrameStyle}
+                onLoad={(event) => prepareEmbeddedInteractiveFrame(event)}
+              />
+            </div>
           </div>
         ) : (
           <div className="bg-black">
@@ -7328,7 +7444,17 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
               <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
             </div>
-            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" loading="lazy" className="h-[82vh] w-full border-0" />
+            <div className="flex justify-center bg-black text-center">
+              <iframe
+                title="North American Nebula 4D AstroDepth Map"
+                src="/interactive/north-american-nebula/astrodepth-map.html"
+                loading="lazy"
+                className="mx-auto h-[calc(100dvh-220px)] min-h-[520px] w-full max-w-[100vw] border-0 sm:h-[82vh] sm:min-h-0"
+                data-embedded-interactive-frame="true"
+                style={embeddedInteractiveFrameStyle}
+                onLoad={(event) => prepareEmbeddedInteractiveFrame(event, { centerMobile: true })}
+              />
+            </div>
           </div>
         )}
 

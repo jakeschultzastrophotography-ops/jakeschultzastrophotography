@@ -18,3 +18,9 @@ body {
 [data-image-viewer-gesture-zone="true"] {
   touch-action: none;
 }
+
+
+[data-embedded-interactive-frame="true"] {
+  touch-action: none;
+  overscroll-behavior: contain;
+}

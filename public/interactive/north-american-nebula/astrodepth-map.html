@@ -332,6 +332,138 @@ g.updatemenu-button:hover text {
   .astrodepth-scale-mode-card { margin-top: 14px; }
 }
 
+
+
+/* v2.8.36 mobile polish: keep the 4D map dominant and compress informational UI. */
+@media (max-width: 900px) {
+  .astrodepth-scale-overlay {
+    display: none !important;
+  }
+  .astrodepth-sidepanel {
+    width: min(238px, calc(100vw - 24px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 24px) !important;
+    height: 58px !important;
+    left: 50% !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 10px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,192,0,0.58) !important;
+    background: rgba(7, 9, 13, 0.70) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+    backdrop-filter: blur(10px) saturate(115%);
+    box-shadow: 0 12px 34px rgba(0,0,0,0.46) !important;
+    overflow: visible !important;
+  }
+  .astrodepth-panel-content {
+    inset: 0 !important;
+    padding: 7px 10px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+  .astrodepth-panel-section h2,
+  .astrodepth-methods-panel h2 {
+    margin: 0 !important;
+    font-size: 10px !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    color: rgba(255,192,0,0.92) !important;
+  }
+  .astrodepth-panel-section h2::after,
+  .astrodepth-methods-panel h2::after {
+    content: '  •  compact guide';
+    display: block;
+    margin-top: 3px;
+    color: rgba(255,255,255,0.70);
+    font-size: 8px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-weight: 600;
+  }
+  .astrodepth-panel-section p,
+  .astrodepth-status-card,
+  .astrodepth-method-legend,
+  .astrodepth-method-card-list,
+  .astrodepth-scale-mode-card,
+  .astrodepth-panel-footer {
+    display: none !important;
+  }
+  .astrodepth-sidepanel-tabs {
+    left: 50% !important;
+    top: -27px !important;
+    width: auto !important;
+    gap: 6px !important;
+    transform: translateX(-50%) !important;
+  }
+  .astrodepth-panel-button {
+    width: 60px !important;
+    height: 22px !important;
+    border-radius: 999px !important;
+    font-size: 8.5px !important;
+    letter-spacing: 0.03em !important;
+    border-width: 1px !important;
+    background: rgba(8,10,14,0.72) !important;
+  }
+  .astrodepth-mobile-controls {
+    position: absolute;
+    z-index: 60;
+    left: 50%;
+    top: 8px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 7px;
+    border: 1px solid rgba(255,192,0,0.45);
+    border-radius: 999px;
+    background: rgba(7,9,13,0.68);
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+    backdrop-filter: blur(10px) saturate(115%);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.38);
+    font-family: Arial, Segoe UI, sans-serif;
+  }
+  .astrodepth-mobile-controls select,
+  .astrodepth-mobile-controls button {
+    height: 24px;
+    border: 1px solid rgba(255,192,0,0.48);
+    border-radius: 999px;
+    background: rgba(18,22,28,0.90);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    outline: none;
+  }
+  .astrodepth-mobile-controls select {
+    max-width: 112px;
+    padding: 0 8px;
+  }
+  .astrodepth-mobile-controls button {
+    min-width: 48px;
+    padding: 0 9px;
+    color: #000;
+    background: rgba(255,192,0,0.92);
+  }
+  .modebar-container {
+    transform: scale(0.74);
+    transform-origin: top right;
+    opacity: 0.62;
+  }
+  .js-plotly-plot .annotation-text,
+  .js-plotly-plot .gtitle {
+    font-size: 12px !important;
+    letter-spacing: 0.03em !important;
+  }
+}
+
 /* jake-astrodepth-mobile-source-clean: keep the standalone map predictable inside the site iframe. */
 html, body { touch-action: none; }
 </style>
@@ -781,6 +913,78 @@ html, body { touch-action: none; }
 
     positionScaleOverlay();
     updateFixedSidePanelButtons(ensureFixedSidePanel());
+    syncMobileAstroDepthControls();
+  }
+
+
+  function isAstroDepthMobileViewport() {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
+    return viewportWidth <= 900;
+  }
+
+  function ensureMobileAstroDepthControls() {
+    const gd = document.querySelector('.js-plotly-plot');
+    if (!gd) { return null; }
+    gd.style.position = 'relative';
+
+    let controls = gd.querySelector('.astrodepth-mobile-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'astrodepth-mobile-controls';
+
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'Choose distance scale');
+      scaleLabels.forEach(function(label) {
+        const option = document.createElement('option');
+        option.value = normalizeLabel(label);
+        option.textContent = label;
+        select.appendChild(option);
+      });
+
+      const modeButton = document.createElement('button');
+      modeButton.type = 'button';
+      modeButton.setAttribute('aria-label', 'Toggle linear or logarithmic scale');
+
+      select.addEventListener('change', function() {
+        activeScaleLabel = normalizeLabel(select.value);
+        applyScaleDisplayMode(true).then(function() {
+          return applyRightPanelState(false);
+        }).then(function() {
+          syncMobileAstroDepthControls();
+          applyAstroDepthStyles();
+        });
+      });
+
+      modeButton.addEventListener('click', function() {
+        scaleDisplayMode = (scaleDisplayMode === 'linear') ? 'log' : 'linear';
+        applyScaleDisplayMode(true).then(function() {
+          return applyRightPanelState(false);
+        }).then(function() {
+          syncMobileAstroDepthControls();
+          applyAstroDepthStyles();
+        });
+      });
+
+      controls.appendChild(select);
+      controls.appendChild(modeButton);
+      gd.appendChild(controls);
+    }
+    return controls;
+  }
+
+  function syncMobileAstroDepthControls() {
+    const controls = ensureMobileAstroDepthControls();
+    if (!controls) { return; }
+    controls.style.display = isAstroDepthMobileViewport() ? 'flex' : 'none';
+
+    const select = controls.querySelector('select');
+    const modeButton = controls.querySelector('button');
+    if (select) {
+      select.value = normalizeLabel(activeScaleLabel);
+    }
+    if (modeButton) {
+      modeButton.textContent = (scaleDisplayMode === 'linear') ? 'Log' : 'Linear';
+    }
   }
 
   function resizeAstroDepthPlotToViewport() {
@@ -795,13 +999,23 @@ html, body { touch-action: none; }
     const layout = { width: width, height: height };
 
     if (isMobile) {
-      // Mobile framing: center the 4D scene cleanly above the compact info panel.
-      layout['scene.domain.x'] = [0.02, 0.98];
-      layout['scene.domain.y'] = [0.27, 0.96];
+      // Mobile professional framing: prioritize the 3D map and move controls into compact overlays.
+      layout['scene.domain.x'] = [0.0, 1.0];
+      layout['scene.domain.y'] = [0.08, 0.98];
       layout['margin.l'] = 0;
       layout['margin.r'] = 0;
-      layout['margin.t'] = 56;
-      layout['margin.b'] = 186;
+      layout['margin.t'] = 20;
+      layout['margin.b'] = 8;
+      layout['annotations[0].font.size'] = 12;
+      layout['annotations[0].y'] = 1.01;
+      layout['annotations[0].visible'] = false;
+      layout['updatemenus[0].visible'] = false;
+      layout['scene.xaxis.title.font.size'] = 9;
+      layout['scene.yaxis.title.font.size'] = 9;
+      layout['scene.zaxis.title.font.size'] = 10;
+      layout['scene.xaxis.tickfont.size'] = 8;
+      layout['scene.yaxis.tickfont.size'] = 8;
+      layout['scene.zaxis.tickfont.size'] = 8;
     } else {
       layout['scene.domain.x'] = [0.0, 0.735];
       layout['scene.domain.y'] = [0.12, 1.0];
@@ -809,9 +1023,14 @@ html, body { touch-action: none; }
       layout['margin.r'] = 36;
       layout['margin.t'] = 90;
       layout['margin.b'] = 145;
+      layout['annotations[0].font.size'] = 26;
+      layout['annotations[0].y'] = 1.065;
+      layout['annotations[0].visible'] = true;
+      layout['updatemenus[0].visible'] = true;
     }
 
     return Plotly.relayout(plot, layout).then(function() {
+      syncMobileAstroDepthControls();
       positionScaleOverlay();
     });
   }
@@ -823,6 +1042,7 @@ html, body { touch-action: none; }
     setTimeout(resetAstroDepthCameraToDefault, 120);
     setTimeout(resetAstroDepthCameraToDefault, 420);
     applyRightPanelState(false);
+    syncMobileAstroDepthControls();
     applyAstroDepthStyles();
     scheduleAstroDepthStyles(80);
     scheduleAstroDepthStyles(220);

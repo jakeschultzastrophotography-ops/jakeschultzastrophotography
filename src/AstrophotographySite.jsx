@@ -5733,6 +5733,9 @@ function NorthAmericanNebulaPage({ navigate }) {
   const [mobileOptimizedViewer, setMobileOptimizedViewer] = useState(() => isMobileLikeViewport());
   const [mobileImageFallbacks, setMobileImageFallbacks] = useState({});
   const controlNoteTimeoutRef = useRef(0);
+  const controlNoteLongPressRef = useRef({ timer: 0, fired: false });
+  const controlNoteBlockClickRef = useRef(false);
+  const loadedLayerSrcsRef = useRef({});
   const [missingLayers, setMissingLayers] = useState({});
   const [preloadedTileLayers, setPreloadedTileLayers] = useState({});
   const preloadedTileLayersRef = useRef({});
@@ -5912,6 +5915,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (zoomUiFrameRef.current) cancelAnimationFrame(zoomUiFrameRef.current);
     if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
     if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    if (controlNoteLongPressRef.current.timer) window.clearTimeout(controlNoteLongPressRef.current.timer);
   }, []);
 
   useEffect(() => {
@@ -5959,19 +5963,26 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   useEffect(() => {
     const mobileViewer = isMobileLikeViewport();
-    const priorityImages = (mobileViewer ? [baseDisplaySrc] : [activeBaseSrc, activeBase.src, activeBase.starSrc]).filter(Boolean);
+    const layerSources = Object.values(baseLayers).flatMap((layer) => [layer.src, layer.starSrc]).filter(Boolean);
+    const overlaySources = [overlayLayers.annotation.src, overlayLayers.pelican.src].filter(Boolean);
+    const priorityImages = (mobileViewer
+      ? [...layerSources, ...overlaySources].map((src) => getNetlifyOptimizedImageUrl(src, 2400, 84))
+      : [...layerSources, ...overlaySources]
+    ).filter(Boolean);
+
     const cachedPriority = priorityImages.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
-      img.fetchPriority = index === 0 ? "high" : "auto";
+      img.fetchPriority = index === 0 || src === baseDisplaySrc ? "high" : "auto";
+      img.onload = () => { loadedLayerSrcsRef.current[src] = true; };
       img.src = src;
       if (img.decode) {
-        img.decode().catch(() => {});
+        img.decode().then(() => { loadedLayerSrcsRef.current[src] = true; }).catch(() => {});
       }
       return img;
     });
-    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
-  }, [activeBaseSrc, baseDisplaySrc, activeBase.src, activeBase.starSrc]);
+    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-30);
+  }, [baseDisplaySrc, mobileOptimizedViewer]);
 
   useEffect(() => {
     if (!enableTiledDetail) return undefined;
@@ -6078,14 +6089,10 @@ function NorthAmericanNebulaPage({ navigate }) {
   });
 
   useEffect(() => {
-    setBaseImageLoading(true);
-    if (isCoarseMobileViewer()) {
-      requestAnimationFrame(() => {
-        getFitScale();
-        applyView(1, 0, 0, false, true);
-      });
-    }
-  }, [activeBaseSrc]);
+    // Preserve the current pan/zoom position while switching base layers.
+    // The viewer should feel like changing layers in an image editor, not resetting the canvas.
+    setBaseImageLoading(!loadedLayerSrcsRef.current[baseDisplaySrc]);
+  }, [baseDisplaySrc]);
 
   const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -6683,23 +6690,22 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const handleBaseImageLoad = () => {
     clearMissing(baseLayer);
+    loadedLayerSrcsRef.current[baseDisplaySrc] = true;
     setBaseImageLoading(false);
-    if (isCoarseMobileViewer() && (zoomRef.current || 1) <= 1.02) {
-      requestAnimationFrame(() => {
-        getFitScale();
-        applyView(1, 0, 0, false, true);
-      });
-    }
+    paintViewImmediate();
   };
 
   const scrollToProjectInfo = () => {
     projectInfoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const isMobileControlNote = () =>
+    typeof window !== "undefined" && (window.innerWidth < 640 || window.matchMedia?.("(pointer: coarse)")?.matches);
+
   const showControlNote = (event, id, label) => {
     const text = toolbarNotes[id];
     if (!text) return;
-    const isMobileNote = typeof window !== "undefined" && (window.innerWidth < 640 || window.matchMedia?.("(pointer: coarse)")?.matches);
+    const isMobileNote = isMobileControlNote();
     const targetRect = event?.currentTarget?.getBoundingClientRect?.();
     const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
     const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 720;
@@ -6735,21 +6741,65 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const hideControlNote = (id = null) => {
     if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    if (controlNoteLongPressRef.current.timer) {
+      window.clearTimeout(controlNoteLongPressRef.current.timer);
+      controlNoteLongPressRef.current.timer = 0;
+    }
     setActiveControlNote((current) => (!id || current?.id === id ? null : current));
+  };
+
+  const startMobileControlNoteHold = (event, id, label) => {
+    if (!isMobileControlNote()) return;
+    const target = event.currentTarget;
+    if (controlNoteLongPressRef.current.timer) window.clearTimeout(controlNoteLongPressRef.current.timer);
+    controlNoteLongPressRef.current.fired = false;
+    controlNoteLongPressRef.current.timer = window.setTimeout(() => {
+      controlNoteLongPressRef.current.timer = 0;
+      controlNoteLongPressRef.current.fired = true;
+      controlNoteBlockClickRef.current = true;
+      showControlNote({ currentTarget: target }, id, label);
+      window.setTimeout(() => { controlNoteBlockClickRef.current = false; }, 450);
+    }, 560);
+  };
+
+  const clearMobileControlNoteHold = () => {
+    if (controlNoteLongPressRef.current.timer) {
+      window.clearTimeout(controlNoteLongPressRef.current.timer);
+      controlNoteLongPressRef.current.timer = 0;
+    }
   };
 
   const controlNoteProps = (id, label) => ({
     "aria-describedby": activeControlNote?.id === id ? controlNotePanelId : undefined,
+    onClickCapture: (event) => {
+      if (controlNoteBlockClickRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.nativeEvent?.stopImmediatePropagation) event.nativeEvent.stopImmediatePropagation();
+      }
+    },
     onPointerEnter: (event) => {
-      if (event.pointerType !== "touch") showControlNote(event, id, label);
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") showControlNote(event, id, label);
     },
     onPointerDown: (event) => {
-      if (event.pointerType === "touch" || event.pointerType === "pen") showControlNote(event, id, label);
+      if (event.pointerType === "touch" || event.pointerType === "pen") startMobileControlNoteHold(event, id, label);
+    },
+    onPointerUp: (event) => {
+      if (event.pointerType === "touch" || event.pointerType === "pen") clearMobileControlNoteHold();
+    },
+    onPointerCancel: (event) => {
+      if (event.pointerType === "touch" || event.pointerType === "pen") clearMobileControlNoteHold();
     },
     onPointerLeave: (event) => {
-      if (event.pointerType !== "touch") hideControlNote(id);
+      if (event.pointerType === "touch" || event.pointerType === "pen") {
+        clearMobileControlNoteHold();
+      } else {
+        hideControlNote(id);
+      }
     },
-    onFocus: (event) => showControlNote(event, id, label),
+    onFocus: (event) => {
+      if (!isMobileControlNote()) showControlNote(event, id, label);
+    },
     onBlur: () => hideControlNote(id),
   });
 
@@ -7128,7 +7178,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                       fetchPriority="high"
                       onLoad={handleBaseImageLoad}
                       onError={() => handleLayerFallbackOrMissing(activeBaseSrc, baseLayer)}
-                      className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill transition-opacity duration-300 ${baseImageLoading ? "opacity-0" : "opacity-100"}`}
+                      className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill ${baseImageLoading ? "opacity-0" : "opacity-100"}`}
                     />
                   )}
                   {shouldShowHighResolutionTiles && (
@@ -7173,8 +7223,9 @@ function NorthAmericanNebulaPage({ navigate }) {
                         alt="North American Nebula Pelican overlay"
                         draggable="false"
                         decoding="async"
-                        loading="lazy"
-                        onLoad={() => clearMissing("pelican")}
+                        loading="eager"
+                        fetchPriority="high"
+                        onLoad={() => { loadedLayerSrcsRef.current[pelicanDisplaySrc] = true; clearMissing("pelican"); }}
                         onError={() => handleLayerFallbackOrMissing(overlayLayers.pelican.src, "pelican")}
                         className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                       />
@@ -7186,8 +7237,9 @@ function NorthAmericanNebulaPage({ navigate }) {
                       alt="North American Nebula annotation overlay"
                       draggable="false"
                       decoding="async"
-                      loading="lazy"
-                      onLoad={() => clearMissing("annotation")}
+                      loading="eager"
+                      fetchPriority="high"
+                      onLoad={() => { loadedLayerSrcsRef.current[annotationDisplaySrc] = true; clearMissing("annotation"); }}
                       onError={() => handleLayerFallbackOrMissing(overlayLayers.annotation.src, "annotation")}
                       className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                     />

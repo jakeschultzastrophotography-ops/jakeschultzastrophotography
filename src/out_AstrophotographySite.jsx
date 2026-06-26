@@ -74,7 +74,7 @@ function useContainerWidth(ref) {
 }
 
 
-/** Prevent horizontal scrolling (mobile + desktop) and keep mobile zoom behavior predictable. */
+/** Prevent horizontal/page zoom drift while preserving pinch zoom inside the image viewer. */
 function useNoHorizontalScroll() {
   useEffect(() => {
     const html = document.documentElement;
@@ -83,36 +83,81 @@ function useNoHorizontalScroll() {
     const viewport = existingViewport || document.createElement("meta");
     const createdViewport = !existingViewport;
     const previousViewportContent = viewport.getAttribute("content");
+    let lastTouchEnd = 0;
 
     if (createdViewport) {
       viewport.setAttribute("name", "viewport");
       document.head.appendChild(viewport);
     }
 
+    // Keep the document itself fixed at device width. The interactive image viewer
+    // handles its own pinch/pan gestures inside its gesture zone.
     viewport.setAttribute(
       "content",
-      "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     );
 
     const prevHtml = {
       maxWidth: html.style.maxWidth,
       overflowX: html.style.overflowX,
       overscrollBehaviorX: html.style.overscrollBehaviorX,
+      overscrollBehaviorY: html.style.overscrollBehaviorY,
+      touchAction: html.style.touchAction,
     };
     const prevBody = {
       maxWidth: body.style.maxWidth,
       overflowX: body.style.overflowX,
       overscrollBehaviorX: body.style.overscrollBehaviorX,
+      overscrollBehaviorY: body.style.overscrollBehaviorY,
+      touchAction: body.style.touchAction,
+    };
+
+    const isInsideViewerGestureZone = (target) => Boolean(
+      target?.closest?.('[data-image-viewer-gesture-zone="true"]')
+    );
+
+    const blockDocumentPinch = (event) => {
+      if (event.touches?.length > 1 && !isInsideViewerGestureZone(event.target)) {
+        event.preventDefault();
+      }
+    };
+
+    const blockDocumentGesture = (event) => {
+      if (!isInsideViewerGestureZone(event.target)) {
+        event.preventDefault();
+      }
+    };
+
+    const blockDoubleTapZoom = (event) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 330) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
     };
 
     html.style.maxWidth = "100vw";
     html.style.overflowX = "hidden";
     html.style.overscrollBehaviorX = "none";
+    html.style.overscrollBehaviorY = "auto";
+    html.style.touchAction = "pan-y";
     body.style.maxWidth = "100vw";
     body.style.overflowX = "hidden";
     body.style.overscrollBehaviorX = "none";
+    body.style.overscrollBehaviorY = "auto";
+    body.style.touchAction = "pan-y";
+
+    document.addEventListener("touchmove", blockDocumentPinch, { passive: false, capture: true });
+    document.addEventListener("touchend", blockDoubleTapZoom, { passive: false, capture: true });
+    document.addEventListener("gesturestart", blockDocumentGesture, { passive: false, capture: true });
+    document.addEventListener("gesturechange", blockDocumentGesture, { passive: false, capture: true });
 
     return () => {
+      document.removeEventListener("touchmove", blockDocumentPinch, { capture: true });
+      document.removeEventListener("touchend", blockDoubleTapZoom, { capture: true });
+      document.removeEventListener("gesturestart", blockDocumentGesture, { capture: true });
+      document.removeEventListener("gesturechange", blockDocumentGesture, { capture: true });
+
       if (createdViewport) {
         viewport.remove();
       } else if (previousViewportContent == null) {
@@ -123,9 +168,13 @@ function useNoHorizontalScroll() {
       html.style.maxWidth = prevHtml.maxWidth;
       html.style.overflowX = prevHtml.overflowX;
       html.style.overscrollBehaviorX = prevHtml.overscrollBehaviorX;
+      html.style.overscrollBehaviorY = prevHtml.overscrollBehaviorY;
+      html.style.touchAction = prevHtml.touchAction;
       body.style.maxWidth = prevBody.maxWidth;
       body.style.overflowX = prevBody.overflowX;
       body.style.overscrollBehaviorX = prevBody.overscrollBehaviorX;
+      body.style.overscrollBehaviorY = prevBody.overscrollBehaviorY;
+      body.style.touchAction = prevBody.touchAction;
     };
   }, []);
 }
@@ -5799,7 +5848,9 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (!el) return fitScaleRef.current || 1;
     const viewportW = el.clientWidth || viewerMetricsRef.current.viewportW || 1;
     const viewportH = el.clientHeight || viewerMetricsRef.current.viewportH || viewportW * (tileImageHeight / tileImageWidth);
-    const fitScale = Math.max(0.0001, Math.min(viewportW / tileImageWidth, viewportH / tileImageHeight));
+    const mobileViewer = isCoarseMobileViewer();
+    const widthFitScale = viewportW / tileImageWidth;
+    const fitScale = Math.max(0.0001, mobileViewer ? widthFitScale : Math.min(widthFitScale, viewportH / tileImageHeight));
     fitScaleRef.current = fitScale;
     viewerMetricsRef.current = { viewportW, viewportH, fitScale };
     return fitScale;
@@ -6019,8 +6070,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
 
     if (scaledH <= viewportH) {
-      const mobileTopInset = isCoarseMobileViewer() ? 54 : 0;
-      y = isCoarseMobileViewer() ? mobileTopInset : (viewportH - scaledH) / 2;
+      y = isCoarseMobileViewer() ? 0 : (viewportH - scaledH) / 2;
     } else {
       y = clampValue(y, viewportH - scaledH, 0);
     }
@@ -6134,8 +6184,10 @@ function NorthAmericanNebulaPage({ navigate }) {
         const bottomPadding = mobileViewer ? 76 : 28;
         const minHeight = mobileViewer ? 300 : 320;
         const visibleHeight = Math.max(minHeight, viewportH - rect.top - bottomPadding);
-        const mobileControlsInset = mobileViewer ? 64 : 0;
-        const preferredHeight = mobileViewer ? naturalFitHeight + mobileControlsInset : naturalFitHeight;
+        const mobileControlsInset = mobileViewer ? 54 : 0;
+        const preferredHeight = mobileViewer
+          ? Math.max(minHeight, naturalFitHeight + mobileControlsInset)
+          : naturalFitHeight;
         const nextHeight = Math.max(minHeight, Math.round(Math.min(preferredHeight, visibleHeight)));
 
         setOpeningViewerHeight((current) => (Math.abs((current || 0) - nextHeight) > 2 ? nextHeight : current));
@@ -6966,6 +7018,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               )}
               <div
                 ref={viewerRef}
+                data-image-viewer-gesture-zone="true"
                 className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[360px] min-h-[300px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
                 onClick={handleViewerClick}
                 style={{
@@ -6973,6 +7026,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                   touchAction: viewerLocked || isCoarseMobileViewer() ? "none" : "pan-y",
                   overscrollBehavior: viewerLocked || isCoarseMobileViewer() ? "none" : "auto",
                   overscrollBehaviorY: viewerLocked || isCoarseMobileViewer() ? "contain" : "auto",
+                  WebkitTouchCallout: "none",
                   overscrollBehaviorX: "contain",
                   userSelect: "none",
                   WebkitUserSelect: "none",

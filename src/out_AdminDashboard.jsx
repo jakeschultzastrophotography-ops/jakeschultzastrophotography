@@ -204,7 +204,7 @@ function makeDefaultConfig() {
     latestNews: [
       {
         id: "north-american-nebula-interactive",
-        title: "NGC 7000 Interactive Image Explorer Now Live",
+        title: "Interactive North American Nebula Image Explorer",
         date: "Jun 25, 2026",
         image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
         href: "/gallery/north-american-nebula",

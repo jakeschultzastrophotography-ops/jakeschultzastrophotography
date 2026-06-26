@@ -485,22 +485,25 @@ try {
 const LOCKSCREEN_PREVIEW_SRC =
   "/share/eclipse-lockscreen/Totality Lock Screen.jpg";
 
+// ✅ Always keep the newest interactive release in Latest News, even if /site-config.json is older.
+const NORTH_AMERICAN_NEBULA_INTERACTIVE_NEWS_POST = {
+  id: "north-american-nebula-interactive",
+  title: "Interactive North American Nebula Image Explorer",
+  date: "Jun 25, 2026",
+  image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+  href: "/gallery/north-american-nebula",
+  external: false,
+  shareHref: "/share/north-american-nebula/",
+  description:
+    "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
+  cta: "View Interactive Image",
+  mediaFit: "contain",
+  category: "Interactive image",
+};
+
 // ✅ Share pages (must exist as static OG pages in /public/share/...)
 const LATEST_NEWS = [
-  {
-    id: "north-american-nebula-interactive",
-    title: "NGC 7000 Interactive Image Explorer Now Live",
-    date: "Jun 25, 2026",
-    image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-    href: "/gallery/north-american-nebula",
-    external: false,
-    shareHref: "/share/north-american-nebula/",
-    description:
-      "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
-    cta: "View Interactive Image",
-    mediaFit: "contain",
-    category: "Interactive image",
-  },
+  NORTH_AMERICAN_NEBULA_INTERACTIVE_NEWS_POST,
   {
     id: "lunar-eclipse-guide",
     title: "Tonight: Total Lunar Eclipse — Live Tracking + Eclipse Guide",
@@ -560,6 +563,13 @@ function getNewsKey(post) {
   return (post?.id || `${post?.title || ""}-${post?.date || ""}`).toString().trim();
 }
 
+function ensureInteractiveNorthAmericaNewsFirst(posts) {
+  const list = Array.isArray(posts) ? posts.filter(Boolean) : [];
+  const interactiveKey = getNewsKey(NORTH_AMERICAN_NEBULA_INTERACTIVE_NEWS_POST);
+  const withoutInteractive = list.filter((post) => getNewsKey(post) !== interactiveKey);
+  return [NORTH_AMERICAN_NEBULA_INTERACTIVE_NEWS_POST, ...withoutInteractive];
+}
+
 function mergeLatestNewsWithDefaults(configPosts) {
   const configList = Array.isArray(configPosts)
     ? configPosts.filter((p) => (p?.status || "published") !== "draft")
@@ -583,7 +593,7 @@ function mergeLatestNewsWithDefaults(configPosts) {
     return configByKey.get(key) || post;
   }).filter((p) => (p?.status || "published") !== "draft");
 
-  return [...customPosts, ...restoredDefaults];
+  return ensureInteractiveNorthAmericaNewsFirst([...customPosts, ...restoredDefaults]);
 }
 
 function usePathname() {
@@ -1333,7 +1343,7 @@ case "latestNews":
           </div>
 
           <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
-            {(latestNews || LATEST_NEWS).map((post) => {
+            {ensureInteractiveNorthAmericaNewsFirst(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
                 post.mediaFit === "cover" ? "object-cover" : "object-contain";
@@ -1695,7 +1705,7 @@ return (
           </div>
 
           <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
-            {(latestNews || LATEST_NEWS).map((post) => {
+            {ensureInteractiveNorthAmericaNewsFirst(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
                 post.mediaFit === "cover" ? "object-cover" : "object-contain";

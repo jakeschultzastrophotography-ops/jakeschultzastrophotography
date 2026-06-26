@@ -20,9 +20,11 @@ body {
 }
 
 
+[data-embedded-interactive-zone="true"],
 [data-embedded-interactive-frame="true"] {
-  touch-action: auto;
+  touch-action: pan-x pan-y pinch-zoom;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 
@@ -32,7 +34,7 @@ body {
     max-width: 100vw;
     overflow: auto;
     align-items: flex-start;
-    justify-content: center;
+    justify-content: flex-start;
     touch-action: pan-x pan-y pinch-zoom;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -42,7 +44,7 @@ body {
   .north-america-depth-frame {
     display: block;
     border: 0;
-    touch-action: auto;
+    touch-action: pan-x pan-y pinch-zoom;
     overscroll-behavior: contain;
   }
 }

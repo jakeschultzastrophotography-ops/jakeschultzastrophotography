@@ -115,22 +115,25 @@ function useNoHorizontalScroll() {
     const isInsideViewerGestureZone = (target) => Boolean(
       target?.closest?.('[data-image-viewer-gesture-zone="true"]')
     );
+    const isInsideEmbeddedInteractiveZone = (target) => Boolean(
+      target?.closest?.('[data-embedded-interactive-zone="true"], [data-embedded-interactive-frame="true"]')
+    );
 
     const blockDocumentPinch = (event) => {
-      if (event.touches?.length > 1 && !isInsideViewerGestureZone(event.target)) {
+      if (event.touches?.length > 1 && !isInsideViewerGestureZone(event.target) && !isInsideEmbeddedInteractiveZone(event.target)) {
         event.preventDefault();
       }
     };
 
     const blockDocumentGesture = (event) => {
-      if (!isInsideViewerGestureZone(event.target)) {
+      if (!isInsideViewerGestureZone(event.target) && !isInsideEmbeddedInteractiveZone(event.target)) {
         event.preventDefault();
       }
     };
 
     const blockDoubleTapZoom = (event) => {
       const now = Date.now();
-      if (now - lastTouchEnd <= 330) {
+      if (now - lastTouchEnd <= 330 && !isInsideEmbeddedInteractiveZone(event.target)) {
         event.preventDefault();
       }
       lastTouchEnd = now;
@@ -5797,6 +5800,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     width: typeof window !== "undefined" ? window.innerWidth : 390,
     height: typeof window !== "undefined" ? window.innerHeight : 800,
   }));
+  const [embeddedToolZoom, setEmbeddedToolZoom] = useState({ objects: 1, depth: 1 });
+  const [embeddedPanMode, setEmbeddedPanMode] = useState(false);
   const transformFrameRef = useRef(0);
   const zoomUiFrameRef = useRef(0);
   const zoomUiTimeoutRef = useRef(0);
@@ -5906,6 +5911,12 @@ function NorthAmericanNebulaPage({ navigate }) {
   const mobileCanvasViewerActive = mobileStableViewerActive;
   const mobileBaseOverviewSrc = getMobileOverviewLayerSrc(activeBaseSrc, 2200, 92);
   const mobileLowZoomOverviewActive = false;
+  // Mobile canvas uses a progressive render path: a smaller overview paints first
+  // so the viewer opens quickly, then the native full-resolution layer replaces it
+  // automatically once the browser finishes decoding it.
+  const mobileProgressiveBaseSrc = mobileCanvasViewerActive ? getMobileOverviewLayerSrc(activeBaseSrc, 1800, 88) : activeBaseSrc;
+  const mobileProgressiveAnnotationSrc = mobileCanvasViewerActive ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 1800, 88) : overlayLayers.annotation.src;
+  const mobileProgressivePelicanSrc = mobileCanvasViewerActive ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 1800, 88) : overlayLayers.pelican.src;
   const baseRenderSrc = baseDisplaySrc;
   const annotationRenderSrc = annotationDisplaySrc;
   const pelicanRenderSrc = pelicanDisplaySrc;
@@ -6160,7 +6171,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     setBaseImageLoading(!loadedLayerSrcsRef.current[baseRenderSrc]);
   }, [baseDisplaySrc, baseRenderSrc, mobileCanvasViewerActive]);
 
-  const loadMobileCanvasImage = (src) => new Promise((resolve, reject) => {
+  const loadMobileCanvasImage = (src, priority = "auto") => new Promise((resolve, reject) => {
     if (!src) {
       resolve(null);
       return;
@@ -6170,25 +6181,37 @@ function NorthAmericanNebulaPage({ navigate }) {
       resolve(cached);
       return;
     }
-    const img = new window.Image();
+    const img = cached instanceof window.HTMLImageElement ? cached : new window.Image();
     img.decoding = "async";
     img.loading = "eager";
+    img.fetchPriority = priority;
     img.onload = () => {
       mobileCanvasImagesRef.current[src] = img;
       loadedLayerSrcsRef.current[src] = true;
       resolve(img);
     };
     img.onerror = () => reject(new Error(`Unable to load ${src}`));
-    img.src = src;
+    if (!img.src) img.src = src;
     mobileCanvasImagesRef.current[src] = img;
     if (img.decode) {
       img.decode().then(() => {
-        mobileCanvasImagesRef.current[src] = img;
-        loadedLayerSrcsRef.current[src] = true;
-        resolve(img);
+        if (img.complete && img.naturalWidth > 0) {
+          mobileCanvasImagesRef.current[src] = img;
+          loadedLayerSrcsRef.current[src] = true;
+          resolve(img);
+        }
       }).catch(() => {});
     }
   });
+
+  const loadMobileCanvasProgressiveImage = (fastSrc, fullSrc, priority = "auto") =>
+    loadMobileCanvasImage(fastSrc, priority).catch(() => {
+      if (fastSrc && fullSrc && fastSrc !== fullSrc) {
+        setMobileImageFallbacks((current) => current[fullSrc] ? current : { ...current, [fullSrc]: true });
+        return loadMobileCanvasImage(fullSrc, priority);
+      }
+      throw new Error(`Unable to load ${fullSrc || fastSrc}`);
+    });
 
   const drawMobileCanvasLayer = (ctx, img, canvasW, canvasH, displayScale) => {
     if (!img || !img.complete || !img.naturalWidth || !img.naturalHeight || !displayScale) return false;
@@ -6244,14 +6267,34 @@ function NorthAmericanNebulaPage({ navigate }) {
 
     const displayScale = getDisplayScale(zoomRef.current || 1);
     const drawState = mobileCanvasLayerRequestRef.current || {};
+    const chooseProgressiveImage = (fullSrc, fastSrc) => {
+      const fullImg = mobileCanvasImagesRef.current[fullSrc];
+      const fastImg = mobileCanvasImagesRef.current[fastSrc];
+      if (fullImg?.complete && fullImg.naturalWidth > 0) return fullImg;
+      if (fastImg?.complete && fastImg.naturalWidth > 0) return fastImg;
+      return fullImg || fastImg || null;
+    };
     const requestedBaseSrc = drawState.baseSrc || baseDisplaySrc;
-    const baseImg = mobileCanvasImagesRef.current[requestedBaseSrc];
+    const requestedBaseFastSrc = drawState.baseFastSrc || mobileProgressiveBaseSrc || requestedBaseSrc;
+    const baseImg = chooseProgressiveImage(requestedBaseSrc, requestedBaseFastSrc);
     const drewBase = drawMobileCanvasLayer(ctx, baseImg, cssW, cssH, displayScale);
     if (drawState.showPelicanOverlay) {
-      drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.pelican.src], cssW, cssH, displayScale);
+      drawMobileCanvasLayer(
+        ctx,
+        chooseProgressiveImage(drawState.pelicanSrc || overlayLayers.pelican.src, drawState.pelicanFastSrc || mobileProgressivePelicanSrc),
+        cssW,
+        cssH,
+        displayScale
+      );
     }
     if (drawState.showAnnotation) {
-      drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.annotation.src], cssW, cssH, displayScale);
+      drawMobileCanvasLayer(
+        ctx,
+        chooseProgressiveImage(drawState.annotationSrc || overlayLayers.annotation.src, drawState.annotationFastSrc || mobileProgressiveAnnotationSrc),
+        cssW,
+        cssH,
+        displayScale
+      );
     }
     if (drewBase) setMobileCanvasReady(true);
   };
@@ -6269,24 +6312,35 @@ function NorthAmericanNebulaPage({ navigate }) {
     const requestedLayer = {
       token: requestToken,
       baseSrc: baseDisplaySrc,
+      baseFastSrc: mobileProgressiveBaseSrc,
       baseLayer,
       showPelicanOverlay,
       showAnnotation,
+      pelicanSrc: overlayLayers.pelican.src,
+      pelicanFastSrc: mobileProgressivePelicanSrc,
+      annotationSrc: overlayLayers.annotation.src,
+      annotationFastSrc: mobileProgressiveAnnotationSrc,
     };
     mobileCanvasLayerRequestRef.current = requestedLayer;
 
-    // Do not blank the canvas on a layer change. Keep the last successfully drawn
-    // layer visible while the requested layer loads, then repaint only if this
-    // exact request is still current.
-    setBaseImageLoading(!loadedLayerSrcsRef.current[baseDisplaySrc]);
+    // Paint a fast mobile overview first, then upgrade to the native full-res
+    // layer in the background. This keeps phones from appearing stuck while
+    // they decode the 7887 × 6086 masters.
+    setBaseImageLoading(!loadedLayerSrcsRef.current[mobileProgressiveBaseSrc] && !loadedLayerSrcsRef.current[baseDisplaySrc]);
 
-    const neededSources = [
-      baseDisplaySrc,
-      showPelicanOverlay ? overlayLayers.pelican.src : null,
-      showAnnotation ? overlayLayers.annotation.src : null,
+    const fastSources = [
+      { fast: mobileProgressiveBaseSrc, full: baseDisplaySrc, priority: "high" },
+      showPelicanOverlay ? { fast: mobileProgressivePelicanSrc, full: overlayLayers.pelican.src, priority: "auto" } : null,
+      showAnnotation ? { fast: mobileProgressiveAnnotationSrc, full: overlayLayers.annotation.src, priority: "auto" } : null,
     ].filter(Boolean);
 
-    Promise.allSettled(neededSources.map((src) => loadMobileCanvasImage(src))).then((results) => {
+    const fullSources = [
+      { fast: baseDisplaySrc, full: baseDisplaySrc, priority: "low" },
+      showPelicanOverlay ? { fast: overlayLayers.pelican.src, full: overlayLayers.pelican.src, priority: "low" } : null,
+      showAnnotation ? { fast: overlayLayers.annotation.src, full: overlayLayers.annotation.src, priority: "low" } : null,
+    ].filter(Boolean);
+
+    Promise.allSettled(fastSources.map(({ fast, full, priority }) => loadMobileCanvasProgressiveImage(fast, full, priority))).then((results) => {
       const latestRequest = mobileCanvasLayerRequestRef.current || {};
       if (
         cancelled ||
@@ -6302,7 +6356,7 @@ function NorthAmericanNebulaPage({ navigate }) {
         return;
       }
       clearMissing(baseLayer);
-      setReadyBaseDisplaySrc(baseDisplaySrc);
+      setReadyBaseDisplaySrc(mobileProgressiveBaseSrc);
       setBaseImageLoading(false);
       setMobileCanvasReady(true);
       requestAnimationFrame(() => {
@@ -6315,12 +6369,32 @@ function NorthAmericanNebulaPage({ navigate }) {
         getFitScale();
         scheduleMobileCanvasDraw();
       });
+
+      const startFullResolutionUpgrade = () => {
+        Promise.allSettled(fullSources.map(({ full, priority }) => loadMobileCanvasImage(full, priority))).then(() => {
+          const currentRequest = mobileCanvasLayerRequestRef.current || {};
+          if (
+            cancelled ||
+            currentRequest.token !== requestToken ||
+            currentRequest.baseSrc !== baseDisplaySrc ||
+            currentRequest.baseLayer !== baseLayer
+          ) return;
+          setReadyBaseDisplaySrc(baseDisplaySrc);
+          scheduleMobileCanvasDraw();
+        });
+      };
+
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(startFullResolutionUpgrade, { timeout: 900 });
+      } else {
+        window.setTimeout(startFullResolutionUpgrade, 450);
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [mobileCanvasViewerActive, baseLayer, baseDisplaySrc, showPelicanOverlay, showAnnotation]);
+  }, [mobileCanvasViewerActive, baseLayer, baseDisplaySrc, mobileProgressiveBaseSrc, mobileProgressivePelicanSrc, mobileProgressiveAnnotationSrc, showPelicanOverlay, showAnnotation]);
 
   useEffect(() => {
     if (!mobileCanvasViewerActive) return undefined;
@@ -6953,7 +7027,7 @@ function NorthAmericanNebulaPage({ navigate }) {
   const shouldCaptureViewerTouch = () => isImageMode && (viewerLocked || isCoarseMobileViewer());
 
   const embeddedInteractiveFrameStyle = {
-    touchAction: "none",
+    touchAction: "pan-x pan-y pinch-zoom",
     overscrollBehavior: "contain",
     WebkitOverflowScrolling: "touch",
   };
@@ -6961,10 +7035,13 @@ function NorthAmericanNebulaPage({ navigate }) {
   const mobileEmbeddedFrameHeight = Math.max(420, Math.min(660, (mobileFrameViewport.height || 800) - 382));
   const mobileObjectFrameWidth = 980;
   const mobileDepthFrameWidth = 1180;
-  const mobileObjectFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
-  const mobileDepthFrameScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
+  const mobileObjectFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileObjectFrameWidth);
+  const mobileDepthFrameBaseScale = Math.min(1, (mobileFrameViewport.width || 390) / mobileDepthFrameWidth);
+  const mobileObjectFrameScale = Math.min(1.35, mobileObjectFrameBaseScale * (embeddedToolZoom.objects || 1));
+  const mobileDepthFrameScale = Math.min(1.35, mobileDepthFrameBaseScale * (embeddedToolZoom.depth || 1));
   const embeddedObjectShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
   const embeddedDepthShellStyle = mobileEmbeddedFrame ? { height: `${mobileEmbeddedFrameHeight}px` } : undefined;
+  const embeddedMobileFramePointerEvents = mobileEmbeddedFrame && embeddedPanMode ? "none" : "auto";
   const embeddedObjectFrameStyle = {
     ...embeddedInteractiveFrameStyle,
     ...(mobileEmbeddedFrame ? {
@@ -6972,8 +7049,9 @@ function NorthAmericanNebulaPage({ navigate }) {
       maxWidth: "none",
       height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileObjectFrameScale))}px`,
       transform: `scale(${mobileObjectFrameScale})`,
-      transformOrigin: "top center",
+      transformOrigin: "top left",
       flex: "0 0 auto",
+      pointerEvents: embeddedMobileFramePointerEvents,
     } : {}),
   };
   const embeddedDepthFrameStyle = {
@@ -6983,8 +7061,9 @@ function NorthAmericanNebulaPage({ navigate }) {
       maxWidth: "none",
       height: `${Math.ceil(mobileEmbeddedFrameHeight / Math.max(0.01, mobileDepthFrameScale))}px`,
       transform: `scale(${mobileDepthFrameScale})`,
-      transformOrigin: "top center",
+      transformOrigin: "top left",
       flex: "0 0 auto",
+      pointerEvents: embeddedMobileFramePointerEvents,
     } : {}),
   };
 
@@ -7007,20 +7086,20 @@ function NorthAmericanNebulaPage({ navigate }) {
         "content",
         objectExplorer
           ? "width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
-          : "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          : "width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
       );
 
       const html = frameDocument.documentElement;
       const body = frameDocument.body;
       if (html) {
         html.style.overscrollBehavior = "contain";
-        html.style.touchAction = objectExplorer ? "auto" : "none";
+        html.style.touchAction = "pan-x pan-y pinch-zoom";
         html.style.margin = "0";
         html.style.background = "#000";
       }
       if (body) {
         body.style.overscrollBehavior = "contain";
-        body.style.touchAction = objectExplorer ? "auto" : "none";
+        body.style.touchAction = "pan-x pan-y pinch-zoom";
         body.style.margin = "0";
         body.style.background = "#000";
       }
@@ -7103,7 +7182,9 @@ function NorthAmericanNebulaPage({ navigate }) {
         style.textContent = `
           @media (max-width: 767px) {
             body {
-              overflow: hidden !important;
+              overflow: auto !important;
+              -webkit-overflow-scrolling: touch !important;
+              touch-action: pan-x pan-y pinch-zoom !important;
             }
             main, #root, #app, .app, .container, .wrapper {
               margin-left: auto !important;
@@ -7130,28 +7211,26 @@ function NorthAmericanNebulaPage({ navigate }) {
         }
       };
 
+      const resetParentScroll = () => {
+        try {
+          const shell = frame.parentElement;
+          if (!shell) return;
+          shell.scrollLeft = 0;
+          shell.scrollTop = 0;
+        } catch (scrollError) {
+          // Ignore shell scroll failures.
+        }
+      };
+
       resetFrameScroll();
-      window.setTimeout(resetFrameScroll, 80);
-      window.setTimeout(resetFrameScroll, 300);
+      resetParentScroll();
+      window.setTimeout(() => { resetFrameScroll(); resetParentScroll(); }, 80);
+      window.setTimeout(() => { resetFrameScroll(); resetParentScroll(); }, 300);
 
-      if (!objectExplorer && !frameDocument.defaultView?.__jakeMobileGestureLockInstalled) {
-        let lastTouchEnd = 0;
-        const preventFrameBrowserZoom = (frameEvent) => {
-          if (frameEvent.touches?.length > 1) frameEvent.preventDefault();
-        };
-        const preventFrameGesture = (frameEvent) => frameEvent.preventDefault();
-        const preventFrameDoubleTapZoom = (frameEvent) => {
-          const now = Date.now();
-          if (now - lastTouchEnd <= 330) frameEvent.preventDefault();
-          lastTouchEnd = now;
-        };
-
-        frameDocument.addEventListener("touchmove", preventFrameBrowserZoom, { passive: false, capture: true });
-        frameDocument.addEventListener("touchend", preventFrameDoubleTapZoom, { passive: false, capture: true });
-        frameDocument.addEventListener("gesturestart", preventFrameGesture, { passive: false, capture: true });
-        frameDocument.addEventListener("gesturechange", preventFrameGesture, { passive: false, capture: true });
-        if (frameDocument.defaultView) frameDocument.defaultView.__jakeMobileGestureLockInstalled = true;
-      }
+      // Object Explorer and the 4D AstroDepth Map need their own touch gestures
+      // on mobile. Do not install the parent page's pinch/double-tap blockers
+      // inside these embedded tools; the outer document lock is enough to keep
+      // the site page itself from zooming.
     } catch (error) {
       // If the browser treats the iframe as inaccessible, the parent-level
       // touch-action styles still keep the page from zooming.
@@ -7387,9 +7466,14 @@ function NorthAmericanNebulaPage({ navigate }) {
               mobileCanvasLayerRequestRef.current = {
                 token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
                 baseSrc: nextSrc,
+                baseFastSrc: getMobileOverviewLayerSrc(nextSrc, 1800, 88),
                 baseLayer: id,
                 showPelicanOverlay,
                 showAnnotation,
+                pelicanSrc: overlayLayers.pelican.src,
+                pelicanFastSrc: mobileProgressivePelicanSrc,
+                annotationSrc: overlayLayers.annotation.src,
+                annotationFastSrc: mobileProgressiveAnnotationSrc,
               };
               setBaseImageLoading(!loadedLayerSrcsRef.current[nextSrc]);
               scheduleMobileCanvasDraw();
@@ -7430,9 +7514,14 @@ function NorthAmericanNebulaPage({ navigate }) {
           mobileCanvasLayerRequestRef.current = {
             token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
             baseSrc: nextSrc,
+            baseFastSrc: getMobileOverviewLayerSrc(nextSrc, 1800, 88),
             baseLayer,
             showPelicanOverlay,
             showAnnotation,
+            pelicanSrc: overlayLayers.pelican.src,
+            pelicanFastSrc: mobileProgressivePelicanSrc,
+            annotationSrc: overlayLayers.annotation.src,
+            annotationFastSrc: mobileProgressiveAnnotationSrc,
           };
           setBaseImageLoading(!loadedLayerSrcsRef.current[nextSrc]);
           scheduleMobileCanvasDraw();
@@ -7447,9 +7536,14 @@ function NorthAmericanNebulaPage({ navigate }) {
             ...(mobileCanvasLayerRequestRef.current || {}),
             token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
             baseSrc: baseDisplaySrc,
+            baseFastSrc: mobileProgressiveBaseSrc,
             baseLayer,
             showPelicanOverlay: nextShowPelicanOverlay,
             showAnnotation,
+            pelicanSrc: overlayLayers.pelican.src,
+            pelicanFastSrc: mobileProgressivePelicanSrc,
+            annotationSrc: overlayLayers.annotation.src,
+            annotationFastSrc: mobileProgressiveAnnotationSrc,
           };
           scheduleMobileCanvasDraw();
         }
@@ -7463,9 +7557,14 @@ function NorthAmericanNebulaPage({ navigate }) {
             ...(mobileCanvasLayerRequestRef.current || {}),
             token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
             baseSrc: baseDisplaySrc,
+            baseFastSrc: mobileProgressiveBaseSrc,
             baseLayer,
             showPelicanOverlay,
             showAnnotation: nextShowAnnotation,
+            pelicanSrc: overlayLayers.pelican.src,
+            pelicanFastSrc: mobileProgressivePelicanSrc,
+            annotationSrc: overlayLayers.annotation.src,
+            annotationFastSrc: mobileProgressiveAnnotationSrc,
           };
           scheduleMobileCanvasDraw();
         }
@@ -7492,6 +7591,34 @@ function NorthAmericanNebulaPage({ navigate }) {
       Done
     </button>
   ) : null;
+
+  const renderEmbeddedToolMobileControls = (toolKey) => {
+    if (!mobileEmbeddedFrame) return null;
+    const currentZoom = embeddedToolZoom[toolKey] || 1;
+    const label = embeddedPanMode ? "Pan / zoom" : "Interact";
+
+    const adjustEmbeddedZoom = (nextZoom) => {
+      setEmbeddedToolZoom((current) => ({
+        ...current,
+        [toolKey]: Math.max(1, Math.min(3, nextZoom)),
+      }));
+    };
+
+    return (
+      <div className="pointer-events-auto absolute left-2 right-2 top-2 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/72 px-2.5 py-2 text-[11px] text-white/78 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:hidden">
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-white/90">{label}</div>
+          <div className="text-[10px] text-white/52">{embeddedPanMode ? "Drag this window or use zoom controls." : "Tap markers and controls inside the tool."}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => adjustEmbeddedZoom(currentZoom / 1.22)} className="grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/8 text-base font-semibold text-white hover:bg-white/14" aria-label="Zoom embedded tool out">−</button>
+          <button type="button" onClick={() => adjustEmbeddedZoom(1)} className="h-8 rounded-full border border-white/12 bg-white/8 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/75 hover:bg-white/14" aria-label="Reset embedded tool zoom">Reset</button>
+          <button type="button" onClick={() => adjustEmbeddedZoom(currentZoom * 1.22)} className="grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/8 text-base font-semibold text-white hover:bg-white/14" aria-label="Zoom embedded tool in">+</button>
+          <button type="button" onClick={() => setEmbeddedPanMode((value) => !value)} className="h-8 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/88 px-2.5 text-[10px] font-semibold text-white hover:bg-[#6b5745]" aria-label="Toggle embedded tool interaction mode">{embeddedPanMode ? "Interact" : "Pan"}</button>
+        </div>
+      </div>
+    );
+  };
 
   const collapsedToolbar = (
     <div className="pointer-events-auto flex w-full items-center gap-2 border-b border-white/12 bg-black/58 px-2 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-4">
@@ -7828,7 +7955,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 {baseImageLoading && !missingLayers[baseLayer] && (
                   <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
                     <div className="rounded-full border border-[#d8b175]/25 bg-black/70 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#f2dfbd]/80 shadow-[0_18px_60px_rgba(0,0,0,0.48)] backdrop-blur-md">
-                      {mobileCanvasViewerActive ? "Loading stable mobile render" : "Loading full-resolution layer"}
+                      {mobileCanvasViewerActive ? "Loading quick mobile preview" : "Loading full-resolution layer"}
                     </div>
                   </div>
                 )}
@@ -7859,11 +7986,12 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
               <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
             </div>
-            <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
+            <div className="north-america-embedded-shell relative flex justify-center overflow-auto bg-black" data-embedded-interactive-zone="true" style={embeddedObjectShellStyle}>
+              {renderEmbeddedToolMobileControls("objects")}
               <iframe
-                key="north-america-object-explorer-mobile-scroll-2828"
+                key="north-america-object-explorer-mobile-scroll-2830"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&scroll=2828#top"
+                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&scroll=2830&lite=1#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -7879,11 +8007,12 @@ function NorthAmericanNebulaPage({ navigate }) {
               <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
               <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
             </div>
-            <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black text-center" style={embeddedDepthShellStyle}>
+            <div className="north-america-embedded-shell relative flex justify-center overflow-auto bg-black text-center" data-embedded-interactive-zone="true" style={embeddedDepthShellStyle}>
+              {renderEmbeddedToolMobileControls("depth")}
               <iframe
-                key="north-america-astrodepth-map-mobile-centered-2823"
+                key="north-america-astrodepth-map-mobile-centered-2830"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2823#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2830&lite=1#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"

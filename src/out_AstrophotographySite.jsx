@@ -5908,10 +5908,12 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   useEffect(() => {
     let cancelled = false;
-    const cachedImages = masterImageUrls.map((src, index) => {
+    const mobileViewer = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
+    const urlsToCache = mobileViewer ? masterImageUrls.slice(0, 2) : masterImageUrls;
+    const cachedImages = urlsToCache.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
-      img.fetchPriority = index < 2 ? "high" : "auto";
+      img.fetchPriority = index === 0 ? "high" : "auto";
       img.src = src;
       if (img.decode) {
         img.decode().catch(() => {});
@@ -5925,11 +5927,12 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [masterImageUrls]);
 
   useEffect(() => {
-    const priorityImages = [activeBaseSrc, activeBase.src, activeBase.starSrc].filter(Boolean);
-    const cachedPriority = priorityImages.map((src) => {
+    const mobileViewer = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
+    const priorityImages = (mobileViewer ? [activeBaseSrc] : [activeBaseSrc, activeBase.src, activeBase.starSrc]).filter(Boolean);
+    const cachedPriority = priorityImages.map((src, index) => {
       const img = new window.Image();
       img.decoding = "async";
-      img.fetchPriority = "high";
+      img.fetchPriority = index === 0 ? "high" : "auto";
       img.src = src;
       if (img.decode) {
         img.decode().catch(() => {});
@@ -6181,13 +6184,10 @@ function NorthAmericanNebulaPage({ navigate }) {
         const viewerW = el.clientWidth || viewportW || 1;
         const mobileViewer = viewportW < 640 || window.matchMedia?.("(pointer: coarse)")?.matches;
         const naturalFitHeight = viewerW * (tileImageHeight / tileImageWidth);
-        const bottomPadding = mobileViewer ? 76 : 28;
-        const minHeight = mobileViewer ? 300 : 320;
+        const bottomPadding = mobileViewer ? 10 : 28;
+        const minHeight = mobileViewer ? Math.max(420, Math.round(viewportH * 0.58)) : 320;
         const visibleHeight = Math.max(minHeight, viewportH - rect.top - bottomPadding);
-        const mobileControlsInset = mobileViewer ? 54 : 0;
-        const preferredHeight = mobileViewer
-          ? Math.max(minHeight, naturalFitHeight + mobileControlsInset)
-          : naturalFitHeight;
+        const preferredHeight = mobileViewer ? visibleHeight : naturalFitHeight;
         const nextHeight = Math.max(minHeight, Math.round(Math.min(preferredHeight, visibleHeight)));
 
         setOpeningViewerHeight((current) => (Math.abs((current || 0) - nextHeight) > 2 ? nextHeight : current));
@@ -7019,7 +7019,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               <div
                 ref={viewerRef}
                 data-image-viewer-gesture-zone="true"
-                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[360px] min-h-[300px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
+                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[calc(100dvh-216px)] min-h-[420px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
                 onClick={handleViewerClick}
                 style={{
                   height: !viewerLocked && openingViewerHeight ? `${openingViewerHeight}px` : undefined,

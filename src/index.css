@@ -24,3 +24,24 @@ body {
   touch-action: none;
   overscroll-behavior: contain;
 }
+
+
+@media (max-width: 767px) {
+  .north-america-embedded-shell {
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+    align-items: flex-start;
+    justify-content: center;
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+
+  .north-america-object-frame,
+  .north-america-depth-frame {
+    display: block;
+    border: 0;
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+}

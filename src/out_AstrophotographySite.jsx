@@ -1,3 +1,50 @@
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Instagram,
+  Facebook,
+  Camera,
+  ChevronLeft,
+  Download,
+  ShoppingBag,
+  Image as ImageIcon,
+  ExternalLink,
+  Share2,
+  Link as LinkIcon,
+  MessageCircle,
+  Compass,
+  Target,
+  RotateCcw,
+  Star,
+  Grid3X3,
+  X,
+} from "lucide-react";
+
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import { Responsive } from "react-grid-layout";
+
+import HomepageObservingConditionsCard from "./components/HomepageObservingConditionsCard";
+import ObservingConditionsWidget from "./components/ObservingConditionsWidget";
+import { SITE_VERSION } from "./siteVersion";
+
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  ImageOverlay,
+  LayersControl,
+} from "react-leaflet";
+import * as AstronomyImport from "astronomy-engine";
+
+const Starcast = lazy(() => import("./Starcast"));
+const AdminDashboard = lazy(() => import("./AdminDashboard"));
+const DashboardHome = lazy(() => import("./DashboardHome"));
+
 
 function useContainerWidth(ref) {
   const [w, setW] = useState(0);
@@ -25,49 +72,6 @@ function useContainerWidth(ref) {
 
   return w;
 }
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Instagram,
-  Facebook,
-  Camera,
-  ChevronLeft,
-  Download,
-  ShoppingBag,
-  Image as ImageIcon,
-  ExternalLink,
-  Share2,
-  Link as LinkIcon,
-  MessageCircle,
-  Compass,
-  Target,
-  RotateCcw,
-  Star,
-  Grid3X3,
-  X,
-} from "lucide-react";
-
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-import { Responsive } from "react-grid-layout";
-
-import Starcast from "./Starcast";
-import AdminDashboard from "./AdminDashboard";
-import DashboardHome from "./DashboardHome";
-import { SITE_VERSION } from "./siteVersion";
-
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Circle,
-  ImageOverlay,
-  LayersControl,
-} from "react-leaflet";
-import * as AstronomyImport from "astronomy-engine";
 
 
 /** Prevent horizontal scrolling (mobile + desktop) without blocking vertical scroll */
@@ -101,9 +105,106 @@ function useNoHorizontalScroll() {
 ============================ */
 
 const SITE_CONFIG_URL = "/site-config.json";
+const SITE_CONFIG_STORAGE_KEY = "jake_site_builder_v2";
+const SITE_CONFIG_PREVIEW_EVENT = "jake-site-config-updated";
+const SITE_CONFIG_PREVIEW_CHANNEL = "jake-site-config";
+
+const YOUTUBE_LIVE_CHANNEL_ID = "UCNG0QTu2_0LYwTmYHHMVXXA";
+const YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@JakeSchultzAstrophotography";
+const YOUTUBE_LIVE_EMBED_URL = `https://www.youtube.com/embed/live_stream?channel=${YOUTUBE_LIVE_CHANNEL_ID}&autoplay=0&mute=0`;
+const YOUTUBE_STREAMS_URL = "https://www.youtube.com/@JakeSchultzAstrophotography/streams";
+
+const DEFAULT_LIVE_TELESCOPE = {
+  status: "offline",
+  projectedNextStream: "Clear evenings after dark, weather permitting.",
+  askJakeText: "Have a question while I am live? Drop it into YouTube chat and I will answer as many as I can during the session.",
+  currentTarget: {
+    name: "",
+    constellation: "",
+    objectType: "",
+    description: "",
+  },
+  targetInfo: {
+    title: "",
+    summary: "",
+    astrobinUrl: "",
+  },
+  skyConditions: {
+    cloudCover: "",
+    transparency: "",
+    seeing: "",
+    moonPhase: "",
+    wind: "",
+  },
+  whereToLook: {
+    pointedNear: "",
+    direction: "",
+    altitude: "",
+    constellation: "",
+    note: "",
+  },
+  imageProgress: {
+    subsCaptured: "",
+    exposureLength: "",
+    totalIntegration: "",
+    currentFilter: "",
+    guidingStable: "",
+  },
+  equipment: {
+    telescope: "",
+    telescopeCustom: "",
+    mount: "",
+    mountCustom: "",
+    mainCamera: "",
+    mainCameraCustom: "",
+    guideCamera: "",
+    guideCameraCustom: "",
+    filter: "",
+    filterCustom: "",
+    software: "",
+    softwareCustom: "",
+  },
+};
 
 function isObj(x) {
   return x && typeof x === "object" && !Array.isArray(x);
+}
+
+function ensureInstagramConfig(raw) {
+  if (!isObj(raw)) return raw;
+
+  // Instagram is intentionally hidden from the public home page for the v2.8 release.
+  // Preserve any saved feed settings for future use, but do not auto-insert the section
+  // into public section order or grid layouts.
+  const next = { ...raw };
+  next.sections = { ...(isObj(raw.sections) ? raw.sections : {}) };
+  if (next.sections.instagram) {
+    next.sections.instagram = {
+      ...next.sections.instagram,
+      enabled: { desktop: false, mobile: false },
+    };
+  }
+
+  next.order = {
+    desktop: Array.isArray(raw.order?.desktop) ? raw.order.desktop.filter((id) => id !== "instagram") : [],
+    mobile: Array.isArray(raw.order?.mobile) ? raw.order.mobile.filter((id) => id !== "instagram") : [],
+  };
+  next.layouts = {
+    desktop: Array.isArray(raw.layouts?.desktop) ? raw.layouts.desktop.filter((item) => item?.i !== "instagram") : [],
+    mobile: Array.isArray(raw.layouts?.mobile) ? raw.layouts.mobile.filter((item) => item?.i !== "instagram") : [],
+  };
+
+  next.instagramFeed = {
+    handle: "jakeschultzastrophotography",
+    profileUrl: "https://www.instagram.com/jakeschultzastrophotography/",
+    provider: "elfsight",
+    elfsightScriptUrl: "https://elfsightcdn.com/platform.js",
+    elfsightAppId: "76fb801f-a4ee-4a42-9b24-7456926d123d",
+    embedUrl: "",
+    ...(isObj(raw.instagramFeed) ? raw.instagramFeed : {}),
+  };
+
+  return next;
 }
 
 function normalizeConfig(raw) {
@@ -111,7 +212,7 @@ function normalizeConfig(raw) {
 
   // Support v2 (AdminDashboard v2) and legacy v1 (AdminDashboard v1)
   if (raw.version === 2) {
-    return raw;
+    return ensureInstagramConfig(raw);
   }
   if (raw.version === 1) {
     // Map v1 -> v2-ish minimal surface for our needs (news + enabled/order)
@@ -174,6 +275,45 @@ function applyThemeTokens(tokens) {
   set("--site-font-display", tokens.fontDisplay);
 }
 
+function getLocalPreviewConfig() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SITE_CONFIG_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return normalizeConfig(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function shouldUseLocalPreview() {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  const params = new URLSearchParams(window.location.search);
+  return host === "localhost" || host === "127.0.0.1" || params.get("builderPreview") === "1";
+}
+
+function sectionConfigFor(siteConfig, id) {
+  return siteConfig?.sections?.[id] || null;
+}
+
+function sectionPresetClassName(section) {
+  const preset = section?.stylePreset || "default";
+  if (preset === "nebulaGlass") return "overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.04] backdrop-blur-sm";
+  if (preset === "stellarium") return "overflow-hidden rounded-[1.75rem] border border-sky-300/10 bg-[linear-gradient(180deg,rgba(10,25,45,0.28),rgba(4,8,18,0.16))]";
+  return "";
+}
+
+function sectionInlineStyle(section) {
+  if (!section?.backgroundImage) return undefined;
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28)), url(${section.backgroundImage})`,
+    backgroundSize: section?.backgroundFit || "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
 function useSiteConfig() {
   const [config, setConfig] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | missing | error
@@ -181,37 +321,85 @@ function useSiteConfig() {
   useEffect(() => {
     let alive = true;
 
-    async function load() {
+    const applyConfig = (raw, nextStatus = "ready") => {
+      const norm = normalizeConfig(raw);
+      if (!alive) return false;
+      if (norm) {
+        setConfig(norm);
+        setStatus(nextStatus);
+        if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
+        return true;
+      }
+      return false;
+    };
+
+    const load = async () => {
       try {
         setStatus("loading");
+
+        if (shouldUseLocalPreview()) {
+          const local = getLocalPreviewConfig();
+          if (local) {
+            applyConfig(local, "ready");
+            return;
+          }
+        }
+
         const res = await fetch(SITE_CONFIG_URL, { cache: "no-store" });
         if (!res.ok) {
           if (!alive) return;
-          setStatus("missing");
-          setConfig(null);
+          const fallback = getLocalPreviewConfig();
+          if (fallback) {
+            applyConfig(fallback, "ready");
+          } else {
+            setStatus("missing");
+            setConfig(null);
+          }
           return;
         }
         const raw = await res.json();
-        const norm = normalizeConfig(raw);
-        if (!alive) return;
-        if (norm) {
-          setConfig(norm);
-          setStatus("ready");
-          if (norm?.theme?.tokens) applyThemeTokens(norm.theme.tokens);
-        } else {
+        if (!applyConfig(raw, "ready") && alive) {
           setConfig(null);
           setStatus("error");
         }
-      } catch (e) {
+      } catch {
         if (!alive) return;
-        setStatus("error");
-        setConfig(null);
+        const fallback = getLocalPreviewConfig();
+        if (fallback) {
+          applyConfig(fallback, "ready");
+        } else {
+          setStatus("error");
+          setConfig(null);
+        }
       }
-    }
+    };
 
     load();
+
+    const handlePreviewUpdate = (event) => {
+      const next = event?.detail || getLocalPreviewConfig();
+      applyConfig(next, "ready");
+    };
+    const handleStorage = (event) => {
+      if (event.key && event.key !== SITE_CONFIG_STORAGE_KEY) return;
+      const next = getLocalPreviewConfig();
+      if (next) applyConfig(next, "ready");
+    };
+
+    let channel = null;
+    try {
+      channel = new BroadcastChannel(SITE_CONFIG_PREVIEW_CHANNEL);
+      channel.onmessage = (event) => applyConfig(event?.data, "ready");
+    } catch {}
+
+    window.addEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
+    window.addEventListener("storage", handleStorage);
+
     return () => {
       alive = false;
+      window.removeEventListener(SITE_CONFIG_PREVIEW_EVENT, handlePreviewUpdate);
+      window.removeEventListener("storage", handleStorage);
+      if (channel) channel.close();
     };
   }, []);
 
@@ -253,7 +441,6 @@ const LOGO_SRC = "/images/brand/logo.png";
 
 
 const ECLIPSE_PHOTO_SRCS = [
-  // Main grid used in the "My eclipse photos" section:
   "/images/eclipse-guide/eclipse-01.jpg",
   "/images/eclipse-guide/eclipse-02.jpg",
   "/images/eclipse-guide/eclipse-03.jpg",
@@ -264,18 +451,6 @@ const ECLIPSE_PHOTO_SRCS = [
   "/images/eclipse-guide/eclipse-08.jpg",
   "/images/eclipse-guide/eclipse-09.jpg",
   "/images/eclipse-guide/eclipse-10.jpg",
-
-  // Extra eclipse-related images available in the same folder (optional use elsewhere):
-  "/images/eclipse-guide/blood-moon-over-peoria.webp",
-  "/images/eclipse-guide/eclipse-widefield.webp",
-  "/images/eclipse-guide/lunar-eclipse.webp",
-  "/images/eclipse-guide/lunar-eclipse-wide.webp",
-  "/images/eclipse-guide/screenshot-chrome.webp",
-  "/images/eclipse-guide/solar-closeup-1.webp",
-  "/images/eclipse-guide/solar-closeup-2.webp",
-  "/images/eclipse-guide/solar-eclipse-hdr.webp",
-  "/images/eclipse-guide/solar-eclipse-telescope-1.webp",
-  "/images/eclipse-guide/solar-eclipse-telescope-2.webp",
 ];
 
 // ECLIPSE GUIDE: astronomy-engine is ESM; use namespace import
@@ -312,6 +487,20 @@ const LOCKSCREEN_PREVIEW_SRC =
 
 // ✅ Share pages (must exist as static OG pages in /public/share/...)
 const LATEST_NEWS = [
+  {
+    id: "north-american-nebula-interactive",
+    title: "NGC 7000 Interactive Image Explorer Now Live",
+    date: "Jun 25, 2026",
+    image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+    href: "/gallery/north-american-nebula",
+    external: false,
+    shareHref: "/share/north-american-nebula/",
+    description:
+      "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
+    cta: "View Interactive Image",
+    mediaFit: "contain",
+    category: "Interactive image",
+  },
   {
     id: "lunar-eclipse-guide",
     title: "Tonight: Total Lunar Eclipse — Live Tracking + Eclipse Guide",
@@ -365,6 +554,37 @@ const LATEST_NEWS = [
     mediaFit: "contain",
   },
 ];
+
+
+function getNewsKey(post) {
+  return (post?.id || `${post?.title || ""}-${post?.date || ""}`).toString().trim();
+}
+
+function mergeLatestNewsWithDefaults(configPosts) {
+  const configList = Array.isArray(configPosts)
+    ? configPosts.filter((p) => (p?.status || "published") !== "draft")
+    : [];
+
+  const defaultKeys = new Set(LATEST_NEWS.map(getNewsKey).filter(Boolean));
+  const configByKey = new Map();
+
+  for (const post of configList) {
+    const key = getNewsKey(post);
+    if (key && !configByKey.has(key)) configByKey.set(key, post);
+  }
+
+  const customPosts = configList.filter((post) => {
+    const key = getNewsKey(post);
+    return key && !defaultKeys.has(key);
+  });
+
+  const restoredDefaults = LATEST_NEWS.map((post) => {
+    const key = getNewsKey(post);
+    return configByKey.get(key) || post;
+  }).filter((p) => (p?.status || "published") !== "draft");
+
+  return [...customPosts, ...restoredDefaults];
+}
 
 function usePathname() {
   const getPath = () => {
@@ -438,10 +658,6 @@ function StripeBuyButton({ buyButtonId, publishableKey }) {
           publishable-key={publishableKey}
         ></stripe-buy-button>
       )}
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
-        {SITE_VERSION}
-      </div>
-
     </div>
   );
 }
@@ -570,11 +786,158 @@ function ShareBar({ title, shareHref, text }) {
         <MessageCircle className="h-4 w-4" />
         Text
       </a>
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
-        {SITE_VERSION}
-      </div>
-
     </div>
+  );
+}
+
+function InteractiveImageShareIcons({ title, shareHref, text }) {
+  const [copied, setCopied] = useState(false);
+  const url = useMemo(() => getAbsoluteUrl(shareHref), [shareHref]);
+  const shareText = text || title;
+
+  const handleNativeShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: shareText, url });
+        return;
+      }
+    } catch (e) {
+      return;
+    }
+    const ok = await copyToClipboard(url);
+    setCopied(ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(url);
+    setCopied(ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
+  };
+
+  const fbShareUrl = useMemo(() => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, [url]);
+  const smsShareUrl = useMemo(() => `sms:?&body=${encodeURIComponent(`${shareText} ${url}`)}`, [shareText, url]);
+
+  const iconClass = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/76 transition hover:border-[#d8b175]/35 hover:bg-[#5A4939]/64 hover:text-white";
+
+  return (
+    <div className="inline-flex items-center gap-1.5" aria-label="Share this interactive image page">
+      <button type="button" onClick={handleNativeShare} className={iconClass} title={navigator.share ? "Share this image page" : "Copy share link"} aria-label={navigator.share ? "Share this image page" : "Copy share link"}>
+        <Share2 className="h-4 w-4" />
+      </button>
+      <a href={fbShareUrl} target="_blank" rel="noreferrer" className={iconClass} title="Share to Facebook" aria-label="Share to Facebook">
+        <Facebook className="h-4 w-4" />
+      </a>
+      <a href={smsShareUrl} className={iconClass} title="Share by text message" aria-label="Share by text message">
+        <MessageCircle className="h-4 w-4" />
+      </a>
+      <button type="button" onClick={handleCopy} className={iconClass} title={copied ? "Copied" : "Copy share link"} aria-label={copied ? "Copied" : "Copy share link"}>
+        <LinkIcon className="h-4 w-4" />
+      </button>
+      {copied && <span className="ml-1 hidden rounded-full border border-[#d8b175]/25 bg-[#5A4939]/58 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.10em] text-[#f3dfbd] sm:inline">Copied</span>}
+    </div>
+  );
+}
+
+
+
+
+function InstagramFeedSection({ sectionScrollMargin = "", className = "", style = {}, siteConfig }) {
+  const instagramConfig = isObj(siteConfig?.instagramFeed) ? siteConfig.instagramFeed : {};
+  const handle = (instagramConfig.handle || "jakeschultzastrophotography").replace(/^@/, "");
+  const profileUrl = instagramConfig.profileUrl || `https://www.instagram.com/${handle}/`;
+  const embedUrl =
+    instagramConfig.embedUrl ||
+    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_INSTAGRAM_FEED_EMBED_URL : "") ||
+    "";
+  const elfsightScriptUrl = instagramConfig.elfsightScriptUrl || "https://elfsightcdn.com/platform.js";
+  const elfsightAppId = instagramConfig.elfsightAppId || "";
+  const elfsightClassName =
+    instagramConfig.elfsightClassName ||
+    (elfsightAppId ? `elfsight-app-${elfsightAppId}` : "");
+
+  useEffect(() => {
+    if (!elfsightClassName || typeof document === "undefined") return;
+
+    const alreadyLoaded = document.querySelector(`script[src="${elfsightScriptUrl}"]`);
+    if (alreadyLoaded) return;
+
+    const script = document.createElement("script");
+    script.src = elfsightScriptUrl;
+    script.async = true;
+    document.body.appendChild(script);
+  }, [elfsightClassName, elfsightScriptUrl]);
+
+  return (
+    <section
+      id="instagram"
+      className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${className}`}
+      style={style}
+    >
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-semibold text-white/75">
+              <Instagram className="h-3.5 w-3.5" />
+              Instagram
+            </div>
+            <h2 className="text-2xl font-semibold">Latest from Instagram</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">
+              Follow along for new astrophotography, behind-the-scenes setup shots, and observing updates.
+            </p>
+          </div>
+
+          <a
+            href={profileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/15 lg:shrink-0"
+          >
+            @{handle}
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
+
+        <div className="mt-6">
+          <div className="instagram-embed-wide mx-auto flex min-h-[430px] w-full items-start justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3 sm:min-h-[520px]">
+            {elfsightClassName ? (
+              <div className="w-full bg-transparent text-black [&_.eapps-widget-toolbar]:hidden [&_.eapps-instagram-feed]:!mx-auto [&_.eapps-instagram-feed]:!w-full [&_.eapps-instagram-feed]:!max-w-none [&_.eapps-instagram-feed-container]:!w-full [&_.eapps-instagram-feed-content]:!w-full [&_.eapps-instagram-feed-posts]:!w-full [&_.eapps-instagram-feed-posts-container]:!w-full [&_iframe]:!mx-auto [&_iframe]:!w-full [&_iframe]:!max-w-none">
+                <div className={`${elfsightClassName} w-full`} data-elfsight-app-lazy />
+              </div>
+            ) : embedUrl ? (
+              <iframe
+                title="Jake Schultz Astrophotography Instagram feed"
+                src={embedUrl}
+                className="h-[620px] w-full bg-transparent sm:h-[680px]"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allow="clipboard-write; encrypted-media; picture-in-picture; web-share"
+              />
+            ) : (
+              <div className="grid w-full gap-4 rounded-[1.25rem] bg-black/40 p-5 text-left sm:p-6">
+                <div>
+                  <div className="text-base font-semibold text-white">Instagram feed embed slot is ready.</div>
+                  <p className="mt-2 text-sm leading-6 text-white/70">
+                    Add the Elfsight widget app ID to <span className="font-mono text-white/80">public/site-config.json</span> under
+                    <span className="font-mono text-white/80"> instagramFeed.elfsightAppId</span>. You can also use
+                    <span className="font-mono text-white/80"> instagramFeed.embedUrl</span> for iframe-based widgets.
+                  </p>
+                </div>
+                <a
+                  href={profileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
+                >
+                  Open Instagram
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -585,9 +948,24 @@ function ShareBar({ title, shareHref, text }) {
 function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sectionEnabled, breakpoint, siteConfig }) {
   const year = new Date().getFullYear();
   const heroSrc = "/images/gallery/hero/hero.jpg";
+  const getSectionConfig = (id) => sectionConfigFor(siteConfig, id);
+  const getSectionClassName = (id) => sectionPresetClassName(getSectionConfig(id));
+  const getSectionStyle = (id) => sectionInlineStyle(getSectionConfig(id));
 
   const gallery = useMemo(
     () => [
+      {
+        title: "North America Nebula Interactive Explorer",
+        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
+        detailPath: "/gallery/north-american-nebula",
+        featuredInteractive: true,
+      },
+      {
+        title: "IC 1396 — Elephant Trunk Nebula",
+        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
+      },
       {
         title: "Andromeda Galaxy (M31)",
         src: "/images/gallery/M31-andromeda-galaxy.jpg",
@@ -614,6 +992,21 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
       },
       {
+        title: "M13 Great Hercules Cluster",
+        src: "/images/gallery/M13.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
+      },
+      {
+        title: "Iris Nebula",
+        src: "/images/gallery/Iris-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
+      },
+      {
+        title: "M104 Sombrero Galaxy",
+        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
+      },
+      {
         title: "Crescent Nebula",
         src: "/images/gallery/crescent-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
@@ -632,11 +1025,6 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         title: "Flame + Horsehead",
         src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
-      },
-      {
-        title: "North America Nebula",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
       },
       {
         title: "Pacman Nebula",
@@ -758,7 +1146,8 @@ const renderGridSection = (id) => {
 {/* HERO */}
       <section
         id="top"
-        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 ${sectionScrollMargin} ${getSectionClassName("hero")}`}
+        style={getSectionStyle("hero")}
       >
         <div className="grid items-center gap-8 lg:grid-cols-2">
           <div>
@@ -768,7 +1157,10 @@ const renderGridSection = (id) => {
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              Deep-sky images and nightscapes, built for the wall.
+              <span className="block">Jake Schultz Astrophotography</span>
+              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
+                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
+              </span>
             </motion.h1>
 
             <motion.p
@@ -842,9 +1234,15 @@ const renderGridSection = (id) => {
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
+
+        <div className="mt-4 md:hidden">
+          <HomepageObservingConditionsCard />
+        </div>
       </section>
 
-      
+      <div className="hidden md:block">
+        <HomepageObservingConditionsCard />
+      </div>
 
     </div>
   );
@@ -855,7 +1253,8 @@ case "calendar":
       {enabled("calendar") ? (
       <section
         id="calendar"
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("calendar")}`}
+        style={getSectionStyle("calendar")}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -920,7 +1319,8 @@ case "latestNews":
 {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("latestNews")}`}
+        style={getSectionStyle("latestNews")}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
@@ -932,7 +1332,7 @@ case "latestNews":
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-10">
+          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1036,37 +1436,32 @@ case "gallery":
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
+        style={getSectionStyle("gallery")}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to view it on AstroBin.
+              Click any image to open its feature page or AstroBin source.
             </p>
           </div>
 
-          <a
-            href="#calendar"
-            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
-          >
-            Calendar
-          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.astrobin}
-              target="_blank"
-              rel="noreferrer"
+              href={item.detailPath || item.astrobin}
+              target={item.detailPath ? undefined : "_blank"}
+              rel={item.detailPath ? undefined : "noreferrer"}
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={`Open on AstroBin: ${item.title}`}
+              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1081,10 +1476,17 @@ case "gallery":
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="text-base font-semibold">{item.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>View on AstroBin →</span>
+                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
                   </div>
                 </div>
               </div>
@@ -1101,7 +1503,7 @@ case "gallery":
 case "footer":
   return (
     <div className="h-full w-full">
-<footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+<footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1115,7 +1517,7 @@ case "footer":
   }
 };
 
-if (!gridMode) {
+if (!gridMode || !layouts || gridWidth <= 0) {
 return (
     <>
       {/* HERO */}
@@ -1131,7 +1533,10 @@ return (
               transition={{ duration: 0.5 }}
               className="text-2xl font-semibold leading-tight sm:text-5xl"
             >
-              Deep-sky images and nightscapes, built for the wall.
+              <span className="block">Jake Schultz Astrophotography</span>
+              <span className="mt-3 block text-base font-medium leading-snug text-[#D8C18F] sm:text-2xl">
+                Deep-Sky Astrophotography, Nightscapes, and Celestial Events
+              </span>
             </motion.h1>
 
             <motion.p
@@ -1205,7 +1610,15 @@ return (
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
           </motion.div>
         </div>
+
+        <div className="mt-4 md:hidden">
+          <HomepageObservingConditionsCard />
+        </div>
       </section>
+
+      <div className="hidden md:block">
+        <HomepageObservingConditionsCard />
+      </div>
 
       {/* CALENDAR PROMO */}
       {enabled("calendar") ? (
@@ -1269,7 +1682,7 @@ return (
       {/* LATEST NEWS FEED */}
       {enabled("latestNews") ? (
       <section
-        className={`mx-auto max-w-6xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-5xl px-4 pb-10 sm:px-6 ${sectionScrollMargin}`}
       >
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
@@ -1281,7 +1694,7 @@ return (
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-10">
+          <div className="mt-6 max-h-[620px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/20 p-4 pr-2 sm:max-h-[700px] lg:max-h-[760px] [scrollbar-width:thin] flex flex-col gap-10">
             {(latestNews || LATEST_NEWS).map((post) => {
               const isExternal = !!post.external;
               const mediaFit =
@@ -1378,37 +1791,32 @@ return (
       {enabled("gallery") ? (
       <section
         id="gallery"
-        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin}`}
+        className={`mx-auto max-w-6xl px-4 py-10 sm:px-6 ${sectionScrollMargin} ${getSectionClassName("gallery")}`}
+        style={getSectionStyle("gallery")}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Gallery</h2>
             <p className="mt-1 text-sm text-white/70">
-              Click any image to view it on AstroBin.
+              Click any image to open its feature page or AstroBin source.
             </p>
           </div>
 
-          <a
-            href="#calendar"
-            className="hidden rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:inline-flex"
-          >
-            Calendar
-          </a>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
             <motion.a
               key={item.title}
-              href={item.astrobin}
-              target="_blank"
-              rel="noreferrer"
+              href={item.detailPath || item.astrobin}
+              target={item.detailPath ? undefined : "_blank"}
+              rel={item.detailPath ? undefined : "noreferrer"}
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.35 }}
               className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
-              title={`Open on AstroBin: ${item.title}`}
+              title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
@@ -1423,10 +1831,17 @@ return (
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="text-base font-semibold">{item.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    <span>View on AstroBin →</span>
+                    <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
                   </div>
                 </div>
               </div>
@@ -1436,7 +1851,7 @@ return (
       </section>
       ) : null}
 
-      <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
+      <footer className={`relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)] ${getSectionClassName("footer")}`} style={getSectionStyle("footer")}>
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
           © {year} Jake Schultz Astrophotography. All rights reserved.
         </div>
@@ -1545,6 +1960,8 @@ function PhoneBackgroundsPage({ heroFallback }) {
 
             <div className="flex gap-2">
               <input
+                id="phone-background-search"
+                name="phone-background-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
@@ -1623,7 +2040,6 @@ function PhoneBackgroundsPage({ heroFallback }) {
           })}
         </div>
       </section>
-      ) : null}
 
       <footer className="relative border-t border-white/10 bg-black/40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-white/60 sm:px-6">
@@ -3144,10 +3560,88 @@ const ECLIPSE_VIDEO_KEYFRAMES = [
 ];
 
 
+const AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES = [
+  { p: 0.0, src: "/images/eclipse-moon/2026-08-27/frame_001.png" },
+  { p: 0.08, src: "/images/eclipse-moon/2026-08-27/frame_002.png" },
+  { p: 0.18, src: "/images/eclipse-moon/2026-08-27/frame_003.png" },
+  { p: 0.30, src: "/images/eclipse-moon/2026-08-27/frame_004.png" },
+  { p: 0.42, src: "/images/eclipse-moon/2026-08-27/frame_005.png" },
+  { p: 0.48, src: "/images/eclipse-moon/2026-08-27/frame_006.png" },
+  { p: 0.50, src: "/images/eclipse-moon/2026-08-27/frame_007.png" },
+  { p: 0.54, src: "/images/eclipse-moon/2026-08-27/frame_008.png" },
+  { p: 0.64, src: "/images/eclipse-moon/2026-08-27/frame_009.png" },
+  { p: 0.76, src: "/images/eclipse-moon/2026-08-27/frame_010.png" },
+  { p: 0.88, src: "/images/eclipse-moon/2026-08-27/frame_011.png" },
+  { p: 0.94, src: "/images/eclipse-moon/2026-08-27/frame_012.png" },
+  { p: 1.0, src: "/images/eclipse-moon/2026-08-27/frame_013.png" },
+];
+
+const SPECIAL_LUNAR_REFERENCE_SETS = {
+  // Astronomy Engine peak time can land on the next UTC date even when the eclipse is still
+  // on the prior local calendar date. Support both keys so the reference frames still attach.
+  "2026-08-27": {
+    label: "Aug 27 2026 partial lunar eclipse",
+    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
+    crop: { x: 372, y: 96, size: 536 },
+  },
+  "2026-08-28": {
+    label: "Aug 27 2026 partial lunar eclipse",
+    keyframes: AUG_27_2026_PARTIAL_REFERENCE_KEYFRAMES,
+    crop: { x: 372, y: 96, size: 536 },
+  },
+};
+
+const STELLARIUM_REFERENCE_LOCATION = {
+  lat: 39.0997,
+  lon: -94.5786,
+  radiusDeg: 1.25,
+};
+
+const STELLARIUM_PROFILE_KEYFRAMES = {
+  total: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/total/frame_${String(i + 1).padStart(3, "0")}.png` })),
+  partialHeavy: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-heavy/frame_${String(i + 1).padStart(3, "0")}.png` })),
+  partialLight: Array.from({ length: 13 }, (_, i) => ({ p: i / 12, src: `/images/eclipse-moon/profiles/partial-light/frame_${String(i + 1).padStart(3, "0")}.png` })),
+};
+
+function angularDistanceDeg(lat1, lon1, lat2, lon2) {
+  if (![lat1, lon1, lat2, lon2].every((v) => Number.isFinite(v))) return Infinity;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const p1 = toRad(lat1);
+  const p2 = toRad(lat2);
+  const dl = toRad(lon2 - lon1);
+  const cosD = Math.sin(p1) * Math.sin(p2) + Math.cos(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.acos(Math.max(-1, Math.min(1, cosD))) * 180) / Math.PI;
+}
+
+function isNearStellariumReferenceLocation(lat, lon) {
+  return angularDistanceDeg(lat, lon, STELLARIUM_REFERENCE_LOCATION.lat, STELLARIUM_REFERENCE_LOCATION.lon) <= STELLARIUM_REFERENCE_LOCATION.radiusDeg;
+}
+
+function classifyReferenceProfileForLunarEclipse(eclipse, hasTrueTotality) {
+  const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
+  const kind = String(raw?.kind || raw?.eclipse_kind || raw?.classification || "").toLowerCase();
+  if (hasTrueTotality || kind.includes("total")) return "total";
+  if (kind.includes("penumbral")) return "partialLight";
+
+  const magnitude =
+    (typeof raw?.umbral_magnitude === "number" && isFinite(raw.umbral_magnitude) && raw.umbral_magnitude) ||
+    (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
+    (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
+    null;
+
+  if (magnitude != null) return magnitude >= 0.75 ? "partialHeavy" : "partialLight";
+
+  const peak = timeToDate(eclipse?.peak);
+  const frac = clampNum(lunarEclipseFractionAtTime(eclipse, peak instanceof Date ? peak : new Date()), 0, 1);
+  return frac >= 0.75 ? "partialHeavy" : frac > 0.05 ? "partialLight" : null;
+}
+
 function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime, seekTime }) {
   const canvasRef = useRef(null);
   const frameImgsRef = useRef([]);
   const frameOffsetRef = useRef({ ox: 0, oy: 0 });
+  const baseMoonImgRef = useRef(null);
+  const [baseMoonReady, setBaseMoonReady] = useState(false);
   const [tPct, setTPct] = useState(50);
   const [imgReady, setImgReady] = useState(false);
   const [moonRenderError, setMoonRenderError] = useState(null);
@@ -3180,6 +3674,39 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
     return new Date(ms);
   }, [start, end, peak, tPct]);
 
+  const eclipseDateKey = useMemo(() => {
+    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
+    if (!(d instanceof Date)) return "";
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [peak?.getTime?.(), p1?.getTime?.()]);
+
+  const eclipseLocalDateKey = useMemo(() => {
+    const d = peak instanceof Date ? peak : p1 instanceof Date ? p1 : null;
+    if (!(d instanceof Date)) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [peak?.getTime?.(), p1?.getTime?.()]);
+
+  const hasTrueTotality = useMemo(() => t1 instanceof Date && t4 instanceof Date, [t1?.getTime?.(), t4?.getTime?.()]);
+  const nearReferenceLocation = useMemo(
+    () => isNearStellariumReferenceLocation(observerLat, observerLon),
+    [observerLat, observerLon]
+  );
+  const activeReferenceSet = useMemo(() => {
+    if (!nearReferenceLocation) return null;
+    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseDateKey];
+    if (SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey]) return SPECIAL_LUNAR_REFERENCE_SETS[eclipseLocalDateKey];
+    return null;
+  }, [eclipseDateKey, eclipseLocalDateKey, nearReferenceLocation]);
+  const activeKeyframes = activeReferenceSet?.keyframes || [];
+  const activeCrop = activeReferenceSet?.crop || null;
+  const useReferenceFrames = activeKeyframes.length > 0;
+
   
   // Jump to an externally selected phase time (P1/U1/T1/MAX/T4/U4/P4)
   useEffect(() => {
@@ -3191,7 +3718,18 @@ function RealisticLunarMoonView({ eclipse, observerLat, observerLon, observerHei
 
 useEffect(() => {
     let cancelled = false;
-    const imgs = ECLIPSE_VIDEO_KEYFRAMES.map((k) => {
+    setImgReady(false);
+    frameImgsRef.current = [];
+    frameOffsetRef.current = { ox: 0, oy: 0 };
+
+    if (!useReferenceFrames) {
+      setImgReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const imgs = activeKeyframes.map((k) => {
       const im = new Image();
       im.crossOrigin = "anonymous";
       im.src = k.src;
@@ -3282,6 +3820,27 @@ let loaded = 0;
       cancelled = true;
       window.clearTimeout(t);
     };
+  }, [activeKeyframes, useReferenceFrames]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBaseMoonReady(false);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      baseMoonImgRef.current = img;
+      setBaseMoonReady(true);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      baseMoonImgRef.current = null;
+      setBaseMoonReady(false);
+    };
+    img.src = "/images/eclipse-moon/base-texture.png";
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // --- Helpers (geocentric; north-up, east-left) ---
@@ -3371,6 +3930,41 @@ let loaded = 0;
     return x * x * (3 - 2 * x);
   };
 
+  const totalityBlendAt = (d) => {
+    if (!(d instanceof Date) || !(u1 instanceof Date) || !(u4 instanceof Date) || !(t1 instanceof Date) || !(t4 instanceof Date)) return 0;
+    const ms = d.getTime();
+    const u1ms = u1.getTime();
+    const u4ms = u4.getTime();
+    const t1ms = t1.getTime();
+    const t4ms = t4.getTime();
+    if (ms < u1ms || ms > u4ms) return 0;
+
+    const preDur = Math.max(1, t1ms - u1ms);
+    const postDur = Math.max(1, u4ms - t4ms);
+    const totalDur = Math.max(1, t4ms - t1ms);
+
+    if (ms < t1ms) {
+      const pre = (ms - u1ms) / preDur;
+      return Math.pow(smoothstep01((pre - 0.62) / 0.38), 1.15);
+    }
+    if (ms > t4ms) {
+      const post = 1 - (ms - t4ms) / postDur;
+      return Math.pow(smoothstep01((post - 0.62) / 0.38), 1.15);
+    }
+
+    const within = (ms - t1ms) / totalDur;
+    const ramp = Math.min(within / 0.16, (1 - within) / 0.16, 1);
+    const plateau = smoothstep01(ramp);
+    return 0.72 + 0.28 * plateau;
+  };
+
+  const totalityWarmthAt = (d) => {
+    const umbra = clampNum(umbraFractionAt(d), 0, 1);
+    const totalBlend = totalityBlendAt(d);
+    const nearTotal = Math.pow(smoothstep01((umbra - 0.84) / 0.16), 1.2);
+    return clampNum(Math.max(totalBlend, nearTotal * 0.72), 0, 1);
+  };
+
   const maxUmbralFraction = useMemo(() => {
     // Prefer raw umbral magnitude if present; otherwise infer from totality presence.
     const raw = eclipse?.raw || eclipse?.rawEvent || eclipse?.event || null;
@@ -3379,11 +3973,14 @@ let loaded = 0;
       (typeof raw?.umbralMagnitude === "number" && isFinite(raw.umbralMagnitude) && raw.umbralMagnitude) ||
       (typeof raw?.umbral_mag === "number" && isFinite(raw.umbral_mag) && raw.umbral_mag) ||
       null;
-    if (m != null) return clampNum(m >= 1 ? 1 : m, 0, 1);
-    if (t1 && t4) return 1;
-    // Partial-only; typical max obscuration on app-like visuals.
-    return 0.88;
-  }, [eclipse?.raw, t1?.getTime?.(), t4?.getTime?.()]);
+    if (hasTrueTotality) return 1;
+    if (m != null) {
+      const cap = eclipseDateKey === "2026-08-27" ? 0.992 : 0.985;
+      return clampNum(Math.min(m, cap), 0, 1);
+    }
+    // Partial-only fallback: allow very deep partials but never total-red.
+    return eclipseDateKey === "2026-08-27" ? 0.992 : 0.96;
+  }, [eclipse?.raw, hasTrueTotality, eclipseDateKey]);
 
   const umbraFractionAt = (d) => {
     if (!(d instanceof Date)) return 0;
@@ -3433,16 +4030,139 @@ let loaded = 0;
     return Math.max(base * 0.95, umbraFractionAt(d) * 0.85);
   };
 
+  const drawFallbackMoon = (ctx, w, h, moonTime) => {
+    const tile = Math.min(w, h);
+    const r = tile * 0.5;
+    const cx = w / 2;
+    const cy = h / 2;
+    const umbra = clampNum(umbraFractionAt(moonTime), 0, 1);
+    const penumbra = clampNum(penumbraFractionAt(moonTime), 0, 1);
+    const isTotal = t1 instanceof Date && t4 instanceof Date && moonTime instanceof Date && moonTime >= t1 && moonTime <= t4;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    const baseMoonImg = baseMoonImgRef.current;
+    if (baseMoonReady && baseMoonImg && (baseMoonImg.naturalWidth || baseMoonImg.width)) {
+      ctx.drawImage(baseMoonImg, cx - r, cy - r, r * 2, r * 2);
+    } else {
+      const base = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.22, r * 0.08, cx, cy, r * 1.05);
+      base.addColorStop(0, "rgba(232,236,240,1)");
+      base.addColorStop(0.45, "rgba(176,182,188,1)");
+      base.addColorStop(0.78, "rgba(104,110,116,1)");
+      base.addColorStop(1, "rgba(56,60,66,1)");
+      ctx.fillStyle = base;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+      for (let i = 0; i < 120; i += 1) {
+        const ang = (i * 137.50776405003785 * Math.PI) / 180;
+        const rr = Math.sqrt((i + 0.5) / 120) * r * 0.92;
+        const px = cx + Math.cos(ang) * rr;
+        const py = cy + Math.sin(ang) * rr;
+        const crater = 0.004 + (i % 7) * 0.0015;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(70,74,80,0.10)" : "rgba(245,248,252,0.05)";
+        ctx.beginPath();
+        ctx.arc(px, py, r * crater, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const altAz = tryMoonAltAz(observerLat, observerLon, observerHeightM, moonTime);
+    const shadowAngleRad = altAz && Number.isFinite(altAz.az) ? ((altAz.az - 90) * Math.PI) / 180 : 0;
+    const totalBlend = clampNum(totalityBlendAt(moonTime), 0, 1);
+    const totalWarmth = clampNum(totalityWarmthAt(moonTime), 0, 1);
+    const penEarthR = r * 1.62;
+    const penCoverage = clampNum(penumbra * 0.16, 0, 0.16);
+    const penDx = -solveDistanceForFraction(r, penEarthR, penCoverage);
+    const umbEarthR = r * 1.24;
+    const umbDx = -solveDistanceForFraction(r, umbEarthR, umbra);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(shadowAngleRad);
+    ctx.translate(-cx, -cy);
+
+    if (penumbra > 0.001) {
+      const pAlpha = 0.022 + 0.11 * penumbra;
+      const pg = ctx.createRadialGradient(cx + penDx, cy, penEarthR * 0.62, cx + penDx, cy, penEarthR);
+      pg.addColorStop(0, `rgba(18,22,30,${Math.min(0.18, pAlpha + 0.03)})`);
+      pg.addColorStop(1, `rgba(18,22,30,${Math.max(0, pAlpha - 0.02)})`);
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(cx + penDx, cy, penEarthR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (umbra > 0.001) {
+      const darkCore = isTotal
+        ? 0.26 + 0.20 * Math.pow(umbra, 0.9) * (1 - 0.30 * totalBlend)
+        : 0.15 + 0.44 * Math.pow(umbra, 0.9);
+      const ug = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.46, cx + umbDx, cy, umbEarthR);
+      ug.addColorStop(0, `rgba(18,18,24,${Math.min(0.78, darkCore + 0.08)})`);
+      ug.addColorStop(0.72, `rgba(10,10,16,${Math.min(0.70, darkCore)})`);
+      ug.addColorStop(1, `rgba(4,4,10,${Math.max(0.10, darkCore - 0.08)})`);
+      ctx.fillStyle = ug;
+      ctx.beginPath();
+      ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (totalWarmth > 0.001) {
+        const copper = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.10, cx + umbDx, cy, umbEarthR * 0.98);
+        copper.addColorStop(0, `rgba(154,76,42,${0.08 + 0.16 * totalWarmth})`);
+        copper.addColorStop(0.55, `rgba(132,52,30,${0.06 + 0.22 * totalWarmth})`);
+        copper.addColorStop(1, `rgba(34,10,10,${0.02 + 0.10 * totalWarmth})`);
+        ctx.fillStyle = copper;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (totalBlend > 0.001) {
+        const redCore = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.18, cx + umbDx, cy, umbEarthR * 0.92);
+        redCore.addColorStop(0, `rgba(188,82,52,${0.10 + 0.20 * totalBlend})`);
+        redCore.addColorStop(0.45, `rgba(150,44,28,${0.08 + 0.26 * totalBlend})`);
+        redCore.addColorStop(0.82, `rgba(86,18,18,${0.05 + 0.18 * totalBlend})`);
+        redCore.addColorStop(1, `rgba(22,6,10,${0.01 + 0.08 * totalBlend})`);
+        ctx.fillStyle = redCore;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalCompositeOperation = "screen";
+        const emberLift = ctx.createRadialGradient(cx + umbDx, cy, umbEarthR * 0.06, cx + umbDx, cy, umbEarthR * 0.82);
+        emberLift.addColorStop(0, `rgba(198,112,76,${0.05 + 0.10 * totalBlend})`);
+        emberLift.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = emberLift;
+        ctx.beginPath();
+        ctx.arc(cx + umbDx, cy, umbEarthR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
+
+    ctx.restore();
+
+    const rim = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r);
+    rim.addColorStop(0, "rgba(0,0,0,0)");
+    rim.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = rim;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !imgReady || !(tDate instanceof Date)) return;
+    if (!canvas || !(tDate instanceof Date)) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     try {
-      setMoonRenderError(null);
-
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
@@ -3456,8 +4176,15 @@ let loaded = 0;
       }
       prog = clampNum(prog, 0, 1);
 
-      const frames = ECLIPSE_VIDEO_KEYFRAMES;
+      const frames = activeKeyframes;
       const imgs = frameImgsRef.current || [];
+      const usableFrames = useReferenceFrames && imgReady && imgs.length === frames.length && imgs.some((im) => im && im.complete && (im.naturalWidth || im.width));
+
+      if (!usableFrames) {
+        drawFallbackMoon(ctx, w, h, tDate);
+        setMoonRenderError(null);
+        return;
+      }
 
       // Find bracketing keyframes
       let i1 = frames.findIndex((k) => k.p >= prog);
@@ -3469,6 +4196,12 @@ let loaded = 0;
       const a = imgs[i0];
       const b = imgs[i1];
 
+      if (!(a && (a.naturalWidth || a.width)) && !(b && (b.naturalWidth || b.width))) {
+        drawFallbackMoon(ctx, w, h, tDate);
+        setMoonRenderError(null);
+        return;
+      }
+
       const denom = (k1.p - k0.p) || 1;
       const t = clampNum((prog - k0.p) / denom, 0, 1);
 
@@ -3477,33 +4210,32 @@ let loaded = 0;
 
       // Draw as a centered, circular RGBA tile (already alpha-masked)
       const tile = Math.min(w, h);
-      // Auto-center the Moon disk within the circular mask (video frames can be slightly offset).
-      // frameOffsetRef stores normalized offsets in source-image space.
       const { ox, oy } = frameOffsetRef.current || { ox: 0, oy: 0 };
-
-      // Positive ox means disk center is to the right -> shift draw LEFT.
-      // Positive oy means disk center is lower -> shift draw UP.
       const dx = -ox * tile;
       const dy = -oy * tile;
-
-      // Final tiny manual nudge (down a touch) to visually center within the ring.
-      // Adjust this one scalar if needed.
-      const manualNudgeY = 0.015; // 1.5% of tile, positive = move DOWN
+      const manualNudgeY = eclipseDateKey === "2026-08-27" ? 0 : 0.015;
       const x = (w - tile) / 2 + dx;
       const y = (h - tile) / 2 + dy + tile * manualNudgeY;
-ctx.save();
+      ctx.save();
       ctx.imageSmoothingEnabled = true;
 
-      if (a && a.complete) {
-        ctx.globalAlpha = 1;
-        ctx.drawImage(a, x, y, tile, tile);
-      }
-      if (b && b.complete) {
-        ctx.globalAlpha = tt;
-        ctx.drawImage(b, x, y, tile, tile);
-      }
+      const drawReferenceFrame = (img, alpha) => {
+        if (!(img && img.complete && (img.naturalWidth || img.width))) return;
+        ctx.globalAlpha = alpha;
+        if (activeCrop && Number.isFinite(activeCrop.x) && Number.isFinite(activeCrop.y) && Number.isFinite(activeCrop.size)) {
+          const sx = activeCrop.x;
+          const sy = activeCrop.y;
+          const sw = activeCrop.size;
+          const sh = activeCrop.size;
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, tile, tile);
+        } else {
+          ctx.drawImage(img, x, y, tile, tile);
+        }
+      };
 
-      // Subtle rim darkening to keep a clean edge on dark backgrounds
+      drawReferenceFrame(a, 1);
+      drawReferenceFrame(b, tt);
+
       ctx.globalAlpha = 1;
       const grd = ctx.createRadialGradient(w / 2, h / 2, tile * 0.46, w / 2, h / 2, tile * 0.5);
       grd.addColorStop(0, "rgba(0,0,0,0)");
@@ -3514,8 +4246,12 @@ ctx.save();
       ctx.fill();
 
       ctx.restore();
+      setMoonRenderError(null);
     } catch (e) {
-      setMoonRenderError(String(e?.message || e));
+      const w = canvas.width;
+      const h = canvas.height;
+      drawFallbackMoon(ctx, w, h, tDate);
+      setMoonRenderError(null);
     }
   }, [
     imgReady,
@@ -3530,6 +4266,10 @@ ctx.save();
     observerLat,
     observerLon,
     observerHeightM,
+    activeKeyframes,
+    activeCrop,
+    useReferenceFrames,
+    baseMoonReady,
   ]);
 
   const altAtT = useMemo(() => {
@@ -3544,7 +4284,10 @@ return (
         <div>
           <div className="text-lg font-semibold">Moon appearance (physically shaded)</div>
           <div className="mt-1 text-xs text-white/70">
-            Uses a real lunar texture + illumination geometry and a shadow model tied to contact times.
+            Uses exact Stellarium reference frames only for eclipses you have calibrated at Jake’s observing location. All other eclipses and locations use a dynamic viewer-dependent simulation with a smoother totality transition modeled from the Stellarium reference behavior.
+          </div>
+          <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[#f5d46c]/80">
+            {useReferenceFrames ? "Reference-calibrated at Jake’s location" : "Simulated for your location"}
           </div>
         </div>
         <div className="text-xs text-white/70">{fmtDateTime(tDate, useLocalTime)}</div>
@@ -3554,11 +4297,6 @@ return (
         <div className="flex items-center justify-center">
           <div className="relative h-52 w-52 overflow-hidden rounded-full border border-white/15 bg-black/40">
             <canvas ref={canvasRef} width={520} height={520} className="h-full w-full" />
-            {moonRenderError ? (
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/70 p-3 text-center text-xs text-red-200">
-                Moon renderer error. Reverting to safe mode.
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -3591,17 +4329,47 @@ return (
               <div className="mt-1 text-lg font-semibold">{altAtT == null ? "—" : altAtT > 0 ? "Yes" : "No"}</div>
             </div>
           </div>
+          <div className="mt-3 text-xs text-white/55">
+            Reference-frame mode is used only when both the eclipse and the observer location match a calibrated Jake-location Stellarium reference. All other cases use the dynamic viewer-dependent simulation so the Moon orientation stays correct for the selected location.
+          </div>
         </div>
       </div>
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
-        {SITE_VERSION}
-      </div>
-
     </div>
   );
 }
 
-function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }) {
+function smoothRasterCanvas(sourceCanvas, width, height, blurPx = 2.2) {
+  try {
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const octx = out.getContext("2d", { willReadFrequently: false });
+    if (!octx) return sourceCanvas;
+
+    const tmp = document.createElement("canvas");
+    tmp.width = width;
+    tmp.height = height;
+    const tctx = tmp.getContext("2d", { willReadFrequently: false });
+    if (!tctx) return sourceCanvas;
+
+    tctx.clearRect(0, 0, width, height);
+    tctx.filter = `blur(${blurPx}px)`;
+    tctx.drawImage(sourceCanvas, 0, 0, width, height);
+    tctx.filter = "none";
+
+    octx.clearRect(0, 0, width, height);
+    octx.globalAlpha = 0.92;
+    octx.drawImage(tmp, 0, 0, width, height);
+    octx.globalAlpha = 0.50;
+    octx.drawImage(sourceCanvas, 0, 0, width, height);
+    octx.globalAlpha = 1;
+    return out;
+  } catch (e) {
+    return sourceCanvas;
+  }
+}
+
+function buildLunarVisibilityRaster({ eclipse, time, width = 720, height = 360 }) {
   // "Time scrubber" view: where the eclipse is visible at THIS instant (Moon above horizon + eclipse in progress).
   // Returns { url, legend } where url is a dataURL (PNG) in equirectangular projection.
   try {
@@ -3620,7 +4388,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
       canvas.width = width;
       canvas.height = height;
       return {
-        url: canvas.toDataURL("image/png"),
+        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3659,7 +4427,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
     if (!rgba) {
       ctx.putImageData(img, 0, 0);
       return {
-        url: canvas.toDataURL("image/png"),
+        url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
         legend: [
           { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
           { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3692,7 +4460,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
     ctx.putImageData(img, 0, 0);
 
     return {
-      url: canvas.toDataURL("image/png"),
+      url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"),
       legend: [
         { key: "total", label: "Totality visible now", color: "rgba(120,0,0,0.55)" },
         { key: "partial", label: "Umbral/partial visible now", color: "rgba(210,70,70,0.40)" },
@@ -3705,7 +4473,7 @@ function buildLunarVisibilityRaster({ eclipse, time, width = 360, height = 180 }
 }
 
 
-function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
+function buildLunarMaxCategoryRaster({ eclipse, width = 720, height = 360 }) {
   // App-style "maximum visibility class" map:
   //  - Entire eclipse visible (all penumbral from P1..P4 above horizon)
   //  - Entire total & partial phases visible (all umbral from U1..U4 above horizon)
@@ -3749,25 +4517,17 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
     const eqUmb = umbTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
     const eqTot = totTimes.map((t) => ({ t, eq: Astronomy.Equator(Astronomy.Body.Moon, t, dummyObs, true, true) }));
 
-    // Colors tuned toward the Eclipse Guide app look (stacked red bands).
+    // Colors tuned toward a smoother, app-like eclipse visibility overlay.
     const COLORS = {
-      entire: [90, 0, 0, 140],      // entire eclipse visible
-      umbAll: [140, 30, 30, 120],   // all umbral (partial+total) visible
-      totAll: [190, 55, 55, 110],   // all total visible
-      totSome: [225, 95, 80, 105],  // some total visible
-      umbSome: [245, 135, 105, 95], // some partial visible
-      penSome: [255, 190, 170, 85], // some penumbral visible
-      none: [0, 0, 0, 0],
+      total: [124, 18, 18],
+      umbral: [210, 88, 68],
+      penumbral: [255, 196, 170],
     };
 
     const legend = [
-      { key: "entire", label: "Entire eclipse is visible", color: "rgba(90,0,0,0.55)" },
-      { key: "umbAll", label: "Entire total & partial phases are visible", color: "rgba(140,30,30,0.47)" },
-      { key: "totAll", label: "Entire total phase is visible", color: "rgba(190,55,55,0.43)" },
-      { key: "totSome", label: "Some of total phase is visible", color: "rgba(225,95,80,0.41)" },
-      { key: "umbSome", label: "Some of partial phase is visible", color: "rgba(245,135,105,0.37)" },
-      { key: "penSome", label: "Some of penumbral phase is visible", color: "rgba(255,190,170,0.33)" },
-      { key: "none", label: "Eclipse is not visible at all", color: "rgba(160,160,160,0.25)" },
+      { key: "total", label: "Total visibility strongest", color: "rgba(124,18,18,0.52)" },
+      { key: "umbral", label: "Umbral / partial visibility", color: "rgba(210,88,68,0.42)" },
+      { key: "penumbral", label: "Penumbral visibility", color: "rgba(255,196,170,0.28)" },
     ];
 
     const canvas = document.createElement("canvas");
@@ -3797,33 +4557,36 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
           continue;
         }
 
-        const penAll = eqPen.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0);
+        const penFrac = eqPen.length ? eqPen.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqPen.length : 0;
+        const umbFrac = eqUmb.length ? eqUmb.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqUmb.length : 0;
+        const totFrac = eqTot.length ? eqTot.filter(({ t, eq }) => altAbove(t, eq, lat, lon) > 0).length / eqTot.length : 0;
 
-        const umbAny = eqUmb.length ? eqUmb.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
-        const umbAll = eqUmb.length ? eqUmb.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const totalWeight = clampNum(totFrac, 0, 1);
+        const umbralWeight = Math.max(clampNum(umbFrac - totalWeight * 0.45, 0, 1), 0);
+        const penWeight = Math.max(clampNum(penFrac - Math.max(umbFrac, totalWeight) * 0.55, 0, 1), 0);
 
-        const totAny = eqTot.length ? eqTot.some(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
-        const totAll = eqTot.length ? eqTot.every(({ t, eq }) => altAbove(t, eq, lat, lon) > 0) : false;
+        const totalAlpha = 148 * Math.pow(totalWeight, 0.9);
+        const umbralAlpha = 118 * Math.pow(umbralWeight, 0.85);
+        const penAlpha = 78 * Math.pow(penWeight, 0.8);
+        const alpha = Math.round(Math.max(totalAlpha, umbralAlpha, penAlpha));
+        if (alpha <= 0) continue;
 
-        let c = COLORS.penSome;
-        if (penAll) c = COLORS.entire;
-        else if (umbAll) c = COLORS.umbAll;
-        else if (totAll) c = COLORS.totAll; // (only possible if totAll true but umbAll false in grazing cases)
-        else if (totAny) c = COLORS.totSome;
-        else if (umbAny) c = COLORS.umbSome;
-        else c = COLORS.penSome;
+        const weightSum = totalAlpha + umbralAlpha + penAlpha || 1;
+        const r = (COLORS.total[0] * totalAlpha + COLORS.umbral[0] * umbralAlpha + COLORS.penumbral[0] * penAlpha) / weightSum;
+        const g = (COLORS.total[1] * totalAlpha + COLORS.umbral[1] * umbralAlpha + COLORS.penumbral[1] * penAlpha) / weightSum;
+        const b = (COLORS.total[2] * totalAlpha + COLORS.umbral[2] * umbralAlpha + COLORS.penumbral[2] * penAlpha) / weightSum;
 
         const idx = (y * width + x) * 4;
-        data[idx + 0] = c[0];
-        data[idx + 1] = c[1];
-        data[idx + 2] = c[2];
-        data[idx + 3] = c[3];
+        data[idx + 0] = Math.round(r);
+        data[idx + 1] = Math.round(g);
+        data[idx + 2] = Math.round(b);
+        data[idx + 3] = alpha;
       }
     }
 
     ctx.putImageData(img, 0, 0);
 
-    return { url: canvas.toDataURL("image/png"), legend };
+    return { url: smoothRasterCanvas(canvas, width, height, 2.8).toDataURL("image/png"), legend };
   } catch (e) {
     return null;
   }
@@ -3833,6 +4596,7 @@ function buildLunarMaxCategoryRaster({ eclipse, width = 360, height = 180 }) {
 function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeightM, useLocalTime }) {
   const mapRef = useRef(null);
   const mapWrapRef = useRef(null);
+  const dragStateRef = useRef({ active: false, pointerId: null, startX: 0, startLng: 0, lockedLat: 0 });
 
   // Mobile reliability: Leaflet often initializes before its container has a real height.
   // ResizeObserver keeps the map rendered when the page is shown / rotated / address-bar collapses.
@@ -3910,13 +4674,88 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
     return [0, 0];
   }, [observerLat, observerLon]);
 
+  useEffect(() => {
+    const m = mapRef.current;
+    const wrap = mapWrapRef.current;
+    if (!m || !wrap) return;
+
+    const wrapLng = (lng) => {
+      let out = lng;
+      while (out > 180) out -= 360;
+      while (out < -180) out += 360;
+      return out;
+    };
+
+    const syncLockedLatitude = () => {
+      const current = m.getCenter();
+      const lockedLat = clampNum(center[0], -85, 85);
+      if (Math.abs(current.lat - lockedLat) > 0.0001) {
+        m.setView([lockedLat, wrapLng(current.lng)], m.getZoom(), { animate: false });
+      }
+    };
+
+    syncLockedLatitude();
+
+    const endDrag = () => {
+      const state = dragStateRef.current;
+      state.active = false;
+      state.pointerId = null;
+      try { wrap.releasePointerCapture?.(state.pointerId); } catch (e) {}
+      syncLockedLatitude();
+    };
+
+    const onPointerDown = (ev) => {
+      if (!mapRef.current || ev.button !== undefined && ev.button !== 0) return;
+      const state = dragStateRef.current;
+      const current = mapRef.current.getCenter();
+      state.active = true;
+      state.pointerId = ev.pointerId ?? null;
+      state.startX = ev.clientX;
+      state.startLng = current.lng;
+      state.lockedLat = clampNum(center[0], -85, 85);
+      try {
+        if (ev.pointerId != null) wrap.setPointerCapture?.(ev.pointerId);
+      } catch (e) {}
+      ev.preventDefault();
+    };
+
+    const onPointerMove = (ev) => {
+      const state = dragStateRef.current;
+      if (!state.active || !mapRef.current) return;
+      const zoom = mapRef.current.getZoom();
+      const startPoint = mapRef.current.project([state.lockedLat, state.startLng], zoom);
+      const nextPoint = L.point(startPoint.x - (ev.clientX - state.startX), startPoint.y);
+      const nextLatLng = mapRef.current.unproject(nextPoint, zoom);
+      mapRef.current.setView([state.lockedLat, wrapLng(nextLatLng.lng)], zoom, { animate: false });
+      ev.preventDefault();
+    };
+
+    const onPointerUp = () => endDrag();
+    const onPointerCancel = () => endDrag();
+
+    wrap.style.touchAction = "pan-x";
+    wrap.addEventListener("pointerdown", onPointerDown, { passive: false });
+    wrap.addEventListener("pointermove", onPointerMove, { passive: false });
+    wrap.addEventListener("pointerup", onPointerUp, { passive: false });
+    wrap.addEventListener("pointercancel", onPointerCancel, { passive: false });
+    wrap.addEventListener("lostpointercapture", onPointerCancel, { passive: false });
+
+    return () => {
+      wrap.removeEventListener("pointerdown", onPointerDown);
+      wrap.removeEventListener("pointermove", onPointerMove);
+      wrap.removeEventListener("pointerup", onPointerUp);
+      wrap.removeEventListener("pointercancel", onPointerCancel);
+      wrap.removeEventListener("lostpointercapture", onPointerCancel);
+    };
+  }, [center[0], eclipse?.peak?.getTime?.()]);
+
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-lg font-semibold">Lunar visibility map</div>
           <div className="mt-1 text-xs text-white/70">
-            Shows where the eclipse is visible (Moon above horizon). Toggle between maximum class and time-scrubbed view.
+            Shows where the eclipse is visible (Moon above horizon) with a smoother, app-style shadow overlay. Toggle between maximum class and time-scrubbed view.
           </div>
         </div>
 
@@ -3960,15 +4799,26 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         </div>
       )}
 
-      <div ref={mapWrapRef} className="mt-3 h-[360px] overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+      <div ref={mapWrapRef} className="mt-3 h-[380px] overflow-hidden rounded-2xl border border-white/10 bg-black/30 cursor-grab active:cursor-grabbing">
         <MapContainer
           center={center}
           zoom={2}
           worldCopyJump
-          scrollWheelZoom
-          className="h-full w-full"
+          zoomControl={false}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          touchZoom={false}
+          boxZoom={false}
+          keyboard={false}
+          dragging={false}
+          inertia={false}
+          maxBounds={[[-90, -720], [90, 720]]}
+          maxBoundsViscosity={1.0}
+          className="!h-full !w-full"
+          style={{ height: "100%", width: "100%" }}
           whenCreated={(m) => {
             mapRef.current = m;
+            m.setView([center[0], center[1]], 2, { animate: false });
             setTimeout(() => m.invalidateSize(), 0);
           }}
         >
@@ -4001,7 +4851,7 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
           <div className="text-white/60">Legend</div>
           <div className="mt-1 leading-relaxed">
-            Purple = total visible • Orange = umbral/partial visible • Cyan = penumbral visible (Moon above horizon).
+            Deep red = strongest total visibility • Copper = umbral / partial visibility • Soft glow = penumbral visibility (Moon above horizon).
           </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
@@ -4017,10 +4867,6 @@ function LunarVisibilityMapV2({ eclipse, observerLat, observerLon, observerHeigh
           </div>
         </div>
       </div>
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
-        {SITE_VERSION}
-      </div>
-
     </div>
   );
 }
@@ -4166,7 +5012,7 @@ const moonAtMax = useMemo(() => {
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Tomorrow’s eclipse timeline</div>
+          <div className="text-lg font-semibold">Eclipse timeline</div>
           <div className="mt-1 text-xs text-white/70">
             Tap a row to jump the Moon preview to that phase. Times come from astronomy-engine.
           </div>
@@ -4337,15 +5183,108 @@ const moonAtMax = useMemo(() => {
           </tbody>
         </table>
       </div>
-      <div className="pointer-events-none fixed bottom-3 right-3 z-[60] rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] tracking-[0.18em] text-white/65 backdrop-blur">
-        {SITE_VERSION}
-      </div>
-
     </div>
   );
 }
 
 
+
+function formatCountdownParts(targetDate, nowMs) {
+  if (!(targetDate instanceof Date)) {
+    return { months: '00', days: '00', hours: '00', minutes: '00', seconds: '00', totalMs: null };
+  }
+  const now = new Date(nowMs);
+  let end = new Date(targetDate.getTime());
+  let sign = 1;
+  if (end.getTime() < now.getTime()) {
+    sign = -1;
+    end = new Date(now.getTime());
+  }
+  let cursor = new Date(now.getTime());
+  let months = 0;
+  while (true) {
+    const next = new Date(cursor.getTime());
+    next.setMonth(next.getMonth() + 1);
+    if (next.getTime() <= end.getTime()) {
+      months += 1;
+      cursor = next;
+    } else {
+      break;
+    }
+  }
+  let remainingMs = Math.max(0, end.getTime() - cursor.getTime());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const minuteMs = 60 * 1000;
+  const secondMs = 1000;
+  const days = Math.floor(remainingMs / dayMs);
+  remainingMs -= days * dayMs;
+  const hours = Math.floor(remainingMs / hourMs);
+  remainingMs -= hours * hourMs;
+  const minutes = Math.floor(remainingMs / minuteMs);
+  remainingMs -= minutes * minuteMs;
+  const seconds = Math.floor(remainingMs / secondMs);
+  const pad2 = (n) => String(Math.max(0, n)).padStart(2, '0');
+  return {
+    months: pad2(sign < 0 ? 0 : months),
+    days: pad2(sign < 0 ? 0 : days),
+    hours: pad2(sign < 0 ? 0 : hours),
+    minutes: pad2(sign < 0 ? 0 : minutes),
+    seconds: pad2(sign < 0 ? 0 : seconds),
+    totalMs: Math.max(0, targetDate.getTime() - nowMs),
+  };
+}
+
+function UpcomingEclipseCountdown({ eclipse, useLocalTime }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const target = eclipse?.peak instanceof Date ? eclipse.peak : null;
+  const countdown = useMemo(() => formatCountdownParts(target, nowMs), [target?.getTime?.(), nowMs]);
+  const hasTarget = target instanceof Date;
+  const cards = [
+    { label: 'Months', value: countdown.months },
+    { label: 'Days', value: countdown.days },
+    { label: 'Hours', value: countdown.hours },
+    { label: 'Min', value: countdown.minutes },
+    { label: 'Sec', value: countdown.seconds },
+  ];
+
+  return (
+    <div className="mt-4 rounded-[28px] border border-[#c9a227]/30 bg-gradient-to-br from-[#17120a] via-[#0d0d0d] to-black p-4 shadow-[0_0_0_1px_rgba(201,162,39,0.05),0_20px_60px_rgba(0,0,0,0.35)]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b54a]">Countdown to next eclipse</div>
+          <div className="mt-2 text-sm text-white/70">
+            {hasTarget ? (
+              <>
+                Time remaining until <span className="font-semibold text-white">{eclipseLabel(eclipse)}</span>
+              </>
+            ) : (
+              <>Loading next eclipse…</>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] font-mono text-white/55">
+          {hasTarget ? fmtDateTime(target, useLocalTime) : '—'}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-5 gap-2 sm:gap-3">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-2xl border border-white/10 bg-black/35 px-2 py-3 text-center shadow-inner shadow-black/30">
+            <div className="font-mono text-xl font-semibold tracking-[0.16em] text-[#f5d46c] sm:text-3xl">{card.value}</div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/45 sm:text-[11px]">{card.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function EclipseGuidePage({ navigate }) {
   const [useLocalTime, setUseLocalTime] = useState(true);
@@ -4362,22 +5301,32 @@ function EclipseGuidePage({ navigate }) {
   const observerHeightM = useMemo(() => Number(elevStr), [elevStr]);
 
   const catalog = useMemo(() => buildEclipseCatalog(new Date()), []);
+  const upcomingLunarEclipses = useMemo(() => catalog?.upcoming?.lunar?.slice(0, 10) || [], [catalog]);
+  const [selectedLunarUtc, setSelectedLunarUtc] = useState("");
 
-  // Default: next upcoming eclipse, preferring the March 3 lunar eclipse if it is indeed next.
-  const defaultEclipse = useMemo(() => {
-    const nextLunar = catalog?.upcoming?.lunar?.[0] || null;
-    const nextSolar = catalog?.upcoming?.solar?.[0] || null;
-    if (nextLunar && nextSolar) return nextLunar.peak <= nextSolar.peak ? nextLunar : nextSolar;
-    return nextLunar || nextSolar || null;
-  }, [catalog]);
+  useEffect(() => {
+    if (!selectedLunarUtc && upcomingLunarEclipses[0]?.peak instanceof Date) {
+      setSelectedLunarUtc(upcomingLunarEclipses[0].peak.toISOString());
+    }
+  }, [selectedLunarUtc, upcomingLunarEclipses]);
 
-  // For now, this page only shows tomorrow's lunar eclipse.
-// Past and additional upcoming eclipse lists will be added later.
-const selectedType = "lunar";
-const selectedEclipse = useMemo(() => catalog?.upcoming?.lunar?.[0] || null, [catalog]);
+  const selectedEclipse = useMemo(() => {
+    if (!upcomingLunarEclipses.length) return null;
+    if (!selectedLunarUtc) return upcomingLunarEclipses[0] || null;
+    return (
+      upcomingLunarEclipses.find((e) => e?.peak instanceof Date && e.peak.toISOString() === selectedLunarUtc) ||
+      upcomingLunarEclipses[0] ||
+      null
+    );
+  }, [upcomingLunarEclipses, selectedLunarUtc]);
 
-const [moonSeekTime, setMoonSeekTime] = useState(null);
-const [moonSeekKey, setMoonSeekKey] = useState(null);
+  const [moonSeekTime, setMoonSeekTime] = useState(null);
+  const [moonSeekKey, setMoonSeekKey] = useState(null);
+
+  useEffect(() => {
+    setMoonSeekTime(null);
+    setMoonSeekKey(null);
+  }, [selectedLunarUtc]);
 
   const shareHref = useMemo(() => {
     const base =
@@ -4400,12 +5349,16 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pt-12">
+      <HomepageObservingConditionsCard
+        sectionClassName="mb-6 mt-0 max-w-none px-0 sm:mt-0 sm:px-0 lg:px-0"
+      />
+
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold sm:text-4xl">Eclipse Guide</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/75">
-              Extremely accurate eclipse timing + realistic Moon appearance + global visibility maps. Choose any location and scrub through the event.
+              Choose from the next 10 upcoming lunar eclipses, then inspect accurate timing, a location-aware Moon appearance, and a stable global visibility map for any observer location. Exact Stellarium frame references are used only for eclipses you have explicitly calibrated from Jake’s site.
             </p>
           </div>
 
@@ -4434,31 +5387,43 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
                     <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
-            <div className="text-sm font-semibold">Tomorrow’s lunar eclipse</div>
+            <div className="text-sm font-semibold">Upcoming eclipses</div>
             <div className="mt-2 text-sm text-white/75">
-              {selectedEclipse ? (
-                <>
-                  Showing a single event for now: <span className="font-semibold">{eclipseLabel(selectedEclipse)}</span>
-                </>
-              ) : (
-                <>Loading eclipse data…</>
-              )}
+              Select any of the next 10 upcoming lunar eclipses. All timing, Moon rendering, and map content below update to the eclipse and observer location you choose.
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="text-xs text-white/70">Past eclipses</div>
-                <div className="mt-1 text-sm text-white/80">Coming soon</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="text-xs text-white/70">Upcoming eclipses</div>
-                <div className="mt-1 text-sm text-white/80">Coming soon</div>
+            <div className="mt-4 pointer-events-auto">
+              <label className="block">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8b54a]">Choose lunar eclipse</div>
+                <select
+                  value={selectedLunarUtc}
+                  onChange={(e) => setSelectedLunarUtc(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8b54a]/60"
+                >
+                  {upcomingLunarEclipses.map((e) => {
+                    const value = e?.peak instanceof Date ? e.peak.toISOString() : '';
+                    return (
+                      <option key={value || eclipseLabel(e)} value={value}>
+                        {eclipseLabel(e)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-white/55">Selected lunar eclipse</div>
+              <div className="mt-1 text-base font-semibold text-white">{selectedEclipse ? eclipseLabel(selectedEclipse) : 'Loading eclipse data…'}</div>
+              <div className="mt-1 text-sm text-white/70">
+                {selectedEclipse ? `${(selectedEclipse.kind || 'lunar').toString()} lunar eclipse` : '—'}
               </div>
             </div>
 
-            <div className="mt-3 text-xs text-white/60">
-              We’ll add past/upcoming eclipse browsing later. For now this page is focused on tomorrow’s lunar eclipse.
-            </div>
+            <UpcomingEclipseCountdown
+              eclipse={selectedEclipse}
+              useLocalTime={useLocalTime}
+            />
           </div>
 
 <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-6">
@@ -4522,6 +5487,14 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
         <div className="mt-6 grid gap-4">
           {selectedEclipse?.type === "lunar" ? (
             <>
+              <RealisticLunarMoonView
+                eclipse={selectedEclipse}
+                observerLat={observerLat}
+                observerLon={observerLon}
+                observerHeightM={observerHeightM}
+                useLocalTime={useLocalTime}
+                seekTime={moonSeekTime}
+              />
               <EclipseTimesPanel
                 eclipse={selectedEclipse}
                 observerLat={observerLat}
@@ -4530,14 +5503,6 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
                 useLocalTime={useLocalTime}
                 onSelectTime={handleSeekMoonToPhase}
                 activeKey={moonSeekKey}
-              />
-              <RealisticLunarMoonView
-                eclipse={selectedEclipse}
-                observerLat={observerLat}
-                observerLon={observerLon}
-                observerHeightM={observerHeightM}
-                useLocalTime={useLocalTime}
-                seekTime={moonSeekTime}
               />
               <LunarVisibilityMapV2
                 eclipse={selectedEclipse}
@@ -4552,7 +5517,7 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
               <div className="text-lg font-semibold">Solar eclipse support</div>
               <div className="mt-2 text-sm text-white/75">
                 Solar eclipse path-of-totality mapping is implemented next (umbra/penumbra ground tracks, local circumstances, and time scrubber).  
-                The selector above already loads solar eclipses and their global times; the full map model is the next iteration.
+                The selector above now focuses on the next 10 upcoming lunar eclipses.
               </div>
               <div className="mt-4 text-xs text-white/60">
                 If you want, I can prioritize:
@@ -4645,7 +5610,2142 @@ const [moonSeekKey, setMoonSeekKey] = useState(null);
 
 
 
-function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
+
+const DEFAULT_NA_SHOW_ANNOTATION = false;
+const DEFAULT_NA_SHOW_PELICAN_OVERLAY = false;
+
+function NorthAmericanNebulaPage({ navigate }) {
+  const [mode, setMode] = useState("image");
+  const [baseLayer, setBaseLayer] = useState("combined");
+  const [showStars, setShowStars] = useState(true);
+  const [showAnnotation, setShowAnnotation] = useState(DEFAULT_NA_SHOW_ANNOTATION);
+  const [showPelicanOverlay, setShowPelicanOverlay] = useState(DEFAULT_NA_SHOW_PELICAN_OVERLAY);
+  const [zoom, setZoom] = useState(1);
+  const [viewerLocked, setViewerLocked] = useState(false);
+  const [viewerControlOption, setViewerControlOption] = useState("06");
+  const [viewerControlsExpanded, setViewerControlsExpanded] = useState(true);
+  const [openingViewerHeight, setOpeningViewerHeight] = useState(null);
+  const [activeControlNote, setActiveControlNote] = useState(null);
+  const controlNoteTimeoutRef = useRef(0);
+  const [missingLayers, setMissingLayers] = useState({});
+  const [preloadedTileLayers, setPreloadedTileLayers] = useState({});
+  const preloadedTileLayersRef = useRef({});
+  const viewerRef = useRef(null);
+  const imageStageRef = useRef(null);
+  const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, viewX: 0, viewY: 0 });
+  const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, viewX: 0, viewY: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
+  const zoomRef = useRef(1);
+  const viewRef = useRef({ zoom: 1, x: 0, y: 0 });
+  const fitScaleRef = useRef(1);
+  const viewerMetricsRef = useRef({ viewportW: 1, viewportH: 1, fitScale: 1 });
+  const transformFrameRef = useRef(0);
+  const zoomUiFrameRef = useRef(0);
+  const zoomUiTimeoutRef = useRef(0);
+  const zoomAnimationRef = useRef({ frame: 0, targetZoom: 1, anchorX: 0, anchorY: 0, imageX: 0, imageY: 0 });
+  const masterImageCacheRef = useRef([]);
+  const tileImageWidth = 7887;
+  const tileImageHeight = 6086;
+  const tileSize = 512;
+  const highResolutionTiles = useMemo(() => {
+    const cols = Math.ceil(tileImageWidth / tileSize);
+    const rows = Math.ceil(tileImageHeight / tileSize);
+    const tiles = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const x = col * tileSize;
+        const y = row * tileSize;
+        const width = Math.min(tileSize, tileImageWidth - x);
+        const height = Math.min(tileSize, tileImageHeight - y);
+        tiles.push({ col, row, x, y, width, height });
+      }
+    }
+    return tiles;
+  }, []);
+
+  const getTileUrls = (layerName) => highResolutionTiles.map((tile) =>
+    `/images/gallery/north-american-nebula-tiles/${layerName}/${tile.col}_${tile.row}.webp`
+  );
+
+  const baseLayers = {
+    combined: {
+      src: "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
+      label: "Combined Starless",
+      shortLabel: "Combined",
+      description: "Mix base: the finished RGB + C2 starless composite from the William Optics RedCat 51 at 250 mm and f/4.9, aligned to the full 7887 × 6086 project canvas.",
+    },
+    rgb: {
+      src: "/images/gallery/north-american-nebula-rgb-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-rgb-with-stars-master-q100.jpg",
+      label: "RGB Starless",
+      shortLabel: "RGB",
+      description: "RGB base: broadband OSC color data from the RedCat 51 at 250 mm and f/4.9, showing natural star color, reflection color, and wide-field dust structure.",
+    },
+    c2: {
+      src: "/images/gallery/north-american-nebula-c2-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-c2-with-stars-master-q100.jpg",
+      label: "C2 Starless",
+      shortLabel: "C2",
+      description: "C2 base: narrowband data captured with the Askar Colour Magic C2 S-II/O-III filter, isolating sulfur and oxygen emission structure across the nebula.",
+    },
+  };
+
+  const overlayLayers = {
+    stars: {
+      src: "/images/gallery/north-american-nebula-stars-only-fullres.webp",
+      label: "Stars",
+      shortLabel: "Stars",
+      description: "Stars: the registered full star field, kept as a separate layer so the nebula can be viewed with or without stars while preserving the same 7887 × 6086 alignment.",
+    },
+    annotation: {
+      src: "/images/gallery/north-american-nebula-annotation-overlay-fullres.png",
+      label: "Annotation",
+      shortLabel: "Annotation",
+      description: "Annotation: a transparent label layer for identifying the major objects and framing areas within the North American Nebula field.",
+    },
+    pelican: {
+      src: "/images/gallery/north-american-nebula-pelican-overlay-fullres.webp",
+      label: "Pelican Nebula Overlay",
+      shortLabel: "Pelican Overlay",
+      description: "Pelican Nebula Overlay: a separate Pelican Nebula image captured with the Apertura 6-inch f/4 Newtonian at 600 mm focal length, then aligned over this RedCat 51 250 mm / f/4.9 NGC 7000 field to show the overlapping framing.",
+    },
+  };
+
+  const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=wz2g3f";
+  const sharePageHref = "/share/north-american-nebula/";
+  const shareTitle = "NGC 7000 — North American Nebula Interactive Image";
+  const shareText = "Explore Jake Schultz Astrophotography's interactive North American Nebula image with high-resolution layers, overlays, and project data.";
+  const pelicanAstrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=rfg4iu";
+  const toolbarNotes = {
+    combined: baseLayers.combined.description,
+    rgb: baseLayers.rgb.description,
+    c2: baseLayers.c2.description,
+    stars: overlayLayers.stars.description,
+    pelican: overlayLayers.pelican.description,
+    annotation: overlayLayers.annotation.description,
+    zoomOut: "Zoom out from the current image position.",
+    zoomIn: "Zoom in toward the center of the current view.",
+    reset: "Reset the image back to the opening fit-to-screen view.",
+    controls: "Collapse or restore the image viewer controls.",
+    styleSelector: "Toolbar style: preview alternate control layouts for this interactive image viewer while keeping the same layers, zoom behavior, and image data.",
+    imageViewer: "Image Viewer: the high-resolution native-pixel viewer for inspecting the NGC 7000 image, switching base layers, toggling overlays, zooming, and panning around the full 7887 × 6086 image.",
+    objectExplorer: "Object Explorer: an interactive catalog/map view for identifying objects, markers, and labeled regions across the North American Nebula field.",
+    astroDepthMap: "4D AstroDepth Map: the depth-style informational view for exploring the image as a layered spatial presentation rather than a flat final image.",
+  };
+  const isImageMode = mode === "image";
+  const activeBase = baseLayers[baseLayer] || baseLayers.combined;
+  const activeBaseSrc = showStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
+  const masterImageUrls = useMemo(() => [
+    "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
+    "/images/gallery/north-american-nebula-rgb-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-rgb-with-stars-master-q100.jpg",
+    "/images/gallery/north-american-nebula-c2-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-c2-with-stars-master-q100.jpg",
+  ], []);
+  const activeTileLayer = `${baseLayer}-${showStars ? "with-stars" : "starless"}`;
+  // Use a native-pixel image stage: the rendered image keeps its true 7887 × 6086 canvas
+  // and the viewer scales that native stage down/up, instead of enlarging a viewport-sized raster.
+  // This matches the feel of AstroBin/GIMP much more closely for star detail.
+  const enableTiledDetail = false;
+  const tileActivationZoom = 1.04;
+  const shouldShowHighResolutionTiles = enableTiledDetail && isImageMode && !missingLayers[baseLayer] && zoom >= tileActivationZoom && preloadedTileLayers[activeTileLayer];
+  const minZoom = 1;
+  const getFitScale = () => {
+    const el = viewerRef.current;
+    if (!el) return fitScaleRef.current || 1;
+    const viewportW = el.clientWidth || viewerMetricsRef.current.viewportW || 1;
+    const viewportH = el.clientHeight || viewerMetricsRef.current.viewportH || viewportW * (tileImageHeight / tileImageWidth);
+    const fitScale = Math.max(0.0001, Math.min(viewportW / tileImageWidth, viewportH / tileImageHeight));
+    fitScaleRef.current = fitScale;
+    viewerMetricsRef.current = { viewportW, viewportH, fitScale };
+    return fitScale;
+  };
+
+  const getDisplayScale = (relativeZoom = zoomRef.current || 1) => {
+    const fitScale = fitScaleRef.current || getFitScale();
+    return Math.max(0.0001, fitScale * (relativeZoom || 1));
+  };
+
+  const getImagePointFromScreen = (screenX, screenY, relativeZoom = zoomRef.current || 1) => {
+    const { x, y } = viewRef.current;
+    const displayScale = getDisplayScale(relativeZoom);
+    return {
+      imageX: (screenX - x) / displayScale,
+      imageY: (screenY - y) / displayScale,
+    };
+  };
+  const getQualityMaxZoom = () => {
+    const fitScale = getFitScale();
+    // Allow a little extra inspection past native pixel scale while avoiding extreme fake enlargement.
+    const nativeRelativeZoom = 1 / Math.max(0.0001, fitScale);
+    return Math.max(3.4, Math.min(36, nativeRelativeZoom * 1.45));
+  };
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (mode !== "image" && viewerLocked) {
+      setViewerLocked(false);
+    }
+  }, [mode, viewerLocked]);
+
+  useEffect(() => () => {
+    if (zoomAnimationRef.current.frame) cancelAnimationFrame(zoomAnimationRef.current.frame);
+    if (transformFrameRef.current) cancelAnimationFrame(transformFrameRef.current);
+    if (zoomUiFrameRef.current) cancelAnimationFrame(zoomUiFrameRef.current);
+    if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!viewerLocked) return undefined;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    const previousTouchAction = document.body.style.touchAction;
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overscrollBehavior = previousOverscroll;
+      document.body.style.touchAction = previousTouchAction;
+    };
+  }, [viewerLocked]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const cachedImages = masterImageUrls.map((src, index) => {
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = index < 2 ? "high" : "auto";
+      img.src = src;
+      if (img.decode) {
+        img.decode().catch(() => {});
+      }
+      return img;
+    });
+    if (!cancelled) masterImageCacheRef.current = cachedImages;
+    return () => {
+      cancelled = true;
+    };
+  }, [masterImageUrls]);
+
+  useEffect(() => {
+    const priorityImages = [activeBaseSrc, activeBase.src, activeBase.starSrc].filter(Boolean);
+    const cachedPriority = priorityImages.map((src) => {
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = "high";
+      img.src = src;
+      if (img.decode) {
+        img.decode().catch(() => {});
+      }
+      return img;
+    });
+    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
+  }, [activeBaseSrc, activeBase.src, activeBase.starSrc]);
+
+  useEffect(() => {
+    if (!enableTiledDetail) return undefined;
+    let cancelled = false;
+    const layerName = activeTileLayer;
+    if (preloadedTileLayersRef.current[layerName]) {
+      setPreloadedTileLayers((current) => current[layerName] ? current : { ...current, [layerName]: true });
+      return undefined;
+    }
+
+    const tileUrls = getTileUrls(layerName);
+    const concurrency = 32;
+    let nextIndex = 0;
+    let completed = 0;
+
+    const finishLayer = () => {
+      if (cancelled || preloadedTileLayersRef.current[layerName]) return;
+      preloadedTileLayersRef.current[layerName] = true;
+      setPreloadedTileLayers((current) => ({ ...current, [layerName]: true }));
+    };
+
+    const loadNext = () => {
+      if (cancelled) return;
+      const src = tileUrls[nextIndex];
+      nextIndex += 1;
+      if (!src) return;
+
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = "high";
+      const done = () => {
+        completed += 1;
+        if (completed >= tileUrls.length) {
+          finishLayer();
+        } else {
+          loadNext();
+        }
+      };
+      img.onload = done;
+      img.onerror = done;
+      img.src = src;
+    };
+
+    for (let i = 0; i < Math.min(concurrency, tileUrls.length); i += 1) {
+      loadNext();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTileLayer, highResolutionTiles]);
+
+  useEffect(() => {
+    if (!enableTiledDetail) return undefined;
+    const alternateStarLayer = `${baseLayer}-${showStars ? "starless" : "with-stars"}`;
+    if (preloadedTileLayersRef.current[alternateStarLayer]) return undefined;
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      const tileUrls = getTileUrls(alternateStarLayer);
+      let index = 0;
+      let completed = 0;
+      const concurrency = 8;
+
+      const loadNext = () => {
+        if (cancelled) return;
+        const src = tileUrls[index];
+        index += 1;
+        if (!src) return;
+
+        const img = new window.Image();
+        img.decoding = "async";
+        img.fetchPriority = "low";
+        const done = () => {
+          completed += 1;
+          if (completed >= tileUrls.length) {
+            preloadedTileLayersRef.current[alternateStarLayer] = true;
+            setPreloadedTileLayers((current) => ({ ...current, [alternateStarLayer]: true }));
+          } else {
+            loadNext();
+          }
+        };
+        img.onload = done;
+        img.onerror = done;
+        img.src = src;
+      };
+
+      for (let i = 0; i < Math.min(concurrency, tileUrls.length); i += 1) {
+        loadNext();
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [baseLayer, showStars, highResolutionTiles]);
+
+  const markMissing = (key) => setMissingLayers((current) => ({ ...current, [key]: true }));
+  const clearMissing = (key) => setMissingLayers((current) => {
+    const next = { ...current };
+    delete next[key];
+    return next;
+  });
+
+  const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
+  const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const constrainView = (nextZoom, nextX, nextY) => {
+    const el = viewerRef.current;
+    const safeZoom = clampZoom(nextZoom || 1);
+    if (!el) return { zoom: safeZoom, x: nextX || 0, y: nextY || 0 };
+
+    let { viewportW, viewportH, fitScale } = viewerMetricsRef.current || {};
+    if (!viewportW || !viewportH || !fitScale) {
+      fitScale = getFitScale();
+      ({ viewportW, viewportH } = viewerMetricsRef.current);
+    }
+    const displayScale = fitScale * safeZoom;
+    const scaledW = tileImageWidth * displayScale;
+    const scaledH = tileImageHeight * displayScale;
+
+    let x = Number.isFinite(nextX) ? nextX : (viewportW - scaledW) / 2;
+    let y = Number.isFinite(nextY) ? nextY : (viewportH - scaledH) / 2;
+
+    if (scaledW <= viewportW) {
+      x = (viewportW - scaledW) / 2;
+    } else {
+      x = clampValue(x, viewportW - scaledW, 0);
+    }
+
+    if (scaledH <= viewportH) {
+      y = (viewportH - scaledH) / 2;
+    } else {
+      y = clampValue(y, viewportH - scaledH, 0);
+    }
+
+    return { zoom: safeZoom, x, y };
+  };
+
+  const paintView = () => {
+    const stage = imageStageRef.current;
+    transformFrameRef.current = 0;
+    if (!stage) return;
+    const { zoom: nextZoom, x, y } = viewRef.current;
+    const displayScale = (fitScaleRef.current || getFitScale()) * (nextZoom || 1);
+    // Keep transform values stable at sub-pixel precision. This avoids occasional
+    // browser resampling snaps while preserving smooth pan/zoom motion.
+    const stableX = Math.round(x * 100) / 100;
+    const stableY = Math.round(y * 100) / 100;
+    const stableScale = Math.round(displayScale * 100000) / 100000;
+    stage.style.transform = `translate3d(${stableX}px, ${stableY}px, 0) scale(${stableScale})`;
+  };
+
+  const paintViewImmediate = () => {
+    if (transformFrameRef.current) {
+      cancelAnimationFrame(transformFrameRef.current);
+      transformFrameRef.current = 0;
+    }
+    paintView();
+  };
+
+  const flushZoomUi = () => {
+    if (zoomUiFrameRef.current) {
+      cancelAnimationFrame(zoomUiFrameRef.current);
+      zoomUiFrameRef.current = 0;
+    }
+    if (zoomUiTimeoutRef.current) {
+      window.clearTimeout(zoomUiTimeoutRef.current);
+      zoomUiTimeoutRef.current = 0;
+    }
+    setZoom(Number((zoomRef.current || 1).toFixed(3)));
+  };
+
+  const scheduleZoomUi = () => {
+    // During active wheel/pinch movement the transform is painted directly on the DOM.
+    // Debounce the React state update so the huge image stage is not re-rendered
+    // mid-gesture, which was causing the occasional stutter/snap.
+    if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
+    zoomUiTimeoutRef.current = window.setTimeout(() => {
+      zoomUiTimeoutRef.current = 0;
+      if (zoomUiFrameRef.current) return;
+      zoomUiFrameRef.current = requestAnimationFrame(() => {
+        zoomUiFrameRef.current = 0;
+        setZoom(Number((zoomRef.current || 1).toFixed(3)));
+      });
+    }, 110);
+  };
+
+  const applyView = (nextZoom, nextX, nextY, updateZoomUi = true, immediatePaint = false) => {
+    const constrained = constrainView(nextZoom, nextX, nextY);
+    viewRef.current = constrained;
+    zoomRef.current = constrained.zoom;
+    if (immediatePaint) {
+      paintViewImmediate();
+    } else if (!transformFrameRef.current) {
+      transformFrameRef.current = requestAnimationFrame(paintView);
+    }
+    if (updateZoomUi) scheduleZoomUi();
+  };
+
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return undefined;
+    const refresh = () => {
+      getFitScale();
+      applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+    };
+    refresh();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", refresh);
+      return () => window.removeEventListener("resize", refresh);
+    }
+    const observer = new ResizeObserver(refresh);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isImageMode]);
+
+  useEffect(() => {
+    if (!isImageMode) return undefined;
+
+    let frameId = 0;
+
+    const updateOpeningFrame = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        const el = viewerRef.current;
+        if (!el) return;
+
+        if (viewerLocked) {
+          setOpeningViewerHeight(null);
+          getFitScale();
+          applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+          return;
+        }
+
+        const rect = el.getBoundingClientRect();
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 800;
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || el.clientWidth || 1;
+        const viewerW = el.clientWidth || viewportW || 1;
+        const naturalFitHeight = viewerW * (tileImageHeight / tileImageWidth);
+        const bottomPadding = viewportW < 640 ? 76 : 28;
+        const minHeight = viewportW < 640 ? 235 : 320;
+        const visibleHeight = Math.max(minHeight, viewportH - rect.top - bottomPadding);
+        const nextHeight = Math.max(minHeight, Math.round(Math.min(naturalFitHeight, visibleHeight)));
+
+        setOpeningViewerHeight((current) => (Math.abs((current || 0) - nextHeight) > 2 ? nextHeight : current));
+
+        requestAnimationFrame(() => {
+          getFitScale();
+          applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+        });
+      });
+    };
+
+    updateOpeningFrame();
+    window.addEventListener("resize", updateOpeningFrame);
+    window.addEventListener("orientationchange", updateOpeningFrame);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateOpeningFrame);
+      window.removeEventListener("orientationchange", updateOpeningFrame);
+    };
+  }, [isImageMode, viewerLocked]);
+
+  const stopZoomAnimation = () => {
+    if (zoomAnimationRef.current.frame) {
+      cancelAnimationFrame(zoomAnimationRef.current.frame);
+      zoomAnimationRef.current.frame = 0;
+    }
+  };
+
+  const zoomAtPoint = (nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1, immediate = true) => {
+    const safeCurrentZoom = currentZoom || 1;
+    const { imageX, imageY } = getImagePointFromScreen(anchorX, anchorY, safeCurrentZoom);
+    const safeNextZoom = clampZoom(nextZoom);
+    const nextDisplayScale = getDisplayScale(safeNextZoom);
+    const nextX = anchorX - imageX * nextDisplayScale;
+    const nextY = anchorY - imageY * nextDisplayScale;
+    applyView(safeNextZoom, nextX, nextY, true, immediate);
+  };
+
+  const animateSmoothZoom = () => {
+    const state = zoomAnimationRef.current;
+    const currentZoom = zoomRef.current || 1;
+    const difference = state.targetZoom - currentZoom;
+    const nextZoom = Math.abs(difference) < 0.004 ? state.targetZoom : currentZoom + difference * 0.34;
+    const nextDisplayScale = getDisplayScale(nextZoom);
+    const nextX = state.anchorX - state.imageX * nextDisplayScale;
+    const nextY = state.anchorY - state.imageY * nextDisplayScale;
+    applyView(nextZoom, nextX, nextY, true);
+
+    if (Math.abs(state.targetZoom - nextZoom) >= 0.004) {
+      state.frame = requestAnimationFrame(animateSmoothZoom);
+    } else {
+      state.frame = 0;
+    }
+  };
+
+  const smoothZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1) => {
+    const safeCurrentZoom = currentZoom || 1;
+    const safeNextZoom = clampZoom(nextZoom);
+    const { imageX, imageY } = getImagePointFromScreen(anchorX, anchorY, safeCurrentZoom);
+    const state = zoomAnimationRef.current;
+    state.targetZoom = safeNextZoom;
+    state.anchorX = anchorX;
+    state.anchorY = anchorY;
+    state.imageX = imageX;
+    state.imageY = imageY;
+
+    if (!state.frame) {
+      state.frame = requestAnimationFrame(animateSmoothZoom);
+    }
+  };
+
+  useEffect(() => {
+    if (!isImageMode) return undefined;
+    const el = viewerRef.current;
+    if (!el) return undefined;
+
+    let previousBodyCursor = "";
+    let previousBodyUserSelect = "";
+
+    const endMousePan = () => {
+      if (dragRef.current.pointerId !== "mouse") return;
+      dragRef.current.active = false;
+      dragRef.current.pointerId = null;
+      document.body.style.cursor = previousBodyCursor;
+      document.body.style.userSelect = previousBodyUserSelect;
+      flushZoomUi();
+    };
+
+    const onMouseDown = (event) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (target?.closest?.("button, a, input, textarea, select, [data-viewer-control]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      stopZoomAnimation();
+      getFitScale();
+      previousBodyCursor = document.body.style.cursor;
+      previousBodyUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+      dragRef.current = {
+        active: true,
+        pointerId: "mouse",
+        moved: false,
+        x: event.clientX,
+        y: event.clientY,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
+      };
+    };
+
+    const onMouseMove = (event) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      event.preventDefault();
+      event.stopPropagation();
+      const dx = event.clientX - dragRef.current.x;
+      const dy = event.clientY - dragRef.current.y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        dragRef.current.moved = true;
+      }
+      applyView(zoomRef.current || 1, dragRef.current.viewX + dx, dragRef.current.viewY + dy, false, true);
+    };
+
+    const onMouseUp = (event) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      event.preventDefault();
+      event.stopPropagation();
+      endMousePan();
+    };
+
+    const onMouseLeaveWindow = () => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      endMousePan();
+    };
+
+    el.addEventListener("mousedown", onMouseDown, { passive: false });
+    window.addEventListener("mousemove", onMouseMove, { passive: false });
+    window.addEventListener("mouseup", onMouseUp, { passive: false });
+    window.addEventListener("blur", onMouseLeaveWindow);
+
+    return () => {
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onMouseLeaveWindow);
+      if (dragRef.current.pointerId === "mouse") {
+        document.body.style.cursor = previousBodyCursor;
+        document.body.style.userSelect = previousBodyUserSelect;
+        dragRef.current.active = false;
+        dragRef.current.pointerId = null;
+      }
+    };
+  }, [isImageMode]);
+
+  const handleViewerClick = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const anchorX = event.clientX - rect.left;
+    const anchorY = event.clientY - rect.top;
+    const currentZoom = zoomRef.current || 1;
+    setViewerLocked(true);
+    if (currentZoom < 1.8) {
+      const fitScale = getFitScale();
+      const targetNativeScale = window.innerWidth < 700 ? 0.55 : 0.75;
+      const targetZoom = Math.min(getQualityMaxZoom(), Math.max(2.05, targetNativeScale / Math.max(0.0001, fitScale)));
+      zoomAtPoint(targetZoom, anchorX, anchorY, currentZoom);
+    }
+  };
+
+  const touchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const getTouchCenter = (touches, el) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      x: ((touches[0].clientX + touches[1].clientX) / 2) - rect.left,
+      y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top,
+    };
+  };
+
+  const handleViewerTouchStart = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    dragRef.current.active = false;
+    stopZoomAnimation();
+
+    if (!viewerLocked) {
+      touchRef.current = { ...touchRef.current, mode: "page-scroll", zoom: zoomRef.current || 1 };
+      return;
+    }
+
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const center = getTouchCenter(event.touches, el);
+      const currentZoom = zoomRef.current || 1;
+      const { x, y } = viewRef.current;
+      touchRef.current = {
+        mode: "pinch",
+        distance: touchDistance(event.touches),
+        zoom: currentZoom,
+        x: 0,
+        y: 0,
+        viewX: x,
+        viewY: y,
+        centerX: center.x,
+        centerY: center.y,
+        ...getImagePointFromScreen(center.x, center.y, currentZoom),
+      };
+      return;
+    }
+
+    if (event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      touchRef.current = {
+        mode: "pan",
+        distance: 0,
+        zoom: zoomRef.current || 1,
+        x: touch.clientX,
+        y: touch.clientY,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
+        centerX: 0,
+        centerY: 0,
+        imageX: 0,
+        imageY: 0,
+      };
+    }
+  };
+
+  const handleViewerTouchMove = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode || !viewerLocked) return;
+
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const currentDistance = touchDistance(event.touches);
+      const center = getTouchCenter(event.touches, el);
+      if (touchRef.current.mode !== "pinch" || !touchRef.current.distance) {
+        const currentZoom = zoomRef.current || 1;
+        const { x, y } = viewRef.current;
+        touchRef.current = {
+          mode: "pinch",
+          distance: currentDistance,
+          zoom: currentZoom,
+          x: 0,
+          y: 0,
+          viewX: x,
+          viewY: y,
+          centerX: center.x,
+          centerY: center.y,
+          ...getImagePointFromScreen(center.x, center.y, currentZoom),
+        };
+        return;
+      }
+      const nextZoom = clampZoom(touchRef.current.zoom * (currentDistance / touchRef.current.distance));
+      const nextDisplayScale = getDisplayScale(nextZoom);
+      const nextX = center.x - touchRef.current.imageX * nextDisplayScale;
+      const nextY = center.y - touchRef.current.imageY * nextDisplayScale;
+      applyView(nextZoom, nextX, nextY, false, true);
+      return;
+    }
+
+    if (event.touches.length === 1 && touchRef.current.mode === "pan") {
+      event.preventDefault();
+      const touch = event.touches[0];
+      const dx = touch.clientX - touchRef.current.x;
+      const dy = touch.clientY - touchRef.current.y;
+      applyView(zoomRef.current || 1, touchRef.current.viewX + dx, touchRef.current.viewY + dy, false, true);
+    }
+  };
+
+  const handleViewerTouchEnd = (event) => {
+    const el = viewerRef.current;
+    if (!el) return;
+    if (!viewerLocked) {
+      touchRef.current.mode = null;
+      touchRef.current.distance = 0;
+      return;
+    }
+    if (event.touches && event.touches.length === 1) {
+      const touch = event.touches[0];
+      touchRef.current = {
+        mode: "pan",
+        distance: 0,
+        zoom: zoomRef.current || 1,
+        x: touch.clientX,
+        y: touch.clientY,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
+        centerX: 0,
+        centerY: 0,
+        imageX: 0,
+        imageY: 0,
+      };
+      return;
+    }
+    touchRef.current.mode = null;
+    touchRef.current.distance = 0;
+    flushZoomUi();
+  };
+
+
+
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return undefined;
+
+    const onTouchStart = (event) => handleViewerTouchStart(event);
+    const onTouchMove = (event) => handleViewerTouchMove(event);
+    const onTouchEnd = (event) => handleViewerTouchEnd(event);
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: false });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [isImageMode, viewerLocked]);
+
+  const handleViewerWheel = (event) => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.nativeEvent?.stopImmediatePropagation) event.nativeEvent.stopImmediatePropagation();
+    const rect = el.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+    const currentZoom = zoomRef.current || 1;
+    const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+    const rawFactor = Math.exp(-normalizedDelta * 0.00082);
+    const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
+    zoomAtPoint(currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
+  };
+
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return undefined;
+    const onNativeWheel = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = el.getBoundingClientRect();
+      const cursorX = event.clientX - rect.left;
+      const cursorY = event.clientY - rect.top;
+      const currentZoom = zoomRef.current || 1;
+      const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      const rawFactor = Math.exp(-normalizedDelta * 0.00082);
+      const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
+      zoomAtPoint(currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
+    };
+    el.addEventListener("wheel", onNativeWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onNativeWheel);
+  }, [isImageMode]);
+
+  const zoomIn = () => {
+    const el = viewerRef.current;
+    if (!el) return;
+    smoothZoomAtPoint(el, (zoomRef.current || 1) * 1.42, el.clientWidth / 2, el.clientHeight / 2);
+  };
+  const zoomOut = () => {
+    const el = viewerRef.current;
+    if (!el) return;
+    smoothZoomAtPoint(el, (zoomRef.current || 1) / 1.42, el.clientWidth / 2, el.clientHeight / 2);
+  };
+  const resetView = () => {
+    setViewerLocked(false);
+    stopZoomAnimation();
+    const reset = constrainView(1, 0, 0);
+    viewRef.current = reset;
+    zoomRef.current = 1;
+    setZoom(1);
+    const stage = imageStageRef.current;
+    if (stage) {
+      const displayScale = getDisplayScale(1);
+      stage.style.transform = `translate3d(${reset.x}px, ${reset.y}px, 0) scale(${displayScale})`;
+    }
+  };
+
+  const modeTabClass = (id) =>
+    `flex min-h-[36px] flex-1 items-center justify-center gap-1.5 border border-white/10 px-2 py-1.5 text-xs font-semibold tracking-wide transition duration-200 sm:min-h-[42px] sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
+      mode === id
+        ? "bg-[#5A4939]/92 text-[#f4dfb9] shadow-[inset_0_0_0_1px_rgba(216,177,117,0.35),0_0_32px_rgba(216,177,117,0.12)]"
+        : "bg-black/28 text-white/66 hover:bg-white/[0.065] hover:text-white"
+    }`;
+
+  const layerButtonClass = (active) =>
+    `min-h-[42px] rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+      active
+        ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
+        : "border-white/10 bg-white/[0.035] text-white/70 hover:bg-white/[0.075] hover:text-white"
+    }`;
+
+  const activeLayerSummary = [
+    activeBase.label,
+    showStars ? overlayLayers.stars.label : null,
+    showPelicanOverlay ? overlayLayers.pelican.label : null,
+    showAnnotation ? overlayLayers.annotation.label : null,
+  ].filter(Boolean).join(" + ");
+
+  const toolbarOptions = [
+    { id: "01", name: "AstroBin Strip" },
+    { id: "02", name: "Two-Line Thin" },
+    { id: "03", name: "Photo App" },
+    { id: "04", name: "Icon Toggle" },
+    { id: "05", name: "Collapsible Ribbon" },
+    { id: "06", name: "Glass Edge" },
+    { id: "07", name: "Metadata Bar" },
+    { id: "08", name: "Compact Tabs" },
+    { id: "09", name: "Hover Minimal" },
+    { id: "10", name: "Bottom-Style Slim" },
+    { id: "11", name: "Top-Right Cluster" },
+    { id: "12", name: "Camera UI" },
+    { id: "13", name: "Black Command" },
+    { id: "14", name: "Mobile Scroll Strip" },
+    { id: "15", name: "Smart Compact" },
+  ];
+  const activeToolbarOption = toolbarOptions.find((option) => option.id === viewerControlOption) || toolbarOptions[0];
+  const compactBaseLabel = baseLayer === "combined" ? "Mix" : activeBase.shortLabel;
+  const controlNotePanelId = "north-america-control-note";
+
+  const showControlNote = (event, id, label) => {
+    const text = toolbarNotes[id];
+    if (!text) return;
+    const isMobileNote = typeof window !== "undefined" && (window.innerWidth < 640 || window.matchMedia?.("(pointer: coarse)")?.matches);
+    const targetRect = event?.currentTarget?.getBoundingClientRect?.();
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 720;
+    const margin = 12;
+    const gap = 12;
+    const panelWidth = Math.min(isMobileNote ? 336 : 430, Math.max(280, viewportWidth - margin * 2));
+    const estimatedPanelHeight = isMobileNote ? 224 : 242;
+    const targetLeft = targetRect?.left ?? Math.round(viewportWidth * 0.5);
+    const targetTop = targetRect?.top ?? Math.round(viewportHeight * 0.2);
+    const preferredLeft = targetLeft - panelWidth - gap;
+    const safeLeft = Math.min(Math.max(preferredLeft, margin), viewportWidth - panelWidth - margin);
+    const safeTop = Math.min(Math.max(targetTop, margin), Math.max(margin, viewportHeight - estimatedPanelHeight - margin));
+
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    setActiveControlNote({
+      id,
+      label,
+      text,
+      mobile: isMobileNote,
+      position: {
+        left: safeLeft,
+        top: safeTop,
+        width: panelWidth,
+      },
+    });
+
+    if (isMobileNote) {
+      controlNoteTimeoutRef.current = window.setTimeout(() => {
+        setActiveControlNote((current) => current?.id === id ? null : current);
+      }, 6200);
+    }
+  };
+
+  const hideControlNote = (id = null) => {
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    setActiveControlNote((current) => (!id || current?.id === id ? null : current));
+  };
+
+  const controlNoteProps = (id, label) => ({
+    "aria-describedby": activeControlNote?.id === id ? controlNotePanelId : undefined,
+    onPointerEnter: (event) => {
+      if (event.pointerType !== "touch") showControlNote(event, id, label);
+    },
+    onPointerDown: (event) => {
+      if (event.pointerType === "touch" || event.pointerType === "pen") showControlNote(event, id, label);
+    },
+    onPointerLeave: (event) => {
+      if (event.pointerType !== "touch") hideControlNote(id);
+    },
+    onFocus: (event) => showControlNote(event, id, label),
+    onBlur: () => hideControlNote(id),
+  });
+
+  const renderControlNote = () => (
+    <AnimatePresence>
+      {activeControlNote && (
+        <motion.div
+          key={`${activeControlNote.id}-${activeControlNote.mobile ? "mobile" : "desktop"}`}
+          id={controlNotePanelId}
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, x: 10, y: -3, scale: 0.96 }}
+          animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 8, y: -2, scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 390, damping: 32, mass: 0.78 }}
+          style={{
+            left: activeControlNote.position?.left ?? 12,
+            top: activeControlNote.position?.top ?? 12,
+            width: activeControlNote.position?.width ?? 336,
+          }}
+          className="pointer-events-auto fixed z-[1200] max-h-[min(72vh,520px)] max-w-[calc(100vw-24px)] overflow-y-auto overflow-x-hidden rounded-[24px] border border-[#d8b175]/28 bg-[#11100c]/96 text-left text-white shadow-[0_24px_78px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl"
+          onPointerEnter={() => { if (!activeControlNote.mobile && controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current); }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d8b175]/60 to-transparent" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-4 text-left">
+              <div className="min-w-0 text-left">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#e8d4ae]/72">Viewer Guide</div>
+                <div className="mt-1.5 text-base font-semibold tracking-tight text-white">{activeControlNote.label}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => hideControlNote()}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/72 transition hover:bg-white/10 hover:text-white"
+                aria-label="Close control note"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-3 text-left text-sm leading-6 text-white/76 sm:text-[15px] sm:leading-7">{activeControlNote.text}</p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const controlChipClass = (active, compact = false) =>
+    `inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full border font-semibold leading-none transition ${compact ? "min-h-[22px] px-1 py-0 text-[8.5px] sm:min-h-[24px] sm:px-2 sm:py-0.5 sm:text-[10px]" : "min-h-[28px] px-2.5 py-1 text-[11px] sm:min-h-[30px] sm:px-3 sm:text-xs"} ${
+      active
+        ? "border-[#d8b175]/70 bg-[#5A4939]/88 text-white shadow-[0_0_18px_rgba(216,177,117,0.12)]"
+        : "border-white/10 bg-white/[0.045] text-white/68 hover:bg-white/[0.10] hover:text-white"
+    }`;
+
+  const renderToolbarStyleSelector = (compact = false) => (
+    <label
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d8b175]/22 bg-black/50 ${compact ? "px-1.5 py-0.5" : "px-2 py-1"}`}
+      onClick={(event) => event.stopPropagation()}
+      {...controlNoteProps("styleSelector", "Toolbar Style")}
+    >
+      <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] text-[#e7d3ad]/62 sm:inline">Style</span>
+      <select
+        value={viewerControlOption}
+        onChange={(event) => setViewerControlOption(event.target.value)}
+        className="max-w-[142px] rounded-full border-0 bg-transparent text-[10px] font-bold text-[#f4dfb9] outline-none sm:max-w-[180px] sm:text-[11px]"
+      >
+        {toolbarOptions.map((option) => (
+          <option key={option.id} value={option.id} className="bg-[#11100c] text-white">
+            {option.id} · {option.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  const renderCollapseButton = (labelMode = "full") => (
+    <button
+      type="button"
+      aria-expanded={viewerControlsExpanded}
+      aria-label={toolbarNotes.controls}
+      {...controlNoteProps("controls", "Viewer Controls")}
+      onClick={(event) => { event.stopPropagation(); setViewerControlsExpanded((value) => !value); }}
+      className="inline-flex min-h-[22px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-[#d8b175]/30 bg-[#5A4939]/72 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.08em] text-[#f3dfbd] transition hover:bg-[#6b5745] sm:min-h-[24px] sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.10em]"
+    >
+      {viewerControlsExpanded ? (labelMode === "short" ? "Hide" : "Collapse") : "Controls"}
+    </button>
+  );
+
+  const renderBaseTabs = (compact = false, variant = "pill") => (
+    <div className={`flex shrink-0 items-center gap-[2px] ${variant === "bare" ? "" : "rounded-full border border-white/10 bg-black/36 p-0.5"}`}>
+      {Object.entries(baseLayers).map(([id, layer]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={(event) => { event.stopPropagation(); clearMissing(id); setBaseLayer(id); }}
+          aria-label={toolbarNotes[id]}
+          {...controlNoteProps(id, layer.label)}
+          className={controlChipClass(baseLayer === id, compact)}
+        >
+          {id === "combined" ? "Mix" : layer.shortLabel}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderOverlayToggle = (id, label, active, onClick, compact = false, icon = null) => (
+    <button
+      type="button"
+      onClick={(event) => { event.stopPropagation(); onClick(); }}
+      aria-label={toolbarNotes[id]}
+      {...controlNoteProps(id, label)}
+      className={controlChipClass(active, compact)}
+    >
+      <span className={`mr-[2px] inline-block h-1.5 w-1.5 rounded-full sm:mr-1 sm:h-2.5 sm:w-2.5 ${active ? "bg-[#f0d39f]" : "bg-white/36"}`} />
+      {icon ? <span className="mr-[2px] text-[8px] leading-none sm:mr-1 sm:text-[11px]">{icon}</span> : null}
+      <span className="min-w-0 truncate">{label}</span>
+    </button>
+  );
+
+  const renderOverlayToggles = (compact = false, labels = { stars: "Stars", pelican: "Pelican", annotation: "Labels" }) => (
+    <div className="flex shrink-0 items-center gap-1">
+      {renderOverlayToggle("stars", labels.stars, showStars, () => { clearMissing("stars"); setShowStars((value) => !value); }, compact, "✦")}
+      {renderOverlayToggle("pelican", labels.pelican, showPelicanOverlay, () => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }, compact, "▣")}
+      {renderOverlayToggle("annotation", labels.annotation, showAnnotation, () => { clearMissing("annotation"); setShowAnnotation((value) => !value); }, compact, "⌖")}
+    </div>
+  );
+
+  const renderZoomControls = (compact = false) => (
+    <div className={`flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/36 ${compact ? "px-1 py-0.5" : "px-1.5 py-1"}`}>
+      <button type="button" aria-label={toolbarNotes.zoomOut} {...controlNoteProps("zoomOut", "Zoom Out")} onClick={(event) => { event.stopPropagation(); zoomOut(); }} className={`${compact ? "h-6 w-6 text-xs" : "h-7 w-7 text-sm"} grid place-items-center rounded-full border border-white/10 bg-white/5 text-white/78 hover:bg-white/10`}>−</button>
+      <div className={`${compact ? "min-w-12 text-[10px]" : "min-w-14 text-[11px]"} text-center font-semibold text-white/66`}>{Math.round((fitScaleRef.current || 1) * zoom * 100)}%</div>
+      <button type="button" aria-label={toolbarNotes.zoomIn} {...controlNoteProps("zoomIn", "Zoom In")} onClick={(event) => { event.stopPropagation(); zoomIn(); }} className={`${compact ? "h-6 w-6 text-xs" : "h-7 w-7 text-sm"} grid place-items-center rounded-full border border-white/10 bg-white/5 text-white/78 hover:bg-white/10`}>+</button>
+      <button type="button" aria-label={toolbarNotes.reset} {...controlNoteProps("reset", "Reset View")} onClick={(event) => { event.stopPropagation(); resetView(); }} className={`${compact ? "h-6 px-2 text-[10px]" : "h-7 px-2.5 text-[11px]"} inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 font-semibold text-white/70 hover:bg-white/10`}><RotateCcw className="h-3 w-3" /> Reset</button>
+    </div>
+  );
+
+  const renderDoneViewing = (compact = false) => viewerLocked ? (
+    <button
+      type="button"
+      onClick={(event) => { event.stopPropagation(); resetView(); }}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border border-[#d8b175]/45 bg-[#5A4939]/90 font-semibold text-white shadow-[0_0_18px_rgba(216,177,117,0.13)] transition hover:bg-[#6b5745] ${compact ? "min-h-[24px] px-2 text-[10px]" : "min-h-[28px] px-3 text-[11px]"}`}
+    >
+      Done
+    </button>
+  ) : null;
+
+  const collapsedToolbar = (
+    <div className="pointer-events-auto flex w-full items-center gap-2 border-b border-white/12 bg-black/58 px-2 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-4">
+      <div className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/58 sm:text-[11px]">
+        Controls hidden · {activeLayerSummary}
+      </div>
+      {renderCollapseButton("short")}
+    </div>
+  );
+
+  const renderViewerToolbar = () => {
+    if (!viewerControlsExpanded) return (
+      <>
+        {collapsedToolbar}
+        {renderControlNote()}
+      </>
+    );
+
+    return (
+      <div className="pointer-events-auto w-full border-b border-white/12 bg-white/[0.09] shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+        {renderControlNote()}
+        <div className="grid min-h-[32px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 overflow-hidden px-1 py-1 sm:min-h-[42px] sm:gap-2 sm:px-4 sm:py-1.5">
+          <div className="flex shrink-0 items-center gap-[2px] justify-self-start sm:gap-1">
+            <span className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-[#ead7b2]/68 sm:inline">Base</span>
+            {renderBaseTabs(true, "bare")}
+          </div>
+
+          <div className="flex min-w-0 items-center justify-center gap-[2px] justify-self-center overflow-hidden px-0 sm:gap-1.5 sm:px-1">
+            {renderOverlayToggle("stars", "Stars", showStars, () => { clearMissing("stars"); setShowStars((value) => !value); }, true, "✦")}
+            {renderOverlayToggle("pelican", "Pelican", showPelicanOverlay, () => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }, true, "▣")}
+            {renderOverlayToggle("annotation", "Labels", showAnnotation, () => { clearMissing("annotation"); setShowAnnotation((value) => !value); }, true, "⌖")}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-0.5 justify-self-end sm:gap-1">
+            <div className="hidden shrink-0 items-center gap-1 sm:flex">
+              {renderZoomControls(true)}
+              {renderDoneViewing(true)}
+            </div>
+            {renderCollapseButton("short")}
+          </div>
+        </div>
+
+        {showPelicanOverlay && (
+          <div className="border-t border-white/10 bg-black/36 px-2 py-1.5 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-white/70">
+              <span className="min-w-0 truncate">Pelican Nebula Overlay is active · captured separately with an Apertura 6-inch f/4 Newtonian at 600 mm and aligned over this RedCat 51 field.</span>
+              <a
+                href={pelicanAstrobinUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/82 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.10em] text-[#f3dfbd] transition hover:bg-[#6b5745]"
+              >
+                View Pelican Nebula Image <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const metadata = [
+    ["Catalog", "NGC 7000"],
+    ["Region", "Cygnus"],
+    ["Type", "Emission Nebula"],
+    ["Distance", "~2,600 ly"],
+    ["Explorer Data", "401 objects"],
+    ["View", activeLayerSummary],
+  ];
+
+  const projectSummary = [
+    ["Object", "North America Nebula (NGC 7000)"],
+    ["Designation", "NGC 7000"],
+    ["Type", "Emission Nebula"],
+    ["Constellation", "Cygnus"],
+    ["Dataset", "RGB + C2 S-II/O-III"],
+    ["First Light", "2024-08-26"],
+    ["Last Light", "2026-06-19"],
+    ["Nights Captured", "6"],
+    ["Total FIT Lights", "227"],
+    ["Total Integration", "18h 28m"],
+  ];
+
+  const captureEquipment = [
+    ["Telescope", "William Optics RedCat 51"],
+    ["Focal Length", "250 mm"],
+    ["Focal Ratio", "f/4.9"],
+    ["Mounts", "RGB: Sky-Watcher EQ6-R Pro · C2: Sky-Watcher EQM-35 Pro"],
+    ["Camera", "ZWO ASI294MC Pro"],
+    ["Filters", "RGB: none / OSC RGB · C2: Askar Colour Magic C2 Duo-Band S-II / O-III, 2-inch narrowband"],
+    ["Pelican Overlay", "Apertura 6-inch f/4 Newtonian · 600 mm focal length"],
+    ["Capture Software", "ASIAIR"],
+    ["Binning", "1×1"],
+    ["Gain", "125"],
+    ["Exposure", "180s RGB / 600s C2"],
+  ];
+
+  const locationSky = [
+    ["Site", "Peoria Heights, Illinois"],
+    ["Site Type", "Backyard"],
+    ["Bortle Class", "6"],
+    ["SQM", "19.16 mag/arcsec²"],
+    ["Elevation", "212 m"],
+  ];
+
+  const processingFiles = [
+    ["Processing Software", "PixInsight, GIMP"],
+    ["Working Files", "North America Nebula.pxi project · North America Nebula.xcf"],
+    ["Calibration", "Darks + Flats (master)"],
+    ["Status", "Final"],
+    ["Processed", "June 2026"],
+    ["Image Version", "Interactive Template v1.0"],
+    ["Template Status", "Locked for future interactive image pages"],
+  ];
+
+  const datasetRows = [
+    ["RGB Night 1", "2026-06-16 to 2026-06-17", "12", "180s", "0h 36m", "No filter / EQ6-R Pro"],
+    ["RGB Night 2", "2026-06-17 to 2026-06-18", "95", "180s", "4h 45m", "No filter / EQ6-R Pro"],
+    ["RGB Night 3", "2026-06-18 to 2026-06-19", "59", "180s", "2h 57m", "No filter / EQ6-R Pro"],
+    ["C2 Night 1", "2024-08-26 to 2024-08-27", "24", "600s", "4h 00m", "C2 S-II / O-III / EQM-35 Pro"],
+    ["C2 Night 2", "2024-08-29 to 2024-08-30", "15", "600s", "2h 30m", "C2 S-II / O-III / EQM-35 Pro"],
+    ["C2 Night 3", "2024-09-01 to 2024-09-02", "22", "600s", "3h 40m", "C2 S-II / O-III / EQM-35 Pro"],
+  ];
+
+  const datasetTotals = [
+    ["RGB Total", "166 FIT lights · 8h 18m"],
+    ["C2 Total", "61 FIT lights · 10h 10m"],
+    ["Project Total", "227 FIT lights · 18h 28m"],
+  ];
+
+  return (
+    <section className="mx-auto max-w-[1700px] px-0 py-0 sm:px-4 sm:py-2 lg:px-5">
+      <div className="mb-1.5 hidden flex-wrap items-center justify-between gap-2 sm:flex">
+        <button
+          type="button"
+          onClick={() => navigate("/gallery")}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/75 hover:bg-white/[0.08]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Gallery
+        </button>
+        <div className="flex items-center gap-2">
+          <InteractiveImageShareIcons title={shareTitle} shareHref={sharePageHref} text={shareText} />
+          <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6b5745]">
+            View on AstroBin <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
+      </div>
+
+      <div className="overflow-hidden border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] shadow-[0_28px_100px_rgba(0,0,0,0.44)] sm:rounded-[28px]">
+        <div className="hidden border-b border-white/10 bg-black/48 px-4 py-1.5 backdrop-blur sm:block lg:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#e9d8bc]/80">
+                <Compass className="h-3.5 w-3.5" /> Interactive Image Explorer
+              </div>
+              <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-white lg:text-2xl">NGC 7000 — North American Nebula</h1>
+            </div>
+            <div className="max-w-[620px] truncate rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-white/62">
+              {mode === "image" ? activeLayerSummary : mode === "objects" ? "Interactive Object Explorer" : "4D AstroDepth Map"}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-b border-white/10 bg-black/58 px-2 py-1.5 sm:bg-black/30 sm:px-4 sm:py-1.5">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <button type="button" onClick={() => setMode("image")} aria-label={toolbarNotes.imageViewer} {...controlNoteProps("imageViewer", "Image Viewer")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
+              <button type="button" onClick={() => setMode("objects")} aria-label={toolbarNotes.objectExplorer} {...controlNoteProps("objectExplorer", "Object Explorer")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
+              <button type="button" onClick={() => setMode("depth")} aria-label={toolbarNotes.astroDepthMap} {...controlNoteProps("astroDepthMap", "4D AstroDepth Map")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
+            </div>
+          </div>
+        </div>
+
+        {isImageMode ? (
+          <div className="bg-black">
+            <div className="relative overflow-hidden bg-black sm:min-h-[calc(100vh-146px)] lg:min-h-[calc(100vh-130px)]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+                {renderViewerToolbar()}
+              </div>
+              {!viewerLocked && (
+                <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
+                  Tap image to zoom
+                </div>
+              )}
+              <div
+                ref={viewerRef}
+                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[calc(100dvh-260px)] min-h-[420px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
+                onClick={handleViewerClick}
+                style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" }}
+              >
+                <div
+                  ref={imageStageRef}
+                  style={{ width: `${tileImageWidth}px`, height: `${tileImageHeight}px`, transform: `translate3d(${viewRef.current.x}px, ${viewRef.current.y}px, 0) scale(${(fitScaleRef.current || 0.08) * (zoomRef.current || zoom)})`, transformOrigin: "0 0", willChange: "transform", contain: "layout paint", backfaceVisibility: "hidden", pointerEvents: "none" }}
+                  className="absolute left-0 top-0 block max-w-none select-none bg-black align-top"
+                >
+                  {missingLayers[baseLayer] ? (
+                    <div className="absolute inset-0 flex min-w-[720px] items-center justify-center p-8 text-center">
+                      <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">
+                        <div className="text-lg font-semibold">{activeBase.label} could not be loaded</div>
+                        <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBaseSrc} exists in the gallery image folder.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={activeBaseSrc}
+                      alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
+                      draggable="false"
+                      decoding="async"
+                      loading="eager"
+                      fetchPriority="high"
+                      onLoad={() => clearMissing(baseLayer)}
+                      onError={() => markMissing(baseLayer)}
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none object-fill"
+                    />
+                  )}
+                  {shouldShowHighResolutionTiles && (
+                    <div className="pointer-events-none absolute inset-0 z-10 select-none transition-opacity duration-150" aria-hidden="true">
+                      {highResolutionTiles.map((tile) => (
+                        <img
+                          key={`${activeTileLayer}-${tile.col}-${tile.row}`}
+                          src={`/images/gallery/north-american-nebula-tiles/${activeTileLayer}/${tile.col}_${tile.row}.webp`}
+                          alt=""
+                          draggable="false"
+                          decoding="async"
+                          loading="eager"
+                          fetchPriority={zoom >= 2 ? "high" : "auto"}
+                          className="absolute block select-none"
+                          style={{
+                            left: `${(tile.x / tileImageWidth) * 100}%`,
+                            top: `${(tile.y / tileImageHeight) * 100}%`,
+                            width: `calc(${(tile.width / tileImageWidth) * 100}% + 0.8px)`,
+                            height: `calc(${(tile.height / tileImageHeight) * 100}% + 0.8px)`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {false && showStars && !missingLayers.stars && (
+                    <img
+                      src={overlayLayers.stars.src}
+                      alt="North American Nebula stars-only overlay"
+                      draggable="false"
+                      decoding="async"
+                      loading="lazy"
+                      onLoad={() => clearMissing("stars")}
+                      onError={() => markMissing("stars")}
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
+                      style={{ mixBlendMode: "screen" }}
+                    />
+                  )}
+                  {showPelicanOverlay && !missingLayers.pelican && (
+                    <>
+                      <img
+                        src={overlayLayers.pelican.src}
+                        alt="North American Nebula Pelican overlay"
+                        draggable="false"
+                        decoding="async"
+                        loading="lazy"
+                        onLoad={() => clearMissing("pelican")}
+                        onError={() => markMissing("pelican")}
+                        className="pointer-events-none absolute inset-0 block h-full w-full select-none"
+                      />
+                    </>
+                  )}
+                  {showAnnotation && !missingLayers.annotation && (
+                    <img
+                      src={overlayLayers.annotation.src}
+                      alt="North American Nebula annotation overlay"
+                      draggable="false"
+                      decoding="async"
+                      loading="lazy"
+                      onLoad={() => clearMissing("annotation")}
+                      onError={() => markMissing("annotation")}
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="hidden border-t border-white/10 bg-black/45 px-5 py-4 sm:block sm:px-8">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/65">
+                <div><span className="text-white/40">Viewing:</span> <span className="font-semibold text-white/86">{activeLayerSummary}</span></div>
+                <div className="flex flex-wrap gap-2 text-xs text-white/50">
+                  {metadata.slice(0, 5).map(([label, value]) => (
+                    <span key={label} className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5"><span className="text-white/35">{label}:</span> {value}</span>
+                  ))}
+                </div>
+                <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/70 px-4 py-2 text-xs font-semibold text-white hover:bg-[#6b5745]">
+                  AstroBin <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+              {(missingLayers.annotation || missingLayers[baseLayer] || missingLayers.stars || missingLayers.pelican) && (
+                <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-100/80">
+                  One or more layer files could not be loaded. Re-merge the public folder from this patch into your site.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : mode === "objects" ? (
+          <div className="bg-black">
+            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
+              <h2 className="text-xl font-semibold">Interactive Object Explorer</h2>
+              <p className="mt-1 text-sm text-white/62">Full uploaded object explorer embedded intact, including selectable markers, object information, filtering, and catalog-style side panel.</p>
+            </div>
+            <iframe title="North American Nebula Object Explorer" src="/interactive/north-american-nebula/object-explorer.html" loading="lazy" className="h-[82vh] w-full border-0" />
+          </div>
+        ) : (
+          <div className="bg-black">
+            <div className="border-b border-white/10 bg-black/70 px-5 py-4 sm:px-8">
+              <h2 className="text-xl font-semibold">4D AstroDepth Map</h2>
+              <p className="mt-1 text-sm text-white/62">Complete uploaded AstroDepth map retained as the full informational depth tool, restyled around the site page but not simplified.</p>
+            </div>
+            <iframe title="North American Nebula 4D AstroDepth Map" src="/interactive/north-american-nebula/astrodepth-map.html" loading="lazy" className="h-[82vh] w-full border-0" />
+          </div>
+        )}
+
+        <div className="border-t border-white/10 bg-black/46 px-4 py-5 sm:px-7 sm:py-6">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+            <div className="space-y-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/20 bg-[#5A4939]/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.20em] text-[#e9d8bc]">
+                  Project Card + Data Log
+                </div>
+                <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">Capture Data & Project Notes</h2>
+                <p className="mt-2 max-w-5xl text-xs leading-6 text-white/62 sm:text-sm">
+                  This project combines modern RGB data with older C2 narrowband data into one aligned North American Nebula dataset captured through the William Optics RedCat 51 at 250 mm focal length and f/4.9. The RGB sessions provide natural broadband star color and dust structure, while the C2 sessions isolate the S-II and O-III signal with the Askar Colour Magic C2 duo-band filter. Together they produce the finished RGB + C2 image, with separate high-resolution layers for comparing the starless bases, full star field, and annotation map. The Pelican Nebula framing overlay was captured separately with an Apertura 6-inch f/4 Newtonian at 600 mm focal length, then aligned over this field to show how the neighboring nebula frame relates to NGC 7000.
+                </p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                {projectSummary.map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-black/24 p-2.5">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#d8b175]/70">{label}</div>
+                    <div className="mt-1 text-xs font-semibold text-white/86 sm:text-sm">{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Capture / Equipment</h3>
+                  <div className="mt-2 space-y-1.5">
+                    {captureEquipment.map(([label, value]) => (
+                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
+                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Location / Sky</h3>
+                  <div className="mt-2 space-y-1.5">
+                    {locationSky.map(([label, value]) => (
+                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
+                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e9d8bc]">Processing / Files</h3>
+                  <div className="mt-2 space-y-1.5">
+                    {processingFiles.map(([label, value]) => (
+                      <div key={label} className="border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">{label}</div>
+                        <div className="mt-1 text-xs leading-5 text-white/72 sm:text-sm">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <a href="/images/project-cards/north-american-nebula-project-card.png" target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-2xl border border-white/12 bg-black/34 shadow-[0_18px_60px_rgba(0,0,0,0.34)] transition duration-300 hover:rotate-0 hover:scale-[1.01] xl:origin-top xl:rotate-[-1deg]">
+              <img src="/images/project-cards/north-american-nebula-project-card.png" alt="NGC 7000 North America Nebula project card" loading="lazy" decoding="async" className="block w-full transition duration-500 group-hover:scale-[1.012]" />
+              <div className="border-t border-white/10 bg-black/55 px-3 py-2 text-[11px] text-white/52">Click to open the full project card.</div>
+            </a>
+          </div>
+
+          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/24">
+            <div className="border-b border-white/10 bg-[#071326]/75 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#d8b175]">Dataset Log</div>
+            <div className="overflow-x-auto">
+              <table className="min-w-[760px] w-full text-left text-xs sm:text-sm">
+                <thead className="bg-black/45 text-[11px] uppercase tracking-[0.16em] text-white/48">
+                  <tr>
+                    <th className="px-3 py-2.5">Session</th>
+                    <th className="px-3 py-2.5">Date Range</th>
+                    <th className="px-3 py-2.5">Lights</th>
+                    <th className="px-3 py-2.5">Exposure</th>
+                    <th className="px-3 py-2.5">Integration</th>
+                    <th className="px-3 py-2.5">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {datasetRows.map(([session, dateRange, lights, exposure, integration, notes]) => (
+                    <tr key={session} className="text-white/72">
+                      <td className="px-3 py-2.5 font-semibold text-white/88">{session}</td>
+                      <td className="px-3 py-2.5">{dateRange}</td>
+                      <td className="px-3 py-2.5">{lights}</td>
+                      <td className="px-3 py-2.5">{exposure}</td>
+                      <td className="px-3 py-2.5">{integration}</td>
+                      <td className="px-3 py-2.5">{notes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {datasetTotals.map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-[#d8b175]/22 bg-[#5A4939]/26 px-3 py-2.5">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d8b175]/78">{label}</div>
+                <div className="mt-1 text-sm font-semibold text-white/88">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+
+      </div>
+    </section>
+  );
+}
+
+
+function GalleryPage({ heroFallback }) {
+  const gallery = useMemo(
+    () => [
+      {
+        title: "North American Nebula",
+        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
+        detailPath: "/gallery/north-american-nebula",
+      },
+      {
+        title: "IC 1396 — Elephant Trunk Nebula",
+        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
+      },
+      {
+        title: "M31 Andromeda Galaxy",
+        src: "/images/gallery/M31-andromeda-galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
+      },
+      {
+        title: "M33 Triangulum Galaxy",
+        src: "/images/gallery/M33-Triangulum-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=s2kavm#gallery",
+      },
+      {
+        title: "M42 Orion Nebula",
+        src: "/images/gallery/M42-orion-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=v04416#gallery",
+      },
+      {
+        title: "M45 Pleiades",
+        src: "/images/gallery/M45-pleiades.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=07i1mm#gallery",
+      },
+      {
+        title: "M3 Star Cluster",
+        src: "/images/gallery/M3-star-cluster.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
+      },
+      {
+        title: "M13 Great Hercules Cluster",
+        src: "/images/gallery/M13.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
+      },
+      {
+        title: "Iris Nebula",
+        src: "/images/gallery/Iris-Nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
+      },
+      {
+        title: "M104 Sombrero Galaxy",
+        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
+      },
+      {
+        title: "Crescent Nebula",
+        src: "/images/gallery/crescent-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
+      },
+      {
+        title: "Cygnus Loop",
+        src: "/images/gallery/cygnus-loop.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=iuprk1#gallery",
+      },
+      {
+        title: "Eastern Veil Nebula",
+        src: "/images/gallery/eastern-veil-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ckddjp#gallery",
+      },
+      {
+        title: "Flame and Horsehead Nebula",
+        src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
+      },
+      {
+        title: "Pacman Nebula",
+        src: "/images/gallery/pacman-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=0petis#gallery",
+      },
+      {
+        title: "Pelican Nebula",
+        src: "/images/gallery/pelican-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=rfg4iu#gallery",
+      },
+      {
+        title: "Rosette Nebula",
+        src: "/images/gallery/rosette-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ql9o7q#gallery",
+      },
+      {
+        title: "California Nebula",
+        src: "/images/gallery/California-nebula.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=kep4o2#gallery",
+      },
+      {
+        title: "Comet C/2023 A3 (Tsuchinshan-ATLAS)",
+        src: "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=gua7l8#gallery",
+      },
+      {
+        title: "Milky Way at Jubilee",
+        src: "/images/gallery/milky-way-at-jubilee.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jomm01#gallery",
+      },
+      {
+        title: "Auroras",
+        src: "/images/gallery/auroras.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7v0n71#gallery",
+      },
+      {
+        title: "Auroras at Jubilee Observatory",
+        src: "/images/gallery/auroras-at-jubilee-observatory.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ro5i8r#gallery",
+      },
+      {
+        title: "Harvest Moon",
+        src: "/images/gallery/harvest-moon.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=3ntchk#gallery",
+      },
+      {
+        title: "Venus and Crescent Moon",
+        src: "/images/gallery/venus-and-crescent-moon.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=nbzfce#gallery",
+      },
+      {
+        title: "Totality",
+        src: "/images/gallery/totality.jpg",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jikvvk#gallery",
+      },
+      {
+        title: "Moon",
+        src: "/images/gallery/moon-1.png",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=52ev9v#gallery",
+      },
+      {
+        title: "Moon Close-Up",
+        src: "/images/gallery/moon-2.png",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=tecn9s#gallery",
+      },
+    ],
+    []
+  );
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Gallery
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Featured Astrophotography</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/74 sm:text-base">
+                Explore the dedicated gallery page for deep-sky work, lunar images, aurora captures, and wide-field scenes. Click any image to open its feature page or AstroBin source.
+              </p>
+            </div>
+            <a
+              href="#calendar"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Shop Calendar
+            </a>
+          </div>
+        </div>
+
+        <div className="px-6 py-6 sm:px-8 sm:py-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {gallery.map((item) => (
+              <motion.a
+                key={item.title}
+                href={item.detailPath || item.astrobin}
+                target={item.detailPath ? undefined : "_blank"}
+                rel={item.detailPath ? undefined : "noreferrer"}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.35 }}
+                className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
+                title={item.detailPath ? `Open interactive page: ${item.title}` : `Open on AstroBin: ${item.title}`}
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={item.src}
+                    alt={item.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.src = heroFallback;
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
+                    <span>{item.title}</span>
+                    {item.detailPath ? (
+                      <span className="rounded-full border border-[#D8C18F]/35 bg-[#D8C18F]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F3DEAA]">
+                        Interactive
+                      </span>
+                    ) : null}
+                  </div>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-white/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>{item.detailPath ? "Open interactive page →" : "View on AstroBin →"}</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LiveTelescopePage({ liveConfig }) {
+  const status = liveConfig?.status || DEFAULT_LIVE_TELESCOPE.status;
+  const projectedNextStream = liveConfig?.projectedNextStream || DEFAULT_LIVE_TELESCOPE.projectedNextStream;
+  const askJakeText = liveConfig?.askJakeText || DEFAULT_LIVE_TELESCOPE.askJakeText;
+  const currentTarget = { ...DEFAULT_LIVE_TELESCOPE.currentTarget, ...(liveConfig?.currentTarget || {}) };
+  const targetInfo = { ...DEFAULT_LIVE_TELESCOPE.targetInfo, ...(liveConfig?.targetInfo || {}) };
+  const skyConditions = { ...DEFAULT_LIVE_TELESCOPE.skyConditions, ...(liveConfig?.skyConditions || {}) };
+  const whereToLook = { ...DEFAULT_LIVE_TELESCOPE.whereToLook, ...(liveConfig?.whereToLook || {}) };
+  const imageProgress = { ...DEFAULT_LIVE_TELESCOPE.imageProgress, ...(liveConfig?.imageProgress || {}) };
+  const equipment = { ...DEFAULT_LIVE_TELESCOPE.equipment, ...(liveConfig?.equipment || {}) };
+
+  const currentTargetVisible = Boolean(currentTarget.name || currentTarget.constellation || currentTarget.objectType || currentTarget.description);
+  const targetInfoVisible = Boolean(targetInfo.title || targetInfo.summary || targetInfo.astrobinUrl);
+  const imageProgressVisible = Boolean(imageProgress.subsCaptured || imageProgress.exposureLength || imageProgress.totalIntegration || imageProgress.currentFilter || imageProgress.guidingStable);
+  const skyVisible = Boolean(skyConditions.cloudCover || skyConditions.transparency || skyConditions.seeing || skyConditions.moonPhase || skyConditions.wind);
+  const whereToLookVisible = Boolean(whereToLook.pointedNear || whereToLook.direction || whereToLook.altitude || whereToLook.constellation || whereToLook.note);
+
+  const displayEquipment = (key) => {
+    const value = equipment?.[key] || "";
+    const customValue = equipment?.[`${key}Custom`] || "";
+    return value === "Other" ? (customValue || "Other") : value;
+  };
+
+  const equipmentItems = [
+    ["Telescope", displayEquipment("telescope")],
+    ["Mount", displayEquipment("mount")],
+    ["Main Camera", displayEquipment("mainCamera")],
+    ["Guide Camera", displayEquipment("guideCamera")],
+    ["Filter", displayEquipment("filter")],
+    ["Software", displayEquipment("software")],
+  ].filter(([, value]) => Boolean(value));
+
+  const skyItems = [
+    ["Cloud cover", skyConditions.cloudCover],
+    ["Transparency", skyConditions.transparency],
+    ["Seeing", skyConditions.seeing],
+    ["Moon phase", skyConditions.moonPhase],
+    ["Wind", skyConditions.wind],
+  ].filter(([, value]) => Boolean(value));
+  const whereToLookItems = [
+    ["Pointed near", whereToLook.pointedNear],
+    ["Direction", whereToLook.direction],
+    ["Altitude", whereToLook.altitude],
+    ["Constellation", whereToLook.constellation],
+  ].filter(([, value]) => Boolean(value));
+
+  const progressItems = [
+    ["Subs captured", imageProgress.subsCaptured],
+    ["Exposure length", imageProgress.exposureLength],
+    ["Total integration", imageProgress.totalIntegration],
+    ["Current filter", imageProgress.currentFilter],
+    ["Guiding", imageProgress.guidingStable],
+  ].filter(([, value]) => Boolean(value));
+
+  let liveVideoId = "";
+  const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "/live-telescope";
+  try {
+    liveVideoId = new URLSearchParams(window.location.search).get("liveVideo") || "";
+  } catch {}
+
+  const liveEmbedSrc = liveVideoId
+    ? `https://www.youtube.com/embed/${liveVideoId}?autoplay=0&mute=0`
+    : YOUTUBE_LIVE_EMBED_URL;
+  const liveChatSrc = liveVideoId
+    ? `https://www.youtube.com/live_chat?v=${liveVideoId}&embed_domain=${host}`
+    : "";
+
+  const statusMeta = {
+    live: {
+      label: "Live now",
+      dot: "bg-emerald-400",
+      shell: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
+      headline: "The telescope is live.",
+      body: "Join the feed, ask questions in chat, and follow tonight’s session in real time.",
+    },
+    startingSoon: {
+      label: "Starting soon",
+      dot: "bg-amber-300",
+      shell: "border-amber-300/25 bg-amber-300/10 text-amber-50",
+      headline: "Starting soon.",
+      body: "I am getting the telescope, capture software, and framing ready for tonight’s stream.",
+    },
+    offline: {
+      label: "Offline",
+      dot: "bg-white/40",
+      shell: "border-white/10 bg-white/5 text-white/80",
+      headline: "Offline right now.",
+      body: "The live page automatically becomes a planning hub between sessions so you can still see the next window, featured content, and support links.",
+    },
+  }[status] || {
+    label: "Offline",
+    dot: "bg-white/40",
+    shell: "border-white/10 bg-white/5 text-white/80",
+    headline: "Offline right now.",
+    body: "The live page automatically becomes a planning hub between sessions.",
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      alert("Live stream page link copied.");
+    } catch {
+      window.prompt("Copy this link:", currentUrl);
+    }
+  };
+
+  const handleShare = async () => {
+    const payload = {
+      title: "Jake Schultz Astrophotography — Live Telescope",
+      text: "Watch the telescope live on Jake Schultz Astrophotography.",
+      url: currentUrl,
+    };
+    try {
+      if (navigator.share) await navigator.share(payload);
+      else await handleCopyLink();
+    } catch {}
+  };
+
+  const heroCard = status === "live" ? (
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+      <div className="aspect-video w-full">
+        <iframe
+          title="Jake Schultz Astrophotography live telescope stream"
+          src={liveEmbedSrc}
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(138,180,255,0.18),_transparent_42%),linear-gradient(180deg,rgba(8,12,28,0.95),rgba(5,7,16,0.98))] px-6 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.45)] sm:px-8 sm:py-10">
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, transparent 2px), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.25) 0, transparent 1.5px), radial-gradient(circle at 60% 72%, rgba(255,255,255,0.25) 0, transparent 2px)" }} />
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/75">
+          <Camera className="h-3.5 w-3.5" />
+          {status === "startingSoon" ? "Starting soon screen" : "Offline mode"}
+        </div>
+        <h2 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{statusMeta.headline}</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/74 sm:text-base">{statusMeta.body}</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Projected next stream</div>
+            <div className="mt-2 text-sm leading-6 text-white/85">{projectedNextStream}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Featured while offline</div>
+            <div className="mt-2 text-sm leading-6 text-white/85">Browse the gallery, Starcast, and the latest site updates while the scope is down.</div>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+            <ExternalLink className="h-4 w-4" />
+            Open YouTube Channel
+          </a>
+          <a href="/gallery" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+            <ImageIcon className="h-4 w-4" />
+            Featured astrophotography
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+        <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+              <Camera className="h-3.5 w-3.5" />
+              Live Telescope
+            </div>
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${statusMeta.shell}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${statusMeta.dot} ${status === "live" ? "animate-pulse" : ""}`} />
+              {statusMeta.label}
+            </div>
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Watch the telescope live.</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-white/70 sm:text-base">
+            Watch live deep-sky imaging sessions, telescope views, and live processing here whenever I’m streaming.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.78fr)]">
+          <div className="space-y-4">
+            {heroCard}
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Live chat</div>
+              {liveChatSrc ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+                  <iframe title="YouTube live chat" src={liveChatSrc} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" className="h-[420px] w-full border-0" />
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-7 text-white/74">
+                  Add the current live video ID to the Live Telescope page URL to display chat during a stream.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-white">Ask Jake</div>
+                    <p className="mt-2 text-sm leading-7 text-white/74">{askJakeText}</p>
+                  </div>
+                  <MessageCircle className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-lg font-semibold text-white">Share this stream</div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button onClick={handleCopyLink} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+                    <LinkIcon className="h-4 w-4" />
+                    Copy link
+                  </button>
+                  <button onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </button>
+                  <a href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                    <ExternalLink className="h-4 w-4" />
+                    YouTube
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {targetInfoVisible ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-lg font-semibold text-white">Target info</div>
+                      {targetInfo.title ? <div className="mt-2 text-sm font-medium text-white">{targetInfo.title}</div> : null}
+                    </div>
+                    <Target className="mt-1 h-5 w-5 text-white/55" />
+                  </div>
+                  {targetInfo.summary ? <p className="mt-3 text-sm leading-7 text-white/74">{targetInfo.summary}</p> : null}
+                  {targetInfo.astrobinUrl ? (
+                    <a href={targetInfo.astrobinUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-cyan-200 hover:text-cyan-100">
+                      <ExternalLink className="h-4 w-4" />
+                      Open related image / AstroBin
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {imageProgressVisible ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="text-lg font-semibold text-white">Image progress</div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {progressItems.map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                        <div className="mt-1 text-white">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <ObservingConditionsWidget
+              variant="stream"
+              className="border-white/8 bg-white/[0.02]"
+            />
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Projected next stream</div>
+              <p className="mt-3 text-sm leading-7 text-white/74">{projectedNextStream}</p>
+            </div>
+
+            {currentTargetVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-lg font-semibold text-white">Current target</div>
+                <div className="mt-3 space-y-2 text-sm text-white/74">
+                  {currentTarget.name ? <div><span className="text-white/48">Target:</span> <span className="text-white">{currentTarget.name}</span></div> : null}
+                  {currentTarget.constellation ? <div><span className="text-white/48">Constellation:</span> <span className="text-white">{currentTarget.constellation}</span></div> : null}
+                  {currentTarget.objectType ? <div><span className="text-white/48">Object type:</span> <span className="text-white">{currentTarget.objectType}</span></div> : null}
+                  {currentTarget.description ? <p className="pt-1 leading-7">{currentTarget.description}</p> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {whereToLookVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-semibold text-white">Where to look in the sky</div>
+                    <p className="mt-2 text-sm leading-7 text-white/68">A quick pointer for where the scope is aimed tonight.</p>
+                  </div>
+                  <Compass className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {whereToLookItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                {whereToLook.note ? <p className="mt-4 text-sm leading-7 text-white/70">{whereToLook.note}</p> : null}
+              </div>
+            ) : null}
+
+            {skyVisible ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="text-lg font-semibold text-white">Live sky conditions</div>
+                  <Compass className="mt-1 h-5 w-5 text-white/55" />
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {skyItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="text-lg font-semibold text-white">Equipment tonight</div>
+              {equipmentItems.length ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {equipmentItems.map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/74">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">{label}</div>
+                      <div className="mt-1 text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-white">Support the stream</div>
+                  <p className="mt-2 text-sm leading-7 text-white/74">If you enjoy the live sessions, supporting the prints, calendar, and future member features helps keep the observatory side of the site growing.</p>
+                </div>
+                <ShoppingBag className="mt-1 h-5 w-5 text-white/55" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a href="/#calendar" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15">
+                  <ShoppingBag className="h-4 w-4" />
+                  Shop calendar
+                </a>
+                <a href="https://dot.cards/jakeschultzastrophotography" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10">
+                  <ExternalLink className="h-4 w-4" />
+                  Support Jake
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   const [orbOpen, setOrbOpen] = useState(false);
   const ORB_ANIMS = ["bloom","bloomSoft","bloomNeon","bloomRipple","bloomGlitch","bloomStardust","bloomOrbit","bloomMagnetic"];
   const isDev = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"));
@@ -4991,7 +8091,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 type="button"
                 onClick={() => {
                   setOrbOpen(false);
-                  goSection("gallery");
+                  navigate("/gallery");
                 }}
                 className={`${orbItemBase} bg-white/5`}
               >
@@ -5014,6 +8114,21 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                 <div className="min-w-0">
                   <div className="truncate leading-snug">Starcast</div>
                   <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Forecast & best targets</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbOpen(false);
+                  navigate("/live-telescope");
+                }}
+                className={`${orbItemBase} ${path === "/live-telescope" ? "bg-white/15 ring-1 ring-white/15" : "bg-white/5"}`}
+              >
+                <Camera className="h-5 w-5 opacity-90 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate leading-snug">Live Telescope</div>
+                  <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Watch live sessions</div>
                 </div>
               </button>
 
@@ -5046,6 +8161,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
                   <div className="truncate text-[13px] font-medium text-white/70 leading-snug">Free wallpapers</div>
                 </div>
               </button>
+
 
               <a
                 href="https://www.instagram.com/jakeschultzastrophotography"
@@ -5135,8 +8251,8 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               label: "Gallery",
               subtitle: "Deep-sky images",
               icon: ImageIcon,
-              active: false,
-              onClick: () => goSection("gallery"),
+              active: path === "/gallery",
+              onClick: () => navigate("/gallery"),
             },
             {
               key: "starcast",
@@ -5145,6 +8261,14 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
               icon: Star,
               active: path === "/starcast" || path === "/astrocast",
               onClick: () => navigate("/starcast"),
+            },
+            {
+              key: "live-telescope",
+              label: "Live Telescope",
+              subtitle: "Watch live sessions",
+              icon: Camera,
+              active: path === "/live-telescope",
+              onClick: () => navigate("/live-telescope"),
             },
             {
               key: "eclipse",
@@ -5188,7 +8312,7 @@ function SideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
   );
 }
 
-export default function AstrophotographySite() {
+function AstrophotographySite() {
   useNoHorizontalScroll();
 
   const breakpoint = useBreakpoint();
@@ -5208,12 +8332,9 @@ export default function AstrophotographySite() {
   const latestNewsOverride = useMemo(() => {
     const cfg = siteConfig;
     if (!cfg || !Array.isArray(cfg.latestNews) || cfg.latestNews.length === 0) return null;
-    // Allow dashboard fields like pinned/status; filter drafts and sort pinned first (stable).
-    const list = cfg.latestNews
-      .filter((p) => (p?.status || "published") !== "draft")
-      .slice();
-    list.sort((a, b) => (b?.pinned ? 1 : 0) - (a?.pinned ? 1 : 0));
-    return list;
+    // Dashboard/site-config posts are additive: saved posts should not wipe out the built-in feed.
+    // Matching default posts may still be edited by id, while missing defaults are restored underneath.
+    return mergeLatestNewsWithDefaults(cfg.latestNews);
   }, [siteConfig]);
 
   const [logoOk, setLogoOk] = useState(true);
@@ -5239,21 +8360,61 @@ export default function AstrophotographySite() {
 
   const { path, navigate } = usePathname();
   
-  // Jake admin routes
-  if (path === "/admin") {
-    return <DashboardHome navigate={navigate} />;
-  }
 
-  if (path === "/admin/editor") {
-    return <AdminDashboard onExit={() => navigate("/admin")} />;
-  }
+// Jake-only admin tools (not linked in UI)
+if (path === "/admin") {
+  return (
+    <Suspense fallback={null}>
+      <DashboardHome navigate={navigate} />
+    </Suspense>
+  );
+}
+if (path === "/admin/editor") {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="canvas" />
+    </Suspense>
+  );
+}
+if (path === "/admin/news") {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="news" />
+    </Suspense>
+  );
+}
+if (path === "/admin/theme") {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="theme" />
+    </Suspense>
+  );
+}
+if (path === "/admin/sections") {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="sections" />
+    </Suspense>
+  );
+}
+if (path === "/admin/persistence") {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboard onExit={() => navigate("/admin")} initialTab="persistence" />
+    </Suspense>
+  );
+}
+
 
 const onHome = path === "/";
   const onWallpapers = path === "/phone-backgrounds";
+  const onGallery = path === "/gallery";
+  const onImageDetail = path === "/gallery/north-american-nebula";
   const onPlanetarium = path === "/planetarium";
   const onEclipseGuide = path === "/eclipse-guide";
   const onAstrocast = (path === "/starcast" || path === "/astrocast");
   const onStarcast = path === "/starcast";
+  const onLiveTelescope = path === "/live-telescope";
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -5285,7 +8446,7 @@ const onHome = path === "/";
           </button>
 
           <div className="flex items-center gap-2">
-            {(onWallpapers || onPlanetarium || onEclipseGuide || onStarcast) ? (
+            {(onWallpapers || onGallery || onImageDetail || onPlanetarium || onEclipseGuide || onStarcast || onLiveTelescope) ? (
               <NavButton
                 onClick={() => navigate("/")}
                 className="hidden sm:inline-flex"
@@ -5343,6 +8504,18 @@ const onHome = path === "/";
             </button>
 
 
+
+            <button
+              type="button"
+              onClick={() => navigate("/live-telescope")}
+              className={`hidden sm:inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 ${
+                onLiveTelescope ? "bg-white/15" : "bg-white/5"
+              }`}
+              title="Live Telescope"
+            >
+              <Camera className="h-4 w-4" />
+              Live Telescope
+            </button>
 
             <button
               type="button"
@@ -5422,16 +8595,49 @@ const onHome = path === "/";
       </header>
 
       <div className="relative">
-        <SideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
+        <SiteSideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
           {onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
+          ) : onGallery ? (
+            <GalleryPage heroFallback={heroFallback} />
+          ) : onImageDetail ? (
+            <NorthAmericanNebulaPage navigate={navigate} />
           ) : onPlanetarium ? (
             <PlanetariumPage navigate={navigate} />
           ) : onEclipseGuide ? (
             <EclipseGuidePage navigate={navigate} />
           ) : onStarcast ? (
-            <Starcast navigate={navigate} embedded />
+            <Suspense fallback={null}><Starcast navigate={navigate} embedded /></Suspense>
+          ) : onLiveTelescope ? (
+            <LiveTelescopePage liveConfig={{
+              ...DEFAULT_LIVE_TELESCOPE,
+              ...(siteConfig?.liveTelescope || {}),
+              currentTarget: {
+                ...DEFAULT_LIVE_TELESCOPE.currentTarget,
+                ...(siteConfig?.liveTelescope?.currentTarget || {}),
+              },
+              targetInfo: {
+                ...DEFAULT_LIVE_TELESCOPE.targetInfo,
+                ...(siteConfig?.liveTelescope?.targetInfo || {}),
+              },
+              skyConditions: {
+                ...DEFAULT_LIVE_TELESCOPE.skyConditions,
+                ...(siteConfig?.liveTelescope?.skyConditions || {}),
+              },
+              whereToLook: {
+                ...DEFAULT_LIVE_TELESCOPE.whereToLook,
+                ...(siteConfig?.liveTelescope?.whereToLook || {}),
+              },
+              imageProgress: {
+                ...DEFAULT_LIVE_TELESCOPE.imageProgress,
+                ...(siteConfig?.liveTelescope?.imageProgress || {}),
+              },
+              equipment: {
+                ...DEFAULT_LIVE_TELESCOPE.equipment,
+                ...(siteConfig?.liveTelescope?.equipment || {}),
+              },
+            }} />
           ) : (
             <HomePage
               sectionScrollMargin={sectionScrollMargin}
@@ -5439,11 +8645,20 @@ const onHome = path === "/";
               navigate={navigate}
               latestNews={latestNewsOverride}
               sectionEnabled={sectionEnabled}
+              breakpoint={breakpoint}
+              siteConfig={siteConfig}
             />
           )}
         </main>
       </div>
 
+      <div className="pointer-events-none fixed bottom-3 right-3 z-[120] rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-white/65 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
+        {SITE_VERSION}
+      </div>
+
     </div>
   );
 }
+
+export default AstrophotographySite;
+export { AstrophotographySite };

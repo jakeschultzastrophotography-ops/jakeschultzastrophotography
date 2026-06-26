@@ -173,54 +173,26 @@ function isObj(x) {
 function ensureInstagramConfig(raw) {
   if (!isObj(raw)) return raw;
 
+  // Instagram is intentionally hidden from the public home page for the v2.8 release.
+  // Preserve any saved feed settings for future use, but do not auto-insert the section
+  // into public section order or grid layouts.
   const next = { ...raw };
   next.sections = { ...(isObj(raw.sections) ? raw.sections : {}) };
-  next.order = { ...(isObj(raw.order) ? raw.order : {}) };
-  next.layouts = { ...(isObj(raw.layouts) ? raw.layouts : {}) };
-
-  if (!next.sections.instagram) {
+  if (next.sections.instagram) {
     next.sections.instagram = {
-      id: "instagram",
-      label: "Instagram Feed",
-      enabled: { desktop: true, mobile: true },
-      stylePreset: "default",
-      backgroundImage: "",
-      backgroundFit: "cover",
+      ...next.sections.instagram,
+      enabled: { desktop: false, mobile: false },
     };
   }
 
-  const insertAfterLatestNews = (arr) => {
-    const list = Array.isArray(arr) ? [...arr] : [];
-    if (list.includes("instagram")) return list;
-    const latestIndex = list.indexOf("latestNews");
-    const galleryIndex = list.indexOf("gallery");
-    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
-    list.splice(insertAt, 0, "instagram");
-    return list;
+  next.order = {
+    desktop: Array.isArray(raw.order?.desktop) ? raw.order.desktop.filter((id) => id !== "instagram") : [],
+    mobile: Array.isArray(raw.order?.mobile) ? raw.order.mobile.filter((id) => id !== "instagram") : [],
   };
-
-  const insertLayoutAfterLatestNews = (arr, breakpoint) => {
-    const list = Array.isArray(arr) ? [...arr] : [];
-    if (list.some((item) => item?.i === "instagram")) return list;
-
-    const latestIndex = list.findIndex((item) => item?.i === "latestNews");
-    const galleryIndex = list.findIndex((item) => item?.i === "gallery");
-    const latest = latestIndex >= 0 ? list[latestIndex] : null;
-    const gallery = galleryIndex >= 0 ? list[galleryIndex] : null;
-    const w = breakpoint === "mobile" ? 4 : 12;
-    const h = 4;
-    const minW = breakpoint === "mobile" ? 4 : 6;
-    const y = latest ? Number(latest.y || 0) + Number(latest.h || 4) : gallery ? Number(gallery.y || 0) : 0;
-    const instagram = { i: "instagram", x: 0, y, w, h, minW, minH: 2 };
-    const insertAt = latestIndex >= 0 ? latestIndex + 1 : galleryIndex >= 0 ? galleryIndex : list.length;
-    list.splice(insertAt, 0, instagram);
-    return list;
+  next.layouts = {
+    desktop: Array.isArray(raw.layouts?.desktop) ? raw.layouts.desktop.filter((item) => item?.i !== "instagram") : [],
+    mobile: Array.isArray(raw.layouts?.mobile) ? raw.layouts.mobile.filter((item) => item?.i !== "instagram") : [],
   };
-
-  next.order.desktop = insertAfterLatestNews(next.order.desktop);
-  next.order.mobile = insertAfterLatestNews(next.order.mobile);
-  next.layouts.desktop = insertLayoutAfterLatestNews(next.layouts.desktop, "desktop");
-  next.layouts.mobile = insertLayoutAfterLatestNews(next.layouts.mobile, "mobile");
 
   next.instagramFeed = {
     handle: "jakeschultzastrophotography",
@@ -516,6 +488,20 @@ const LOCKSCREEN_PREVIEW_SRC =
 // ✅ Share pages (must exist as static OG pages in /public/share/...)
 const LATEST_NEWS = [
   {
+    id: "north-american-nebula-interactive",
+    title: "NGC 7000 Interactive Image Explorer Now Live",
+    date: "Jun 25, 2026",
+    image: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+    href: "/gallery/north-american-nebula",
+    external: false,
+    shareHref: "/share/north-american-nebula/",
+    description:
+      "I’ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
+    cta: "View Interactive Image",
+    mediaFit: "contain",
+    category: "Interactive image",
+  },
+  {
     id: "lunar-eclipse-guide",
     title: "Tonight: Total Lunar Eclipse — Live Tracking + Eclipse Guide",
     date: "Mar 3, 2026",
@@ -568,6 +554,37 @@ const LATEST_NEWS = [
     mediaFit: "contain",
   },
 ];
+
+
+function getNewsKey(post) {
+  return (post?.id || `${post?.title || ""}-${post?.date || ""}`).toString().trim();
+}
+
+function mergeLatestNewsWithDefaults(configPosts) {
+  const configList = Array.isArray(configPosts)
+    ? configPosts.filter((p) => (p?.status || "published") !== "draft")
+    : [];
+
+  const defaultKeys = new Set(LATEST_NEWS.map(getNewsKey).filter(Boolean));
+  const configByKey = new Map();
+
+  for (const post of configList) {
+    const key = getNewsKey(post);
+    if (key && !configByKey.has(key)) configByKey.set(key, post);
+  }
+
+  const customPosts = configList.filter((post) => {
+    const key = getNewsKey(post);
+    return key && !defaultKeys.has(key);
+  });
+
+  const restoredDefaults = LATEST_NEWS.map((post) => {
+    const key = getNewsKey(post);
+    return configByKey.get(key) || post;
+  }).filter((p) => (p?.status || "published") !== "draft");
+
+  return [...customPosts, ...restoredDefaults];
+}
 
 function usePathname() {
   const getPath = () => {
@@ -773,6 +790,56 @@ function ShareBar({ title, shareHref, text }) {
   );
 }
 
+function InteractiveImageShareIcons({ title, shareHref, text }) {
+  const [copied, setCopied] = useState(false);
+  const url = useMemo(() => getAbsoluteUrl(shareHref), [shareHref]);
+  const shareText = text || title;
+
+  const handleNativeShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: shareText, url });
+        return;
+      }
+    } catch (e) {
+      return;
+    }
+    const ok = await copyToClipboard(url);
+    setCopied(ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(url);
+    setCopied(ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
+  };
+
+  const fbShareUrl = useMemo(() => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, [url]);
+  const smsShareUrl = useMemo(() => `sms:?&body=${encodeURIComponent(`${shareText} ${url}`)}`, [shareText, url]);
+
+  const iconClass = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/76 transition hover:border-[#d8b175]/35 hover:bg-[#5A4939]/64 hover:text-white";
+
+  return (
+    <div className="inline-flex items-center gap-1.5" aria-label="Share this interactive image page">
+      <button type="button" onClick={handleNativeShare} className={iconClass} title={navigator.share ? "Share this image page" : "Copy share link"} aria-label={navigator.share ? "Share this image page" : "Copy share link"}>
+        <Share2 className="h-4 w-4" />
+      </button>
+      <a href={fbShareUrl} target="_blank" rel="noreferrer" className={iconClass} title="Share to Facebook" aria-label="Share to Facebook">
+        <Facebook className="h-4 w-4" />
+      </a>
+      <a href={smsShareUrl} className={iconClass} title="Share by text message" aria-label="Share by text message">
+        <MessageCircle className="h-4 w-4" />
+      </a>
+      <button type="button" onClick={handleCopy} className={iconClass} title={copied ? "Copied" : "Copy share link"} aria-label={copied ? "Copied" : "Copy share link"}>
+        <LinkIcon className="h-4 w-4" />
+      </button>
+      {copied && <span className="ml-1 hidden rounded-full border border-[#d8b175]/25 bg-[#5A4939]/58 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.10em] text-[#f3dfbd] sm:inline">Copied</span>}
+    </div>
+  );
+}
+
+
 
 
 function InstagramFeedSection({ sectionScrollMargin = "", className = "", style = {}, siteConfig }) {
@@ -890,7 +957,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
       {
         title: "North America Nebula Interactive Explorer",
         src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
         detailPath: "/gallery/north-american-nebula",
         featuredInteractive: true,
       },
@@ -958,12 +1025,6 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
         title: "Flame + Horsehead",
         src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
         astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
-      },
-      {
-        title: "North America Nebula",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
-        detailPath: "/gallery/north-american-nebula",
       },
       {
         title: "Pacman Nebula",
@@ -1048,7 +1109,7 @@ const filterLayout = (layout, enabledSet) => {
 
 const gridIds = useMemo(() => {
   // Home sections we support in grid mode
-  const ids = ["hero", "calendar", "latestNews", "instagram", "gallery", "footer"];
+  const ids = ["hero", "calendar", "latestNews", "gallery", "footer"];
   return ids;
 }, []);
 
@@ -1366,19 +1427,6 @@ case "latestNews":
 
       
 
-    </div>
-  );
-case "instagram":
-  return (
-    <div className="h-full w-full">
-      {enabled("instagram") ? (
-        <InstagramFeedSection
-          sectionScrollMargin={sectionScrollMargin}
-          className={getSectionClassName("instagram")}
-          style={getSectionStyle("instagram")}
-          siteConfig={siteConfig}
-        />
-      ) : null}
     </div>
   );
 case "gallery":
@@ -1737,16 +1785,6 @@ return (
           </div>
         </div>
       </section>
-      ) : null}
-
-      {/* INSTAGRAM FEED */}
-      {enabled("instagram") ? (
-        <InstagramFeedSection
-          sectionScrollMargin={sectionScrollMargin}
-          className={getSectionClassName("instagram")}
-          style={getSectionStyle("instagram")}
-          siteConfig={siteConfig}
-        />
       ) : null}
 
       {/* GALLERY */}
@@ -5573,43 +5611,82 @@ function EclipseGuidePage({ navigate }) {
 
 
 
+const DEFAULT_NA_SHOW_ANNOTATION = false;
+const DEFAULT_NA_SHOW_PELICAN_OVERLAY = false;
+
 function NorthAmericanNebulaPage({ navigate }) {
   const [mode, setMode] = useState("image");
   const [baseLayer, setBaseLayer] = useState("combined");
   const [showStars, setShowStars] = useState(true);
-  const [showAnnotation, setShowAnnotation] = useState(false);
-  const [showPelicanOverlay, setShowPelicanOverlay] = useState(false);
+  const [showAnnotation, setShowAnnotation] = useState(DEFAULT_NA_SHOW_ANNOTATION);
+  const [showPelicanOverlay, setShowPelicanOverlay] = useState(DEFAULT_NA_SHOW_PELICAN_OVERLAY);
   const [zoom, setZoom] = useState(1);
   const [viewerLocked, setViewerLocked] = useState(false);
+  const [viewerControlOption, setViewerControlOption] = useState("06");
+  const [viewerControlsExpanded, setViewerControlsExpanded] = useState(true);
+  const [openingViewerHeight, setOpeningViewerHeight] = useState(null);
+  const [activeControlNote, setActiveControlNote] = useState(null);
+  const controlNoteTimeoutRef = useRef(0);
   const [missingLayers, setMissingLayers] = useState({});
+  const [preloadedTileLayers, setPreloadedTileLayers] = useState({});
+  const preloadedTileLayersRef = useRef({});
   const viewerRef = useRef(null);
   const imageStageRef = useRef(null);
   const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, viewX: 0, viewY: 0 });
   const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, viewX: 0, viewY: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
   const zoomRef = useRef(1);
   const viewRef = useRef({ zoom: 1, x: 0, y: 0 });
+  const fitScaleRef = useRef(1);
+  const viewerMetricsRef = useRef({ viewportW: 1, viewportH: 1, fitScale: 1 });
   const transformFrameRef = useRef(0);
   const zoomUiFrameRef = useRef(0);
+  const zoomUiTimeoutRef = useRef(0);
   const zoomAnimationRef = useRef({ frame: 0, targetZoom: 1, anchorX: 0, anchorY: 0, imageX: 0, imageY: 0 });
+  const masterImageCacheRef = useRef([]);
+  const tileImageWidth = 7887;
+  const tileImageHeight = 6086;
+  const tileSize = 512;
+  const highResolutionTiles = useMemo(() => {
+    const cols = Math.ceil(tileImageWidth / tileSize);
+    const rows = Math.ceil(tileImageHeight / tileSize);
+    const tiles = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const x = col * tileSize;
+        const y = row * tileSize;
+        const width = Math.min(tileSize, tileImageWidth - x);
+        const height = Math.min(tileSize, tileImageHeight - y);
+        tiles.push({ col, row, x, y, width, height });
+      }
+    }
+    return tiles;
+  }, []);
+
+  const getTileUrls = (layerName) => highResolutionTiles.map((tile) =>
+    `/images/gallery/north-american-nebula-tiles/${layerName}/${tile.col}_${tile.row}.webp`
+  );
 
   const baseLayers = {
     combined: {
-      src: "/images/gallery/north-american-nebula-combined-starless-fullres.webp",
+      src: "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
       label: "Combined Starless",
       shortLabel: "Combined",
-      description: "Full-resolution combined starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
+      description: "Mix base: the finished RGB + C2 starless composite from the William Optics RedCat 51 at 250 mm and f/4.9, aligned to the full 7887 × 6086 project canvas.",
     },
     rgb: {
-      src: "/images/gallery/north-american-nebula-rgb-starless-fullres.webp",
+      src: "/images/gallery/north-american-nebula-rgb-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-rgb-with-stars-master-q100.jpg",
       label: "RGB Starless",
       shortLabel: "RGB",
-      description: "Full-resolution RGB starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
+      description: "RGB base: broadband OSC color data from the RedCat 51 at 250 mm and f/4.9, showing natural star color, reflection color, and wide-field dust structure.",
     },
     c2: {
-      src: "/images/gallery/north-american-nebula-c2-starless-fullres.webp",
+      src: "/images/gallery/north-american-nebula-c2-starless-master-q100.jpg",
+      starSrc: "/images/gallery/north-american-nebula-c2-with-stars-master-q100.jpg",
       label: "C2 Starless",
       shortLabel: "C2",
-      description: "Full-resolution C2 starless base layer, locked to the same 7887 × 6086 canvas as every overlay.",
+      description: "C2 base: narrowband data captured with the Askar Colour Magic C2 S-II/O-III filter, isolating sulfur and oxygen emission structure across the nebula.",
     },
   };
 
@@ -5618,27 +5695,92 @@ function NorthAmericanNebulaPage({ navigate }) {
       src: "/images/gallery/north-american-nebula-stars-only-fullres.webp",
       label: "Stars",
       shortLabel: "Stars",
-      description: "Full-resolution stars-only layer matched to the same 7887 × 6086 canvas.",
+      description: "Stars: the registered full star field, kept as a separate layer so the nebula can be viewed with or without stars while preserving the same 7887 × 6086 alignment.",
     },
     annotation: {
       src: "/images/gallery/north-american-nebula-annotation-overlay-fullres.png",
       label: "Annotation",
       shortLabel: "Annotation",
-      description: "Full-resolution transparent annotation layer matched to the same 7887 × 6086 canvas.",
+      description: "Annotation: a transparent label layer for identifying the major objects and framing areas within the North American Nebula field.",
     },
     pelican: {
       src: "/images/gallery/north-american-nebula-pelican-overlay-fullres.webp",
       label: "Pelican Nebula Overlay",
       shortLabel: "Pelican Overlay",
-      description: "Full-resolution Pelican overlay matched to the same 7887 × 6086 canvas.",
+      description: "Pelican Nebula Overlay: a separate Pelican Nebula image captured with the Apertura 6-inch f/4 Newtonian at 600 mm focal length, then aligned over this RedCat 51 250 mm / f/4.9 NGC 7000 field to show the overlapping framing.",
     },
   };
 
-  const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery";
+  const astrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=wz2g3f";
+  const sharePageHref = "/share/north-american-nebula/";
+  const shareTitle = "NGC 7000 — North American Nebula Interactive Image";
+  const shareText = "Explore Jake Schultz Astrophotography's interactive North American Nebula image with high-resolution layers, overlays, and project data.";
+  const pelicanAstrobinUrl = "https://app.astrobin.com/u/Astro_jake?i=rfg4iu";
+  const toolbarNotes = {
+    combined: baseLayers.combined.description,
+    rgb: baseLayers.rgb.description,
+    c2: baseLayers.c2.description,
+    stars: overlayLayers.stars.description,
+    pelican: overlayLayers.pelican.description,
+    annotation: overlayLayers.annotation.description,
+    zoomOut: "Zoom out from the current image position.",
+    zoomIn: "Zoom in toward the center of the current view.",
+    reset: "Reset the image back to the opening fit-to-screen view.",
+    controls: "Collapse or restore the image viewer controls.",
+    styleSelector: "Toolbar style: preview alternate control layouts for this interactive image viewer while keeping the same layers, zoom behavior, and image data.",
+    imageViewer: "Image Viewer: the high-resolution native-pixel viewer for inspecting the NGC 7000 image, switching base layers, toggling overlays, zooming, and panning around the full 7887 × 6086 image.",
+    objectExplorer: "Object Explorer: an interactive catalog/map view for identifying objects, markers, and labeled regions across the North American Nebula field.",
+    astroDepthMap: "4D AstroDepth Map: the depth-style informational view for exploring the image as a layered spatial presentation rather than a flat final image.",
+  };
   const isImageMode = mode === "image";
   const activeBase = baseLayers[baseLayer] || baseLayers.combined;
-  const minZoom = 0.5;
-  const maxZoom = 30;
+  const activeBaseSrc = showStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
+  const masterImageUrls = useMemo(() => [
+    "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
+    "/images/gallery/north-american-nebula-rgb-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-rgb-with-stars-master-q100.jpg",
+    "/images/gallery/north-american-nebula-c2-starless-master-q100.jpg",
+    "/images/gallery/north-american-nebula-c2-with-stars-master-q100.jpg",
+  ], []);
+  const activeTileLayer = `${baseLayer}-${showStars ? "with-stars" : "starless"}`;
+  // Use a native-pixel image stage: the rendered image keeps its true 7887 × 6086 canvas
+  // and the viewer scales that native stage down/up, instead of enlarging a viewport-sized raster.
+  // This matches the feel of AstroBin/GIMP much more closely for star detail.
+  const enableTiledDetail = false;
+  const tileActivationZoom = 1.04;
+  const shouldShowHighResolutionTiles = enableTiledDetail && isImageMode && !missingLayers[baseLayer] && zoom >= tileActivationZoom && preloadedTileLayers[activeTileLayer];
+  const minZoom = 1;
+  const getFitScale = () => {
+    const el = viewerRef.current;
+    if (!el) return fitScaleRef.current || 1;
+    const viewportW = el.clientWidth || viewerMetricsRef.current.viewportW || 1;
+    const viewportH = el.clientHeight || viewerMetricsRef.current.viewportH || viewportW * (tileImageHeight / tileImageWidth);
+    const fitScale = Math.max(0.0001, Math.min(viewportW / tileImageWidth, viewportH / tileImageHeight));
+    fitScaleRef.current = fitScale;
+    viewerMetricsRef.current = { viewportW, viewportH, fitScale };
+    return fitScale;
+  };
+
+  const getDisplayScale = (relativeZoom = zoomRef.current || 1) => {
+    const fitScale = fitScaleRef.current || getFitScale();
+    return Math.max(0.0001, fitScale * (relativeZoom || 1));
+  };
+
+  const getImagePointFromScreen = (screenX, screenY, relativeZoom = zoomRef.current || 1) => {
+    const { x, y } = viewRef.current;
+    const displayScale = getDisplayScale(relativeZoom);
+    return {
+      imageX: (screenX - x) / displayScale,
+      imageY: (screenY - y) / displayScale,
+    };
+  };
+  const getQualityMaxZoom = () => {
+    const fitScale = getFitScale();
+    // Allow a little extra inspection past native pixel scale while avoiding extreme fake enlargement.
+    const nativeRelativeZoom = 1 / Math.max(0.0001, fitScale);
+    return Math.max(3.4, Math.min(36, nativeRelativeZoom * 1.45));
+  };
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -5654,6 +5796,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     if (zoomAnimationRef.current.frame) cancelAnimationFrame(zoomAnimationRef.current.frame);
     if (transformFrameRef.current) cancelAnimationFrame(transformFrameRef.current);
     if (zoomUiFrameRef.current) cancelAnimationFrame(zoomUiFrameRef.current);
+    if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -5669,35 +5813,134 @@ function NorthAmericanNebulaPage({ navigate }) {
   }, [viewerLocked]);
 
   useEffect(() => {
-    const preloadUrls = [
-      "/images/gallery/north-american-nebula-combined-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-rgb-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-c2-starless-fullres.webp",
-      "/images/gallery/north-american-nebula-stars-only-fullres.webp",
-      "/images/gallery/north-american-nebula-annotation-overlay-fullres.png",
-      "/images/gallery/north-american-nebula-pelican-overlay-fullres.webp",
-    ];
+    let cancelled = false;
+    const cachedImages = masterImageUrls.map((src, index) => {
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = index < 2 ? "high" : "auto";
+      img.src = src;
+      if (img.decode) {
+        img.decode().catch(() => {});
+      }
+      return img;
+    });
+    if (!cancelled) masterImageCacheRef.current = cachedImages;
+    return () => {
+      cancelled = true;
+    };
+  }, [masterImageUrls]);
 
-    const preload = () => {
-      preloadUrls.forEach((src) => {
-        const img = new window.Image();
-        img.decoding = "async";
-        img.src = src;
-      });
+  useEffect(() => {
+    const priorityImages = [activeBaseSrc, activeBase.src, activeBase.starSrc].filter(Boolean);
+    const cachedPriority = priorityImages.map((src) => {
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = "high";
+      img.src = src;
+      if (img.decode) {
+        img.decode().catch(() => {});
+      }
+      return img;
+    });
+    masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
+  }, [activeBaseSrc, activeBase.src, activeBase.starSrc]);
+
+  useEffect(() => {
+    if (!enableTiledDetail) return undefined;
+    let cancelled = false;
+    const layerName = activeTileLayer;
+    if (preloadedTileLayersRef.current[layerName]) {
+      setPreloadedTileLayers((current) => current[layerName] ? current : { ...current, [layerName]: true });
+      return undefined;
+    }
+
+    const tileUrls = getTileUrls(layerName);
+    const concurrency = 32;
+    let nextIndex = 0;
+    let completed = 0;
+
+    const finishLayer = () => {
+      if (cancelled || preloadedTileLayersRef.current[layerName]) return;
+      preloadedTileLayersRef.current[layerName] = true;
+      setPreloadedTileLayers((current) => ({ ...current, [layerName]: true }));
     };
 
-    const idleId = "requestIdleCallback" in window
-      ? window.requestIdleCallback(preload, { timeout: 2500 })
-      : window.setTimeout(preload, 900);
+    const loadNext = () => {
+      if (cancelled) return;
+      const src = tileUrls[nextIndex];
+      nextIndex += 1;
+      if (!src) return;
+
+      const img = new window.Image();
+      img.decoding = "async";
+      img.fetchPriority = "high";
+      const done = () => {
+        completed += 1;
+        if (completed >= tileUrls.length) {
+          finishLayer();
+        } else {
+          loadNext();
+        }
+      };
+      img.onload = done;
+      img.onerror = done;
+      img.src = src;
+    };
+
+    for (let i = 0; i < Math.min(concurrency, tileUrls.length); i += 1) {
+      loadNext();
+    }
 
     return () => {
-      if ("cancelIdleCallback" in window && typeof idleId === "number") {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
-      }
+      cancelled = true;
     };
-  }, []);
+  }, [activeTileLayer, highResolutionTiles]);
+
+  useEffect(() => {
+    if (!enableTiledDetail) return undefined;
+    const alternateStarLayer = `${baseLayer}-${showStars ? "starless" : "with-stars"}`;
+    if (preloadedTileLayersRef.current[alternateStarLayer]) return undefined;
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      const tileUrls = getTileUrls(alternateStarLayer);
+      let index = 0;
+      let completed = 0;
+      const concurrency = 8;
+
+      const loadNext = () => {
+        if (cancelled) return;
+        const src = tileUrls[index];
+        index += 1;
+        if (!src) return;
+
+        const img = new window.Image();
+        img.decoding = "async";
+        img.fetchPriority = "low";
+        const done = () => {
+          completed += 1;
+          if (completed >= tileUrls.length) {
+            preloadedTileLayersRef.current[alternateStarLayer] = true;
+            setPreloadedTileLayers((current) => ({ ...current, [alternateStarLayer]: true }));
+          } else {
+            loadNext();
+          }
+        };
+        img.onload = done;
+        img.onerror = done;
+        img.src = src;
+      };
+
+      for (let i = 0; i < Math.min(concurrency, tileUrls.length); i += 1) {
+        loadNext();
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [baseLayer, showStars, highResolutionTiles]);
 
   const markMissing = (key) => setMissingLayers((current) => ({ ...current, [key]: true }));
   const clearMissing = (key) => setMissingLayers((current) => {
@@ -5706,24 +5949,25 @@ function NorthAmericanNebulaPage({ navigate }) {
     return next;
   });
 
-  const clampZoom = (value) => Math.max(1, Math.min(maxZoom, Number(value.toFixed(4))));
+  const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
   const constrainView = (nextZoom, nextX, nextY) => {
     const el = viewerRef.current;
-    const stage = imageStageRef.current;
     const safeZoom = clampZoom(nextZoom || 1);
-    if (!el || !stage) return { zoom: safeZoom, x: nextX || 0, y: nextY || 0 };
+    if (!el) return { zoom: safeZoom, x: nextX || 0, y: nextY || 0 };
 
-    const viewportW = el.clientWidth || 1;
-    const viewportH = el.clientHeight || 1;
-    const baseW = stage.offsetWidth || viewportW;
-    const baseH = stage.offsetHeight || viewportH;
-    const scaledW = baseW * safeZoom;
-    const scaledH = baseH * safeZoom;
+    let { viewportW, viewportH, fitScale } = viewerMetricsRef.current || {};
+    if (!viewportW || !viewportH || !fitScale) {
+      fitScale = getFitScale();
+      ({ viewportW, viewportH } = viewerMetricsRef.current);
+    }
+    const displayScale = fitScale * safeZoom;
+    const scaledW = tileImageWidth * displayScale;
+    const scaledH = tileImageHeight * displayScale;
 
-    let x = Number.isFinite(nextX) ? nextX : 0;
-    let y = Number.isFinite(nextY) ? nextY : 0;
+    let x = Number.isFinite(nextX) ? nextX : (viewportW - scaledW) / 2;
+    let y = Number.isFinite(nextY) ? nextY : (viewportH - scaledH) / 2;
 
     if (scaledW <= viewportW) {
       x = (viewportW - scaledW) / 2;
@@ -5745,26 +5989,127 @@ function NorthAmericanNebulaPage({ navigate }) {
     transformFrameRef.current = 0;
     if (!stage) return;
     const { zoom: nextZoom, x, y } = viewRef.current;
-    stage.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${nextZoom})`;
+    const displayScale = (fitScaleRef.current || getFitScale()) * (nextZoom || 1);
+    // Keep transform values stable at sub-pixel precision. This avoids occasional
+    // browser resampling snaps while preserving smooth pan/zoom motion.
+    const stableX = Math.round(x * 100) / 100;
+    const stableY = Math.round(y * 100) / 100;
+    const stableScale = Math.round(displayScale * 100000) / 100000;
+    stage.style.transform = `translate3d(${stableX}px, ${stableY}px, 0) scale(${stableScale})`;
+  };
+
+  const paintViewImmediate = () => {
+    if (transformFrameRef.current) {
+      cancelAnimationFrame(transformFrameRef.current);
+      transformFrameRef.current = 0;
+    }
+    paintView();
+  };
+
+  const flushZoomUi = () => {
+    if (zoomUiFrameRef.current) {
+      cancelAnimationFrame(zoomUiFrameRef.current);
+      zoomUiFrameRef.current = 0;
+    }
+    if (zoomUiTimeoutRef.current) {
+      window.clearTimeout(zoomUiTimeoutRef.current);
+      zoomUiTimeoutRef.current = 0;
+    }
+    setZoom(Number((zoomRef.current || 1).toFixed(3)));
   };
 
   const scheduleZoomUi = () => {
-    if (zoomUiFrameRef.current) return;
-    zoomUiFrameRef.current = requestAnimationFrame(() => {
-      zoomUiFrameRef.current = 0;
-      setZoom(Number((zoomRef.current || 1).toFixed(3)));
-    });
+    // During active wheel/pinch movement the transform is painted directly on the DOM.
+    // Debounce the React state update so the huge image stage is not re-rendered
+    // mid-gesture, which was causing the occasional stutter/snap.
+    if (zoomUiTimeoutRef.current) window.clearTimeout(zoomUiTimeoutRef.current);
+    zoomUiTimeoutRef.current = window.setTimeout(() => {
+      zoomUiTimeoutRef.current = 0;
+      if (zoomUiFrameRef.current) return;
+      zoomUiFrameRef.current = requestAnimationFrame(() => {
+        zoomUiFrameRef.current = 0;
+        setZoom(Number((zoomRef.current || 1).toFixed(3)));
+      });
+    }, 110);
   };
 
-  const applyView = (nextZoom, nextX, nextY, updateZoomUi = true) => {
+  const applyView = (nextZoom, nextX, nextY, updateZoomUi = true, immediatePaint = false) => {
     const constrained = constrainView(nextZoom, nextX, nextY);
     viewRef.current = constrained;
     zoomRef.current = constrained.zoom;
-    if (!transformFrameRef.current) {
+    if (immediatePaint) {
+      paintViewImmediate();
+    } else if (!transformFrameRef.current) {
       transformFrameRef.current = requestAnimationFrame(paintView);
     }
     if (updateZoomUi) scheduleZoomUi();
   };
+
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return undefined;
+    const refresh = () => {
+      getFitScale();
+      applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+    };
+    refresh();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", refresh);
+      return () => window.removeEventListener("resize", refresh);
+    }
+    const observer = new ResizeObserver(refresh);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isImageMode]);
+
+  useEffect(() => {
+    if (!isImageMode) return undefined;
+
+    let frameId = 0;
+
+    const updateOpeningFrame = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        const el = viewerRef.current;
+        if (!el) return;
+
+        if (viewerLocked) {
+          setOpeningViewerHeight(null);
+          getFitScale();
+          applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+          return;
+        }
+
+        const rect = el.getBoundingClientRect();
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 800;
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || el.clientWidth || 1;
+        const viewerW = el.clientWidth || viewportW || 1;
+        const naturalFitHeight = viewerW * (tileImageHeight / tileImageWidth);
+        const bottomPadding = viewportW < 640 ? 76 : 28;
+        const minHeight = viewportW < 640 ? 235 : 320;
+        const visibleHeight = Math.max(minHeight, viewportH - rect.top - bottomPadding);
+        const nextHeight = Math.max(minHeight, Math.round(Math.min(naturalFitHeight, visibleHeight)));
+
+        setOpeningViewerHeight((current) => (Math.abs((current || 0) - nextHeight) > 2 ? nextHeight : current));
+
+        requestAnimationFrame(() => {
+          getFitScale();
+          applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false);
+        });
+      });
+    };
+
+    updateOpeningFrame();
+    window.addEventListener("resize", updateOpeningFrame);
+    window.addEventListener("orientationchange", updateOpeningFrame);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateOpeningFrame);
+      window.removeEventListener("orientationchange", updateOpeningFrame);
+    };
+  }, [isImageMode, viewerLocked]);
 
   const stopZoomAnimation = () => {
     if (zoomAnimationRef.current.frame) {
@@ -5775,13 +6120,12 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const zoomAtPoint = (nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1, immediate = true) => {
     const safeCurrentZoom = currentZoom || 1;
-    const { x, y } = viewRef.current;
-    const imageX = (anchorX - x) / safeCurrentZoom;
-    const imageY = (anchorY - y) / safeCurrentZoom;
+    const { imageX, imageY } = getImagePointFromScreen(anchorX, anchorY, safeCurrentZoom);
     const safeNextZoom = clampZoom(nextZoom);
-    const nextX = anchorX - imageX * safeNextZoom;
-    const nextY = anchorY - imageY * safeNextZoom;
-    applyView(safeNextZoom, nextX, nextY, true);
+    const nextDisplayScale = getDisplayScale(safeNextZoom);
+    const nextX = anchorX - imageX * nextDisplayScale;
+    const nextY = anchorY - imageY * nextDisplayScale;
+    applyView(safeNextZoom, nextX, nextY, true, immediate);
   };
 
   const animateSmoothZoom = () => {
@@ -5789,8 +6133,9 @@ function NorthAmericanNebulaPage({ navigate }) {
     const currentZoom = zoomRef.current || 1;
     const difference = state.targetZoom - currentZoom;
     const nextZoom = Math.abs(difference) < 0.004 ? state.targetZoom : currentZoom + difference * 0.34;
-    const nextX = state.anchorX - state.imageX * nextZoom;
-    const nextY = state.anchorY - state.imageY * nextZoom;
+    const nextDisplayScale = getDisplayScale(nextZoom);
+    const nextX = state.anchorX - state.imageX * nextDisplayScale;
+    const nextY = state.anchorY - state.imageY * nextDisplayScale;
     applyView(nextZoom, nextX, nextY, true);
 
     if (Math.abs(state.targetZoom - nextZoom) >= 0.004) {
@@ -5802,48 +6147,102 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const smoothZoomAtPoint = (el, nextZoom, anchorX, anchorY, currentZoom = zoomRef.current || 1) => {
     const safeCurrentZoom = currentZoom || 1;
-    const { x, y } = viewRef.current;
     const safeNextZoom = clampZoom(nextZoom);
+    const { imageX, imageY } = getImagePointFromScreen(anchorX, anchorY, safeCurrentZoom);
     const state = zoomAnimationRef.current;
     state.targetZoom = safeNextZoom;
     state.anchorX = anchorX;
     state.anchorY = anchorY;
-    state.imageX = (anchorX - x) / safeCurrentZoom;
-    state.imageY = (anchorY - y) / safeCurrentZoom;
+    state.imageX = imageX;
+    state.imageY = imageY;
 
     if (!state.frame) {
       state.frame = requestAnimationFrame(animateSmoothZoom);
     }
   };
 
-  const beginPan = (event) => {
+  useEffect(() => {
+    if (!isImageMode) return undefined;
     const el = viewerRef.current;
-    if (!el || !isImageMode || event.button !== 0) return;
-    stopZoomAnimation();
-    dragRef.current = {
-      active: true,
-      moved: false,
-      x: event.clientX,
-      y: event.clientY,
-      viewX: viewRef.current.x,
-      viewY: viewRef.current.y,
+    if (!el) return undefined;
+
+    let previousBodyCursor = "";
+    let previousBodyUserSelect = "";
+
+    const endMousePan = () => {
+      if (dragRef.current.pointerId !== "mouse") return;
+      dragRef.current.active = false;
+      dragRef.current.pointerId = null;
+      document.body.style.cursor = previousBodyCursor;
+      document.body.style.userSelect = previousBodyUserSelect;
+      flushZoomUi();
     };
-  };
 
-  const pan = (event) => {
-    if (!dragRef.current.active) return;
-    event.preventDefault();
-    const dx = event.clientX - dragRef.current.x;
-    const dy = event.clientY - dragRef.current.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      dragRef.current.moved = true;
-    }
-    applyView(zoomRef.current || 1, dragRef.current.viewX + dx, dragRef.current.viewY + dy, false);
-  };
+    const onMouseDown = (event) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (target?.closest?.("button, a, input, textarea, select, [data-viewer-control]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      stopZoomAnimation();
+      getFitScale();
+      previousBodyCursor = document.body.style.cursor;
+      previousBodyUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+      dragRef.current = {
+        active: true,
+        pointerId: "mouse",
+        moved: false,
+        x: event.clientX,
+        y: event.clientY,
+        viewX: viewRef.current.x,
+        viewY: viewRef.current.y,
+      };
+    };
 
-  const endPan = () => {
-    dragRef.current.active = false;
-  };
+    const onMouseMove = (event) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      event.preventDefault();
+      event.stopPropagation();
+      const dx = event.clientX - dragRef.current.x;
+      const dy = event.clientY - dragRef.current.y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        dragRef.current.moved = true;
+      }
+      applyView(zoomRef.current || 1, dragRef.current.viewX + dx, dragRef.current.viewY + dy, false, true);
+    };
+
+    const onMouseUp = (event) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      event.preventDefault();
+      event.stopPropagation();
+      endMousePan();
+    };
+
+    const onMouseLeaveWindow = () => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== "mouse") return;
+      endMousePan();
+    };
+
+    el.addEventListener("mousedown", onMouseDown, { passive: false });
+    window.addEventListener("mousemove", onMouseMove, { passive: false });
+    window.addEventListener("mouseup", onMouseUp, { passive: false });
+    window.addEventListener("blur", onMouseLeaveWindow);
+
+    return () => {
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onMouseLeaveWindow);
+      if (dragRef.current.pointerId === "mouse") {
+        document.body.style.cursor = previousBodyCursor;
+        document.body.style.userSelect = previousBodyUserSelect;
+        dragRef.current.active = false;
+        dragRef.current.pointerId = null;
+      }
+    };
+  }, [isImageMode]);
 
   const handleViewerClick = (event) => {
     const el = viewerRef.current;
@@ -5858,7 +6257,10 @@ function NorthAmericanNebulaPage({ navigate }) {
     const currentZoom = zoomRef.current || 1;
     setViewerLocked(true);
     if (currentZoom < 1.8) {
-      smoothZoomAtPoint(el, 2.15, anchorX, anchorY, currentZoom);
+      const fitScale = getFitScale();
+      const targetNativeScale = window.innerWidth < 700 ? 0.55 : 0.75;
+      const targetZoom = Math.min(getQualityMaxZoom(), Math.max(2.05, targetNativeScale / Math.max(0.0001, fitScale)));
+      zoomAtPoint(targetZoom, anchorX, anchorY, currentZoom);
     }
   };
 
@@ -5903,8 +6305,7 @@ function NorthAmericanNebulaPage({ navigate }) {
         viewY: y,
         centerX: center.x,
         centerY: center.y,
-        imageX: (center.x - x) / currentZoom,
-        imageY: (center.y - y) / currentZoom,
+        ...getImagePointFromScreen(center.x, center.y, currentZoom),
       };
       return;
     }
@@ -5949,15 +6350,15 @@ function NorthAmericanNebulaPage({ navigate }) {
           viewY: y,
           centerX: center.x,
           centerY: center.y,
-          imageX: (center.x - x) / currentZoom,
-          imageY: (center.y - y) / currentZoom,
+          ...getImagePointFromScreen(center.x, center.y, currentZoom),
         };
         return;
       }
       const nextZoom = clampZoom(touchRef.current.zoom * (currentDistance / touchRef.current.distance));
-      const nextX = center.x - touchRef.current.imageX * nextZoom;
-      const nextY = center.y - touchRef.current.imageY * nextZoom;
-      applyView(nextZoom, nextX, nextY, true);
+      const nextDisplayScale = getDisplayScale(nextZoom);
+      const nextX = center.x - touchRef.current.imageX * nextDisplayScale;
+      const nextY = center.y - touchRef.current.imageY * nextDisplayScale;
+      applyView(nextZoom, nextX, nextY, false, true);
       return;
     }
 
@@ -5966,7 +6367,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       const touch = event.touches[0];
       const dx = touch.clientX - touchRef.current.x;
       const dy = touch.clientY - touchRef.current.y;
-      applyView(zoomRef.current || 1, touchRef.current.viewX + dx, touchRef.current.viewY + dy, false);
+      applyView(zoomRef.current || 1, touchRef.current.viewX + dx, touchRef.current.viewY + dy, false, true);
     }
   };
 
@@ -5997,7 +6398,31 @@ function NorthAmericanNebulaPage({ navigate }) {
     }
     touchRef.current.mode = null;
     touchRef.current.distance = 0;
+    flushZoomUi();
   };
+
+
+
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || !isImageMode) return undefined;
+
+    const onTouchStart = (event) => handleViewerTouchStart(event);
+    const onTouchMove = (event) => handleViewerTouchMove(event);
+    const onTouchEnd = (event) => handleViewerTouchEnd(event);
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: false });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [isImageMode, viewerLocked]);
 
   const handleViewerWheel = (event) => {
     const el = viewerRef.current;
@@ -6012,7 +6437,7 @@ function NorthAmericanNebulaPage({ navigate }) {
     const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
     const rawFactor = Math.exp(-normalizedDelta * 0.00082);
     const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
-    smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
+    zoomAtPoint(currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
   };
 
   useEffect(() => {
@@ -6028,7 +6453,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       const normalizedDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
       const rawFactor = Math.exp(-normalizedDelta * 0.00082);
       const scaleFactor = Math.max(0.92, Math.min(1.09, rawFactor));
-      smoothZoomAtPoint(el, currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
+      zoomAtPoint(currentZoom * scaleFactor, cursorX, cursorY, currentZoom);
     };
     el.addEventListener("wheel", onNativeWheel, { passive: false });
     return () => el.removeEventListener("wheel", onNativeWheel);
@@ -6047,11 +6472,15 @@ function NorthAmericanNebulaPage({ navigate }) {
   const resetView = () => {
     setViewerLocked(false);
     stopZoomAnimation();
-    viewRef.current = { zoom: 1, x: 0, y: 0 };
+    const reset = constrainView(1, 0, 0);
+    viewRef.current = reset;
     zoomRef.current = 1;
     setZoom(1);
     const stage = imageStageRef.current;
-    if (stage) stage.style.transform = "translate3d(0px, 0px, 0) scale(1)";
+    if (stage) {
+      const displayScale = getDisplayScale(1);
+      stage.style.transform = `translate3d(${reset.x}px, ${reset.y}px, 0) scale(${displayScale})`;
+    }
   };
 
   const modeTabClass = (id) =>
@@ -6074,6 +6503,288 @@ function NorthAmericanNebulaPage({ navigate }) {
     showPelicanOverlay ? overlayLayers.pelican.label : null,
     showAnnotation ? overlayLayers.annotation.label : null,
   ].filter(Boolean).join(" + ");
+
+  const toolbarOptions = [
+    { id: "01", name: "AstroBin Strip" },
+    { id: "02", name: "Two-Line Thin" },
+    { id: "03", name: "Photo App" },
+    { id: "04", name: "Icon Toggle" },
+    { id: "05", name: "Collapsible Ribbon" },
+    { id: "06", name: "Glass Edge" },
+    { id: "07", name: "Metadata Bar" },
+    { id: "08", name: "Compact Tabs" },
+    { id: "09", name: "Hover Minimal" },
+    { id: "10", name: "Bottom-Style Slim" },
+    { id: "11", name: "Top-Right Cluster" },
+    { id: "12", name: "Camera UI" },
+    { id: "13", name: "Black Command" },
+    { id: "14", name: "Mobile Scroll Strip" },
+    { id: "15", name: "Smart Compact" },
+  ];
+  const activeToolbarOption = toolbarOptions.find((option) => option.id === viewerControlOption) || toolbarOptions[0];
+  const compactBaseLabel = baseLayer === "combined" ? "Mix" : activeBase.shortLabel;
+  const controlNotePanelId = "north-america-control-note";
+
+  const showControlNote = (event, id, label) => {
+    const text = toolbarNotes[id];
+    if (!text) return;
+    const isMobileNote = typeof window !== "undefined" && (window.innerWidth < 640 || window.matchMedia?.("(pointer: coarse)")?.matches);
+    const targetRect = event?.currentTarget?.getBoundingClientRect?.();
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 720;
+    const margin = 12;
+    const gap = 12;
+    const panelWidth = Math.min(isMobileNote ? 336 : 430, Math.max(280, viewportWidth - margin * 2));
+    const estimatedPanelHeight = isMobileNote ? 224 : 242;
+    const targetLeft = targetRect?.left ?? Math.round(viewportWidth * 0.5);
+    const targetTop = targetRect?.top ?? Math.round(viewportHeight * 0.2);
+    const preferredLeft = targetLeft - panelWidth - gap;
+    const safeLeft = Math.min(Math.max(preferredLeft, margin), viewportWidth - panelWidth - margin);
+    const safeTop = Math.min(Math.max(targetTop, margin), Math.max(margin, viewportHeight - estimatedPanelHeight - margin));
+
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    setActiveControlNote({
+      id,
+      label,
+      text,
+      mobile: isMobileNote,
+      position: {
+        left: safeLeft,
+        top: safeTop,
+        width: panelWidth,
+      },
+    });
+
+    if (isMobileNote) {
+      controlNoteTimeoutRef.current = window.setTimeout(() => {
+        setActiveControlNote((current) => current?.id === id ? null : current);
+      }, 6200);
+    }
+  };
+
+  const hideControlNote = (id = null) => {
+    if (controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current);
+    setActiveControlNote((current) => (!id || current?.id === id ? null : current));
+  };
+
+  const controlNoteProps = (id, label) => ({
+    "aria-describedby": activeControlNote?.id === id ? controlNotePanelId : undefined,
+    onPointerEnter: (event) => {
+      if (event.pointerType !== "touch") showControlNote(event, id, label);
+    },
+    onPointerDown: (event) => {
+      if (event.pointerType === "touch" || event.pointerType === "pen") showControlNote(event, id, label);
+    },
+    onPointerLeave: (event) => {
+      if (event.pointerType !== "touch") hideControlNote(id);
+    },
+    onFocus: (event) => showControlNote(event, id, label),
+    onBlur: () => hideControlNote(id),
+  });
+
+  const renderControlNote = () => (
+    <AnimatePresence>
+      {activeControlNote && (
+        <motion.div
+          key={`${activeControlNote.id}-${activeControlNote.mobile ? "mobile" : "desktop"}`}
+          id={controlNotePanelId}
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, x: 10, y: -3, scale: 0.96 }}
+          animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 8, y: -2, scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 390, damping: 32, mass: 0.78 }}
+          style={{
+            left: activeControlNote.position?.left ?? 12,
+            top: activeControlNote.position?.top ?? 12,
+            width: activeControlNote.position?.width ?? 336,
+          }}
+          className="pointer-events-auto fixed z-[1200] max-h-[min(72vh,520px)] max-w-[calc(100vw-24px)] overflow-y-auto overflow-x-hidden rounded-[24px] border border-[#d8b175]/28 bg-[#11100c]/96 text-left text-white shadow-[0_24px_78px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl"
+          onPointerEnter={() => { if (!activeControlNote.mobile && controlNoteTimeoutRef.current) window.clearTimeout(controlNoteTimeoutRef.current); }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d8b175]/60 to-transparent" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-4 text-left">
+              <div className="min-w-0 text-left">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#e8d4ae]/72">Viewer Guide</div>
+                <div className="mt-1.5 text-base font-semibold tracking-tight text-white">{activeControlNote.label}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => hideControlNote()}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/72 transition hover:bg-white/10 hover:text-white"
+                aria-label="Close control note"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-3 text-left text-sm leading-6 text-white/76 sm:text-[15px] sm:leading-7">{activeControlNote.text}</p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const controlChipClass = (active, compact = false) =>
+    `inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full border font-semibold leading-none transition ${compact ? "min-h-[22px] px-1 py-0 text-[8.5px] sm:min-h-[24px] sm:px-2 sm:py-0.5 sm:text-[10px]" : "min-h-[28px] px-2.5 py-1 text-[11px] sm:min-h-[30px] sm:px-3 sm:text-xs"} ${
+      active
+        ? "border-[#d8b175]/70 bg-[#5A4939]/88 text-white shadow-[0_0_18px_rgba(216,177,117,0.12)]"
+        : "border-white/10 bg-white/[0.045] text-white/68 hover:bg-white/[0.10] hover:text-white"
+    }`;
+
+  const renderToolbarStyleSelector = (compact = false) => (
+    <label
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d8b175]/22 bg-black/50 ${compact ? "px-1.5 py-0.5" : "px-2 py-1"}`}
+      onClick={(event) => event.stopPropagation()}
+      {...controlNoteProps("styleSelector", "Toolbar Style")}
+    >
+      <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] text-[#e7d3ad]/62 sm:inline">Style</span>
+      <select
+        value={viewerControlOption}
+        onChange={(event) => setViewerControlOption(event.target.value)}
+        className="max-w-[142px] rounded-full border-0 bg-transparent text-[10px] font-bold text-[#f4dfb9] outline-none sm:max-w-[180px] sm:text-[11px]"
+      >
+        {toolbarOptions.map((option) => (
+          <option key={option.id} value={option.id} className="bg-[#11100c] text-white">
+            {option.id} · {option.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  const renderCollapseButton = (labelMode = "full") => (
+    <button
+      type="button"
+      aria-expanded={viewerControlsExpanded}
+      aria-label={toolbarNotes.controls}
+      {...controlNoteProps("controls", "Viewer Controls")}
+      onClick={(event) => { event.stopPropagation(); setViewerControlsExpanded((value) => !value); }}
+      className="inline-flex min-h-[22px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-[#d8b175]/30 bg-[#5A4939]/72 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.08em] text-[#f3dfbd] transition hover:bg-[#6b5745] sm:min-h-[24px] sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.10em]"
+    >
+      {viewerControlsExpanded ? (labelMode === "short" ? "Hide" : "Collapse") : "Controls"}
+    </button>
+  );
+
+  const renderBaseTabs = (compact = false, variant = "pill") => (
+    <div className={`flex shrink-0 items-center gap-[2px] ${variant === "bare" ? "" : "rounded-full border border-white/10 bg-black/36 p-0.5"}`}>
+      {Object.entries(baseLayers).map(([id, layer]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={(event) => { event.stopPropagation(); clearMissing(id); setBaseLayer(id); }}
+          aria-label={toolbarNotes[id]}
+          {...controlNoteProps(id, layer.label)}
+          className={controlChipClass(baseLayer === id, compact)}
+        >
+          {id === "combined" ? "Mix" : layer.shortLabel}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderOverlayToggle = (id, label, active, onClick, compact = false, icon = null) => (
+    <button
+      type="button"
+      onClick={(event) => { event.stopPropagation(); onClick(); }}
+      aria-label={toolbarNotes[id]}
+      {...controlNoteProps(id, label)}
+      className={controlChipClass(active, compact)}
+    >
+      <span className={`mr-[2px] inline-block h-1.5 w-1.5 rounded-full sm:mr-1 sm:h-2.5 sm:w-2.5 ${active ? "bg-[#f0d39f]" : "bg-white/36"}`} />
+      {icon ? <span className="mr-[2px] text-[8px] leading-none sm:mr-1 sm:text-[11px]">{icon}</span> : null}
+      <span className="min-w-0 truncate">{label}</span>
+    </button>
+  );
+
+  const renderOverlayToggles = (compact = false, labels = { stars: "Stars", pelican: "Pelican", annotation: "Labels" }) => (
+    <div className="flex shrink-0 items-center gap-1">
+      {renderOverlayToggle("stars", labels.stars, showStars, () => { clearMissing("stars"); setShowStars((value) => !value); }, compact, "✦")}
+      {renderOverlayToggle("pelican", labels.pelican, showPelicanOverlay, () => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }, compact, "▣")}
+      {renderOverlayToggle("annotation", labels.annotation, showAnnotation, () => { clearMissing("annotation"); setShowAnnotation((value) => !value); }, compact, "⌖")}
+    </div>
+  );
+
+  const renderZoomControls = (compact = false) => (
+    <div className={`flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/36 ${compact ? "px-1 py-0.5" : "px-1.5 py-1"}`}>
+      <button type="button" aria-label={toolbarNotes.zoomOut} {...controlNoteProps("zoomOut", "Zoom Out")} onClick={(event) => { event.stopPropagation(); zoomOut(); }} className={`${compact ? "h-6 w-6 text-xs" : "h-7 w-7 text-sm"} grid place-items-center rounded-full border border-white/10 bg-white/5 text-white/78 hover:bg-white/10`}>−</button>
+      <div className={`${compact ? "min-w-12 text-[10px]" : "min-w-14 text-[11px]"} text-center font-semibold text-white/66`}>{Math.round((fitScaleRef.current || 1) * zoom * 100)}%</div>
+      <button type="button" aria-label={toolbarNotes.zoomIn} {...controlNoteProps("zoomIn", "Zoom In")} onClick={(event) => { event.stopPropagation(); zoomIn(); }} className={`${compact ? "h-6 w-6 text-xs" : "h-7 w-7 text-sm"} grid place-items-center rounded-full border border-white/10 bg-white/5 text-white/78 hover:bg-white/10`}>+</button>
+      <button type="button" aria-label={toolbarNotes.reset} {...controlNoteProps("reset", "Reset View")} onClick={(event) => { event.stopPropagation(); resetView(); }} className={`${compact ? "h-6 px-2 text-[10px]" : "h-7 px-2.5 text-[11px]"} inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 font-semibold text-white/70 hover:bg-white/10`}><RotateCcw className="h-3 w-3" /> Reset</button>
+    </div>
+  );
+
+  const renderDoneViewing = (compact = false) => viewerLocked ? (
+    <button
+      type="button"
+      onClick={(event) => { event.stopPropagation(); resetView(); }}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border border-[#d8b175]/45 bg-[#5A4939]/90 font-semibold text-white shadow-[0_0_18px_rgba(216,177,117,0.13)] transition hover:bg-[#6b5745] ${compact ? "min-h-[24px] px-2 text-[10px]" : "min-h-[28px] px-3 text-[11px]"}`}
+    >
+      Done
+    </button>
+  ) : null;
+
+  const collapsedToolbar = (
+    <div className="pointer-events-auto flex w-full items-center gap-2 border-b border-white/12 bg-black/58 px-2 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-4">
+      <div className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/58 sm:text-[11px]">
+        Controls hidden · {activeLayerSummary}
+      </div>
+      {renderCollapseButton("short")}
+    </div>
+  );
+
+  const renderViewerToolbar = () => {
+    if (!viewerControlsExpanded) return (
+      <>
+        {collapsedToolbar}
+        {renderControlNote()}
+      </>
+    );
+
+    return (
+      <div className="pointer-events-auto w-full border-b border-white/12 bg-white/[0.09] shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+        {renderControlNote()}
+        <div className="grid min-h-[32px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 overflow-hidden px-1 py-1 sm:min-h-[42px] sm:gap-2 sm:px-4 sm:py-1.5">
+          <div className="flex shrink-0 items-center gap-[2px] justify-self-start sm:gap-1">
+            <span className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-[#ead7b2]/68 sm:inline">Base</span>
+            {renderBaseTabs(true, "bare")}
+          </div>
+
+          <div className="flex min-w-0 items-center justify-center gap-[2px] justify-self-center overflow-hidden px-0 sm:gap-1.5 sm:px-1">
+            {renderOverlayToggle("stars", "Stars", showStars, () => { clearMissing("stars"); setShowStars((value) => !value); }, true, "✦")}
+            {renderOverlayToggle("pelican", "Pelican", showPelicanOverlay, () => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }, true, "▣")}
+            {renderOverlayToggle("annotation", "Labels", showAnnotation, () => { clearMissing("annotation"); setShowAnnotation((value) => !value); }, true, "⌖")}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-0.5 justify-self-end sm:gap-1">
+            <div className="hidden shrink-0 items-center gap-1 sm:flex">
+              {renderZoomControls(true)}
+              {renderDoneViewing(true)}
+            </div>
+            {renderCollapseButton("short")}
+          </div>
+        </div>
+
+        {showPelicanOverlay && (
+          <div className="border-t border-white/10 bg-black/36 px-2 py-1.5 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-white/70">
+              <span className="min-w-0 truncate">Pelican Nebula Overlay is active · captured separately with an Apertura 6-inch f/4 Newtonian at 600 mm and aligned over this RedCat 51 field.</span>
+              <a
+                href={pelicanAstrobinUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d8b175]/35 bg-[#5A4939]/82 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.10em] text-[#f3dfbd] transition hover:bg-[#6b5745]"
+              >
+                View Pelican Nebula Image <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const metadata = [
     ["Catalog", "NGC 7000"],
@@ -6099,9 +6810,12 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const captureEquipment = [
     ["Telescope", "William Optics RedCat 51"],
+    ["Focal Length", "250 mm"],
+    ["Focal Ratio", "f/4.9"],
     ["Mounts", "RGB: Sky-Watcher EQ6-R Pro · C2: Sky-Watcher EQM-35 Pro"],
     ["Camera", "ZWO ASI294MC Pro"],
     ["Filters", "RGB: none / OSC RGB · C2: Askar Colour Magic C2 Duo-Band S-II / O-III, 2-inch narrowband"],
+    ["Pelican Overlay", "Apertura 6-inch f/4 Newtonian · 600 mm focal length"],
     ["Capture Software", "ASIAIR"],
     ["Binning", "1×1"],
     ["Gain", "125"],
@@ -6122,7 +6836,8 @@ function NorthAmericanNebulaPage({ navigate }) {
     ["Calibration", "Darks + Flats (master)"],
     ["Status", "Final"],
     ["Processed", "June 2026"],
-    ["Image Version", "Template v1.0"],
+    ["Image Version", "Interactive Template v1.0"],
+    ["Template Status", "Locked for future interactive image pages"],
   ];
 
   const datasetRows = [
@@ -6150,9 +6865,12 @@ function NorthAmericanNebulaPage({ navigate }) {
         >
           <ChevronLeft className="h-4 w-4" /> Gallery
         </button>
-        <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6b5745]">
-          View on AstroBin <ExternalLink className="h-4 w-4" />
-        </a>
+        <div className="flex items-center gap-2">
+          <InteractiveImageShareIcons title={shareTitle} shareHref={sharePageHref} text={shareText} />
+          <a href={astrobinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#d8b175]/30 bg-[#5A4939]/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6b5745]">
+            View on AstroBin <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
       </div>
 
       <div className="overflow-hidden border border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(216,177,117,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] shadow-[0_28px_100px_rgba(0,0,0,0.44)] sm:rounded-[28px]">
@@ -6173,9 +6891,9 @@ function NorthAmericanNebulaPage({ navigate }) {
         <div className="border-b border-white/10 bg-black/58 px-2 py-1.5 sm:bg-black/30 sm:px-4 sm:py-1.5">
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="grid grid-cols-1 sm:grid-cols-3">
-              <button type="button" onClick={() => setMode("image")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
-              <button type="button" onClick={() => setMode("objects")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
-              <button type="button" onClick={() => setMode("depth")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
+              <button type="button" onClick={() => setMode("image")} aria-label={toolbarNotes.imageViewer} {...controlNoteProps("imageViewer", "Image Viewer")} className={modeTabClass("image")}><ImageIcon className="h-4 w-4" /> Image Viewer</button>
+              <button type="button" onClick={() => setMode("objects")} aria-label={toolbarNotes.objectExplorer} {...controlNoteProps("objectExplorer", "Object Explorer")} className={modeTabClass("objects")}><Target className="h-4 w-4" /> Object Explorer</button>
+              <button type="button" onClick={() => setMode("depth")} aria-label={toolbarNotes.astroDepthMap} {...controlNoteProps("astroDepthMap", "4D AstroDepth Map")} className={modeTabClass("depth")}><Grid3X3 className="h-4 w-4" /> 4D AstroDepth Map</button>
             </div>
           </div>
         </div>
@@ -6183,85 +6901,8 @@ function NorthAmericanNebulaPage({ navigate }) {
         {isImageMode ? (
           <div className="bg-black">
             <div className="relative overflow-hidden bg-black sm:min-h-[calc(100vh-146px)] lg:min-h-[calc(100vh-130px)]">
-              <div className="pointer-events-none absolute left-2 right-2 top-2 z-30 flex justify-center sm:left-5 sm:right-5 sm:top-3">
-                <div className="pointer-events-auto max-w-full rounded-full border border-white/12 bg-black/68 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:rounded-2xl sm:bg-black/62 sm:p-2.5">
-                  <div className="flex flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:flex-wrap sm:gap-2">
-                    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/35 p-1">
-                      {Object.entries(baseLayers).map(([id, layer]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => { clearMissing(id); setBaseLayer(id); }}
-                          className={`min-h-[30px] rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:text-xs ${
-                            baseLayer === id
-                              ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white"
-                              : "border-transparent bg-transparent text-white/58 hover:bg-white/[0.08] hover:text-white"
-                          }`}
-                        >
-                          {layer.shortLabel}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("stars"); setShowStars((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showStars
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showStars ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showStars ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Stars
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showPelicanOverlay
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showPelicanOverlay ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showPelicanOverlay ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Pelican Overlay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { clearMissing("annotation"); setShowAnnotation((value) => !value); }}
-                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition duration-200 sm:px-3 sm:text-xs ${
-                        showAnnotation
-                          ? "border-[#d8b175]/70 bg-[#5A4939]/90 text-white shadow-[0_0_22px_rgba(216,177,117,0.14)]"
-                          : "border-white/10 bg-white/[0.045] text-white/72 hover:bg-white/[0.10] hover:text-white"
-                      }`}
-                    >
-                      <span className={`h-4 w-7 rounded-full border transition ${showAnnotation ? "border-[#d8b175]/60 bg-[#d8b175]/45" : "border-white/15 bg-black/45"}`}>
-                        <span className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white/85 transition ${showAnnotation ? "translate-x-3" : "translate-x-1"}`} />
-                      </span>
-                      Annotation
-                    </button>
-                    <div className="ml-0 hidden items-center gap-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 sm:ml-2 sm:flex">
-                      <button type="button" onClick={zoomOut} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">−</button>
-                      <div className="min-w-12 text-center text-xs font-semibold text-white/72">{Math.round(zoom * 100)}%</div>
-                      <button type="button" onClick={zoomIn} className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-sm hover:bg-white/10">+</button>
-                      <button type="button" onClick={resetView} className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/72 hover:bg-white/10"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
-                    </div>
-                    {viewerLocked && (
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); resetView(); }}
-                        className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-[#d8b175]/45 bg-[#5A4939]/90 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_0_22px_rgba(216,177,117,0.14)] transition hover:bg-[#6b5745] sm:text-xs"
-                      >
-                        Done viewing
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-1 hidden text-center text-[11px] text-white/45 sm:block">Scroll to zoom • Drag to pan • High-res layers</div>
-                </div>
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+                {renderViewerToolbar()}
               </div>
               {!viewerLocked && (
                 <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/62 px-3 py-1.5 text-[11px] font-semibold text-white/62 shadow-[0_12px_36px_rgba(0,0,0,0.36)] backdrop-blur sm:hidden">
@@ -6270,44 +6911,58 @@ function NorthAmericanNebulaPage({ navigate }) {
               )}
               <div
                 ref={viewerRef}
-                className="cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:h-[88vh]"
-                onMouseDown={beginPan}
-                onMouseMove={pan}
-                onMouseUp={endPan}
-                onMouseLeave={endPan}
+                className={`${viewerLocked ? "h-[calc(100dvh-112px)] min-h-[360px]" : "h-[calc(100dvh-260px)] min-h-[420px]"} relative cursor-grab overflow-hidden bg-black active:cursor-grabbing sm:aspect-auto sm:h-[88vh] sm:min-h-0`}
                 onClick={handleViewerClick}
-                onTouchStart={handleViewerTouchStart}
-                onTouchMove={handleViewerTouchMove}
-                onTouchEnd={handleViewerTouchEnd}
-                onTouchCancel={handleViewerTouchEnd}
-                style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain" }}
+                style={{ touchAction: viewerLocked ? "none" : "pan-y", overscrollBehavior: viewerLocked ? "none" : "auto", overscrollBehaviorY: viewerLocked ? "contain" : "auto", overscrollBehaviorX: "contain", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" }}
               >
                 <div
                   ref={imageStageRef}
-                  style={{ transform: `translate3d(${viewRef.current.x}px, ${viewRef.current.y}px, 0) scale(${zoomRef.current || zoom})`, transformOrigin: "0 0", willChange: "transform" }}
-                  className="relative block w-full min-w-full select-none align-top"
+                  style={{ width: `${tileImageWidth}px`, height: `${tileImageHeight}px`, transform: `translate3d(${viewRef.current.x}px, ${viewRef.current.y}px, 0) scale(${(fitScaleRef.current || 0.08) * (zoomRef.current || zoom)})`, transformOrigin: "0 0", willChange: "transform", contain: "layout paint", backfaceVisibility: "hidden", pointerEvents: "none" }}
+                  className="absolute left-0 top-0 block max-w-none select-none bg-black align-top"
                 >
                   {missingLayers[baseLayer] ? (
-                    <div className="flex h-[520px] min-w-[720px] items-center justify-center p-8 text-center">
+                    <div className="absolute inset-0 flex min-w-[720px] items-center justify-center p-8 text-center">
                       <div className="max-w-lg rounded-3xl border border-[#d8b175]/25 bg-[#5A4939]/30 p-8">
                         <div className="text-lg font-semibold">{activeBase.label} could not be loaded</div>
-                        <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBase.src} exists in the gallery image folder.</p>
+                        <p className="mt-3 text-sm leading-7 text-white/70">Confirm that {activeBaseSrc} exists in the gallery image folder.</p>
                       </div>
                     </div>
                   ) : (
                     <img
-                      src={activeBase.src}
-                      alt={`North American Nebula ${activeBase.label}`}
+                      src={activeBaseSrc}
+                      alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
                       draggable="false"
                       decoding="async"
                       loading="eager"
                       fetchPriority="high"
                       onLoad={() => clearMissing(baseLayer)}
                       onError={() => markMissing(baseLayer)}
-                      className="block w-full select-none"
+                      className="pointer-events-none absolute inset-0 block h-full w-full select-none object-fill"
                     />
                   )}
-                  {showStars && !missingLayers.stars && (
+                  {shouldShowHighResolutionTiles && (
+                    <div className="pointer-events-none absolute inset-0 z-10 select-none transition-opacity duration-150" aria-hidden="true">
+                      {highResolutionTiles.map((tile) => (
+                        <img
+                          key={`${activeTileLayer}-${tile.col}-${tile.row}`}
+                          src={`/images/gallery/north-american-nebula-tiles/${activeTileLayer}/${tile.col}_${tile.row}.webp`}
+                          alt=""
+                          draggable="false"
+                          decoding="async"
+                          loading="eager"
+                          fetchPriority={zoom >= 2 ? "high" : "auto"}
+                          className="absolute block select-none"
+                          style={{
+                            left: `${(tile.x / tileImageWidth) * 100}%`,
+                            top: `${(tile.y / tileImageHeight) * 100}%`,
+                            width: `calc(${(tile.width / tileImageWidth) * 100}% + 0.8px)`,
+                            height: `calc(${(tile.height / tileImageHeight) * 100}% + 0.8px)`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {false && showStars && !missingLayers.stars && (
                     <img
                       src={overlayLayers.stars.src}
                       alt="North American Nebula stars-only overlay"
@@ -6395,7 +7050,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 </div>
                 <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">Capture Data & Project Notes</h2>
                 <p className="mt-2 max-w-5xl text-xs leading-6 text-white/62 sm:text-sm">
-                  This project combines modern RGB data with older C2 narrowband data into one aligned North American Nebula dataset. The RGB sessions provide natural broadband star color and dust structure, while the C2 sessions isolate the S-II and O-III signal with the Askar Colour Magic C2 duo-band filter. Together they produce the finished RGB + C2 image, with separate high-resolution layers for comparing the starless bases, full star field, annotation map, and the Pelican Nebula framing overlay.
+                  This project combines modern RGB data with older C2 narrowband data into one aligned North American Nebula dataset captured through the William Optics RedCat 51 at 250 mm focal length and f/4.9. The RGB sessions provide natural broadband star color and dust structure, while the C2 sessions isolate the S-II and O-III signal with the Askar Colour Magic C2 duo-band filter. Together they produce the finished RGB + C2 image, with separate high-resolution layers for comparing the starless bases, full star field, and annotation map. The Pelican Nebula framing overlay was captured separately with an Apertura 6-inch f/4 Newtonian at 600 mm focal length, then aligned over this field to show how the neighboring nebula frame relates to NGC 7000.
                 </p>
               </div>
 
@@ -6506,7 +7161,7 @@ function GalleryPage({ heroFallback }) {
       {
         title: "North American Nebula",
         src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=00hw50#gallery",
+        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
         detailPath: "/gallery/north-american-nebula",
       },
       {
@@ -7677,12 +8332,9 @@ function AstrophotographySite() {
   const latestNewsOverride = useMemo(() => {
     const cfg = siteConfig;
     if (!cfg || !Array.isArray(cfg.latestNews) || cfg.latestNews.length === 0) return null;
-    // Allow dashboard fields like pinned/status; filter drafts and sort pinned first (stable).
-    const list = cfg.latestNews
-      .filter((p) => (p?.status || "published") !== "draft")
-      .slice();
-    list.sort((a, b) => (b?.pinned ? 1 : 0) - (a?.pinned ? 1 : 0));
-    return list;
+    // Dashboard/site-config posts are additive: saved posts should not wipe out the built-in feed.
+    // Matching default posts may still be edited by id, while missing defaults are restored underneath.
+    return mergeLatestNewsWithDefaults(cfg.latestNews);
   }, [siteConfig]);
 
   const [logoOk, setLogoOk] = useState(true);

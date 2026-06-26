@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-05T19:08:04.622703+00:00",
+  "updatedAt": "2026-06-26T00:00:00.000000+00:00",
   "secret": "saturn",
   "persistence": {
     "mode": "localStorage",
@@ -117,8 +117,8 @@
       "id": "instagram",
       "label": "Instagram Feed",
       "enabled": {
-        "desktop": true,
-        "mobile": true
+        "desktop": false,
+        "mobile": false
       },
       "stylePreset": "default",
       "backgroundImage": "",
@@ -149,15 +149,6 @@
         "i": "latestNews",
         "x": 0,
         "y": 8,
-        "w": 12,
-        "h": 4,
-        "minW": 6,
-        "minH": 2
-      },
-      {
-        "i": "instagram",
-        "x": 0,
-        "y": 12,
         "w": 12,
         "h": 4,
         "minW": 6,
@@ -232,15 +223,6 @@
         "i": "latestNews",
         "x": 0,
         "y": 8,
-        "w": 4,
-        "h": 4,
-        "minW": 4,
-        "minH": 2
-      },
-      {
-        "i": "instagram",
-        "x": 0,
-        "y": 12,
         "w": 4,
         "h": 4,
         "minW": 4,
@@ -298,7 +280,6 @@
       "hero",
       "calendar",
       "latestNews",
-      "instagram",
       "gallery",
       "starcast",
       "eclipseGuide",
@@ -309,7 +290,6 @@
       "hero",
       "calendar",
       "latestNews",
-      "instagram",
       "gallery",
       "starcast",
       "eclipseGuide",
@@ -317,7 +297,21 @@
       "footer"
     ]
   },
-  "latestNews": [],
+  "latestNews": [
+    {
+      "id": "north-american-nebula-interactive",
+      "title": "NGC 7000 Interactive Image Explorer Now Live",
+      "date": "Jun 25, 2026",
+      "image": "/images/gallery/north-american-nebula-thumb-cropped.jpg",
+      "href": "/gallery/north-american-nebula",
+      "external": false,
+      "shareHref": "/share/north-american-nebula/",
+      "description": "I\u2019ve launched a new interactive image explorer for NGC 7000, the North American Nebula. The page features a high-resolution zoomable image viewer, selectable RGB/C2/Combined base layers, star and annotation toggles, a Pelican Nebula overlay, and a full project card with capture data, equipment, exposure details, and processing notes. This will also serve as the template for future interactive image releases.",
+      "cta": "View Interactive Image",
+      "mediaFit": "contain",
+      "category": "Interactive image"
+    }
+  ],
   "instagramFeed": {
     "handle": "jakeschultzastrophotography",
     "profileUrl": "https://www.instagram.com/jakeschultzastrophotography/",

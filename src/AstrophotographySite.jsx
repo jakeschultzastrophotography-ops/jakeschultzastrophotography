@@ -5776,6 +5776,16 @@ function NorthAmericanNebulaPage({ navigate }) {
   const mobileCanvasImagesRef = useRef({});
   const mobileCanvasDrawFrameRef = useRef(0);
   const [mobileCanvasReady, setMobileCanvasReady] = useState(false);
+  // Tracks the viewer layer the user actually asked for. Mobile canvas image
+  // loads can finish out of order, so stale loads/draws must never repaint
+  // the canvas with a previously selected base layer.
+  const mobileCanvasLayerRequestRef = useRef({
+    token: 0,
+    baseSrc: "",
+    baseLayer: "combined",
+    showPelicanOverlay: false,
+    showAnnotation: false,
+  });
   const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, viewX: 0, viewY: 0 });
   const touchRef = useRef({ mode: null, distance: 0, zoom: 1, x: 0, y: 0, viewX: 0, viewY: 0, centerX: 0, centerY: 0, imageX: 0, imageY: 0 });
   const zoomRef = useRef(1);
@@ -6233,12 +6243,14 @@ function NorthAmericanNebulaPage({ navigate }) {
     ctx.fillRect(0, 0, cssW, cssH);
 
     const displayScale = getDisplayScale(zoomRef.current || 1);
-    const baseImg = mobileCanvasImagesRef.current[baseDisplaySrc];
+    const drawState = mobileCanvasLayerRequestRef.current || {};
+    const requestedBaseSrc = drawState.baseSrc || baseDisplaySrc;
+    const baseImg = mobileCanvasImagesRef.current[requestedBaseSrc];
     const drewBase = drawMobileCanvasLayer(ctx, baseImg, cssW, cssH, displayScale);
-    if (showPelicanOverlay) {
+    if (drawState.showPelicanOverlay) {
       drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.pelican.src], cssW, cssH, displayScale);
     }
-    if (showAnnotation) {
+    if (drawState.showAnnotation) {
       drawMobileCanvasLayer(ctx, mobileCanvasImagesRef.current[overlayLayers.annotation.src], cssW, cssH, displayScale);
     }
     if (drewBase) setMobileCanvasReady(true);
@@ -6253,7 +6265,19 @@ function NorthAmericanNebulaPage({ navigate }) {
   useEffect(() => {
     if (!mobileCanvasViewerActive) return undefined;
     let cancelled = false;
-    setMobileCanvasReady(false);
+    const requestToken = (mobileCanvasLayerRequestRef.current?.token || 0) + 1;
+    const requestedLayer = {
+      token: requestToken,
+      baseSrc: baseDisplaySrc,
+      baseLayer,
+      showPelicanOverlay,
+      showAnnotation,
+    };
+    mobileCanvasLayerRequestRef.current = requestedLayer;
+
+    // Do not blank the canvas on a layer change. Keep the last successfully drawn
+    // layer visible while the requested layer loads, then repaint only if this
+    // exact request is still current.
     setBaseImageLoading(!loadedLayerSrcsRef.current[baseDisplaySrc]);
 
     const neededSources = [
@@ -6263,7 +6287,14 @@ function NorthAmericanNebulaPage({ navigate }) {
     ].filter(Boolean);
 
     Promise.allSettled(neededSources.map((src) => loadMobileCanvasImage(src))).then((results) => {
-      if (cancelled) return;
+      const latestRequest = mobileCanvasLayerRequestRef.current || {};
+      if (
+        cancelled ||
+        latestRequest.token !== requestToken ||
+        latestRequest.baseSrc !== baseDisplaySrc ||
+        latestRequest.baseLayer !== baseLayer
+      ) return;
+
       const baseLoaded = results[0]?.status === "fulfilled" && results[0]?.value;
       if (!baseLoaded) {
         markMissing(baseLayer);
@@ -6275,8 +6306,13 @@ function NorthAmericanNebulaPage({ navigate }) {
       setBaseImageLoading(false);
       setMobileCanvasReady(true);
       requestAnimationFrame(() => {
+        const currentRequest = mobileCanvasLayerRequestRef.current || {};
+        if (
+          currentRequest.token !== requestToken ||
+          currentRequest.baseSrc !== baseDisplaySrc ||
+          currentRequest.baseLayer !== baseLayer
+        ) return;
         getFitScale();
-        applyView(zoomRef.current || 1, viewRef.current.x, viewRef.current.y, false, true);
         scheduleMobileCanvasDraw();
       });
     });
@@ -7335,7 +7371,24 @@ function NorthAmericanNebulaPage({ navigate }) {
         <button
           key={id}
           type="button"
-          onClick={(event) => { event.stopPropagation(); clearMissing(id); setBaseLayer(id); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            clearMissing(id);
+            if (mobileCanvasViewerActive) {
+              const nextLayer = baseLayers[id] || baseLayers.combined;
+              const nextSrc = showStars && nextLayer.starSrc ? nextLayer.starSrc : nextLayer.src;
+              mobileCanvasLayerRequestRef.current = {
+                token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
+                baseSrc: nextSrc,
+                baseLayer: id,
+                showPelicanOverlay,
+                showAnnotation,
+              };
+              setBaseImageLoading(!loadedLayerSrcsRef.current[nextSrc]);
+              scheduleMobileCanvasDraw();
+            }
+            setBaseLayer(id);
+          }}
           aria-label={toolbarNotes[id]}
           {...controlNoteProps(id, layer.label)}
           className={controlChipClass(baseLayer === id, compact)}
@@ -7362,9 +7415,55 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   const renderOverlayToggles = (compact = false, labels = { stars: "Stars", pelican: "Pelican", annotation: "Labels" }) => (
     <div className="flex shrink-0 items-center gap-1">
-      {renderOverlayToggle("stars", labels.stars, showStars, () => { clearMissing("stars"); setShowStars((value) => !value); }, compact, "✦")}
-      {renderOverlayToggle("pelican", labels.pelican, showPelicanOverlay, () => { clearMissing("pelican"); setShowPelicanOverlay((value) => !value); }, compact, "▣")}
-      {renderOverlayToggle("annotation", labels.annotation, showAnnotation, () => { clearMissing("annotation"); setShowAnnotation((value) => !value); }, compact, "⌖")}
+      {renderOverlayToggle("stars", labels.stars, showStars, () => {
+        clearMissing("stars");
+        const nextShowStars = !showStars;
+        if (mobileCanvasViewerActive) {
+          const nextSrc = nextShowStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
+          mobileCanvasLayerRequestRef.current = {
+            token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
+            baseSrc: nextSrc,
+            baseLayer,
+            showPelicanOverlay,
+            showAnnotation,
+          };
+          setBaseImageLoading(!loadedLayerSrcsRef.current[nextSrc]);
+          scheduleMobileCanvasDraw();
+        }
+        setShowStars(nextShowStars);
+      }, compact, "✦")}
+      {renderOverlayToggle("pelican", labels.pelican, showPelicanOverlay, () => {
+        clearMissing("pelican");
+        const nextShowPelicanOverlay = !showPelicanOverlay;
+        if (mobileCanvasViewerActive) {
+          mobileCanvasLayerRequestRef.current = {
+            ...(mobileCanvasLayerRequestRef.current || {}),
+            token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
+            baseSrc: baseDisplaySrc,
+            baseLayer,
+            showPelicanOverlay: nextShowPelicanOverlay,
+            showAnnotation,
+          };
+          scheduleMobileCanvasDraw();
+        }
+        setShowPelicanOverlay(nextShowPelicanOverlay);
+      }, compact, "▣")}
+      {renderOverlayToggle("annotation", labels.annotation, showAnnotation, () => {
+        clearMissing("annotation");
+        const nextShowAnnotation = !showAnnotation;
+        if (mobileCanvasViewerActive) {
+          mobileCanvasLayerRequestRef.current = {
+            ...(mobileCanvasLayerRequestRef.current || {}),
+            token: (mobileCanvasLayerRequestRef.current?.token || 0) + 1,
+            baseSrc: baseDisplaySrc,
+            baseLayer,
+            showPelicanOverlay,
+            showAnnotation: nextShowAnnotation,
+          };
+          scheduleMobileCanvasDraw();
+        }
+        setShowAnnotation(nextShowAnnotation);
+      }, compact, "⌖")}
     </div>
   );
 

@@ -7003,19 +7003,24 @@ function NorthAmericanNebulaPage({ navigate }) {
         viewport.setAttribute("name", "viewport");
         frameDocument.head?.appendChild(viewport);
       }
-      viewport.setAttribute("content", "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+      viewport.setAttribute(
+        "content",
+        objectExplorer
+          ? "width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
+          : "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      );
 
       const html = frameDocument.documentElement;
       const body = frameDocument.body;
       if (html) {
         html.style.overscrollBehavior = "contain";
-        html.style.touchAction = "none";
+        html.style.touchAction = objectExplorer ? "auto" : "none";
         html.style.margin = "0";
         html.style.background = "#000";
       }
       if (body) {
         body.style.overscrollBehavior = "contain";
-        body.style.touchAction = "none";
+        body.style.touchAction = objectExplorer ? "auto" : "none";
         body.style.margin = "0";
         body.style.background = "#000";
       }
@@ -7059,7 +7064,7 @@ function NorthAmericanNebulaPage({ navigate }) {
               width: 100% !important;
               max-width: 100% !important;
               overflow-x: hidden !important;
-              touch-action: none !important;
+              touch-action: auto !important;
             }
             canvas, svg, img, video {
               display: block;
@@ -7075,7 +7080,9 @@ function NorthAmericanNebulaPage({ navigate }) {
         style.textContent = `
           @media (max-width: 767px) {
             body {
-              overflow: hidden !important;
+              overflow: auto !important;
+              -webkit-overflow-scrolling: touch !important;
+              touch-action: auto !important;
             }
             main, #root, #app, .app, .container, .wrapper,
             [class*="explorer" i], [class*="viewer" i], [class*="stage" i], [class*="canvas" i], [class*="map" i] {
@@ -7127,7 +7134,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       window.setTimeout(resetFrameScroll, 80);
       window.setTimeout(resetFrameScroll, 300);
 
-      if (!frameDocument.defaultView?.__jakeMobileGestureLockInstalled) {
+      if (!objectExplorer && !frameDocument.defaultView?.__jakeMobileGestureLockInstalled) {
         let lastTouchEnd = 0;
         const preventFrameBrowserZoom = (frameEvent) => {
           if (frameEvent.touches?.length > 1) frameEvent.preventDefault();
@@ -7854,11 +7861,11 @@ function NorthAmericanNebulaPage({ navigate }) {
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
               <iframe
-                key="north-america-object-explorer-mobile-clean-2823"
+                key="north-america-object-explorer-mobile-scroll-2828"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&clean=2823#top"
+                src="/interactive/north-american-nebula/object-explorer.html?mobile=1&scroll=2828#top"
                 loading="eager"
-                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
+                scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedObjectFrameStyle}
@@ -7878,7 +7885,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                 title="North American Nebula 4D AstroDepth Map"
                 src="/interactive/north-american-nebula/astrodepth-map.html?mobile=1&center=2823#top"
                 loading="eager"
-                scrolling={mobileEmbeddedFrame ? "no" : "auto"}
+                scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
                 data-embedded-interactive-frame="true"
                 style={embeddedDepthFrameStyle}

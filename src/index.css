@@ -21,7 +21,7 @@ body {
 
 
 [data-embedded-interactive-frame="true"] {
-  touch-action: none;
+  touch-action: auto;
   overscroll-behavior: contain;
 }
 
@@ -30,18 +30,19 @@ body {
   .north-america-embedded-shell {
     width: 100%;
     max-width: 100vw;
-    overflow: hidden;
+    overflow: auto;
     align-items: flex-start;
     justify-content: center;
-    touch-action: none;
+    touch-action: pan-x pan-y pinch-zoom;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .north-america-object-frame,
   .north-america-depth-frame {
     display: block;
     border: 0;
-    touch-action: none;
+    touch-action: auto;
     overscroll-behavior: contain;
   }
 }

@@ -5849,9 +5849,16 @@ function NorthAmericanNebulaPage({ navigate }) {
   const activeBase = baseLayers[baseLayer] || baseLayers.combined;
   const activeBaseSrc = showStars && activeBase.starSrc ? activeBase.starSrc : activeBase.src;
   const getResponsiveLayerSrc = (src) => src;
+  const getMobileOverviewLayerSrc = (src, width = 1800, quality = 90) =>
+    mobileImageFallbacks[src] ? src : getNetlifyOptimizedImageUrl(src, width, quality);
   const baseDisplaySrc = activeBaseSrc;
   const annotationDisplaySrc = overlayLayers.annotation.src;
   const pelicanDisplaySrc = overlayLayers.pelican.src;
+  const mobileLowZoomOverviewActive = isImageMode && isMobileLikeViewport() && zoom <= 1.14;
+  const mobileBaseOverviewSrc = getMobileOverviewLayerSrc(activeBaseSrc, 1900, 90);
+  const baseRenderSrc = mobileLowZoomOverviewActive ? mobileBaseOverviewSrc : baseDisplaySrc;
+  const annotationRenderSrc = mobileLowZoomOverviewActive ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 1900, 90) : annotationDisplaySrc;
+  const pelicanRenderSrc = mobileLowZoomOverviewActive ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 1900, 90) : pelicanDisplaySrc;
   const masterImageUrls = useMemo(() => [
     "/images/gallery/north-american-nebula-combined-starless-master-q100.jpg",
     "/images/gallery/north-american-nebula-combined-with-stars-master-q100.jpg",
@@ -5962,8 +5969,15 @@ function NorthAmericanNebulaPage({ navigate }) {
     const layerSources = Object.values(baseLayers).flatMap((layer) => [layer.src, layer.starSrc]).filter(Boolean);
     const overlaySources = [overlayLayers.annotation.src, overlayLayers.pelican.src].filter(Boolean);
     const activeLayerSources = [activeBase.src, activeBase.starSrc].filter(Boolean);
+    const mobileOverviewSources = mobileViewer
+      ? [
+          getMobileOverviewLayerSrc(activeBaseSrc, 1900, 90),
+          showPelicanOverlay ? getMobileOverviewLayerSrc(overlayLayers.pelican.src, 1900, 90) : null,
+          showAnnotation ? getMobileOverviewLayerSrc(overlayLayers.annotation.src, 1900, 90) : null,
+        ]
+      : [];
     const priorityImages = (mobileViewer
-      ? activeLayerSources
+      ? [...mobileOverviewSources, ...activeLayerSources]
       : [...layerSources, ...overlaySources]
     ).filter(Boolean);
 
@@ -5979,7 +5993,7 @@ function NorthAmericanNebulaPage({ navigate }) {
       return img;
     });
     masterImageCacheRef.current = [...masterImageCacheRef.current, ...cachedPriority].slice(-18);
-  }, [baseLayer, baseDisplaySrc]);
+  }, [baseLayer, baseDisplaySrc, activeBaseSrc, showPelicanOverlay, showAnnotation, mobileImageFallbacks]);
 
   useEffect(() => {
     if (!enableTiledDetail) return undefined;
@@ -6088,8 +6102,11 @@ function NorthAmericanNebulaPage({ navigate }) {
   useEffect(() => {
     // Preserve the current pan/zoom position while switching base layers.
     // The viewer should feel like changing layers in an image editor, not resetting the canvas.
-    setBaseImageLoading(!loadedLayerSrcsRef.current[baseDisplaySrc]);
-  }, [baseDisplaySrc]);
+    // On mobile, the fully zoomed-out view uses a smaller overview raster so Chrome does not
+    // break the huge 7887px image into missing GPU texture chunks. Full resolution returns as soon
+    // as the viewer is zoomed in enough to inspect detail.
+    setBaseImageLoading(!loadedLayerSrcsRef.current[baseRenderSrc]);
+  }, [baseDisplaySrc, baseRenderSrc]);
 
   const clampZoom = (value) => Math.max(1, Math.min(getQualityMaxZoom(), Number(value.toFixed(4))));
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -6680,12 +6697,20 @@ function NorthAmericanNebulaPage({ navigate }) {
     markMissing(key);
   };
 
-  const handleBaseImageLoad = () => {
+  const handleBaseImageLoad = (loadedSrc = baseRenderSrc) => {
     clearMissing(baseLayer);
-    loadedLayerSrcsRef.current[baseDisplaySrc] = true;
-    setReadyBaseDisplaySrc(baseDisplaySrc);
+    loadedLayerSrcsRef.current[loadedSrc] = true;
+    if (loadedSrc === baseDisplaySrc || !readyBaseDisplaySrc || mobileLowZoomOverviewActive) {
+      setReadyBaseDisplaySrc(loadedSrc);
+    }
     setBaseImageLoading(false);
     paintViewImmediate();
+  };
+
+  const handleOverviewImageFallback = (originalSrc) => {
+    if (!mobileLowZoomOverviewActive || mobileImageFallbacks[originalSrc]) return false;
+    setMobileImageFallbacks((current) => ({ ...current, [originalSrc]: true }));
+    return true;
   };
 
   const scrollToProjectInfo = () => {
@@ -7162,7 +7187,7 @@ function NorthAmericanNebulaPage({ navigate }) {
                     </div>
                   ) : (
                     <>
-                      {readyBaseDisplaySrc && readyBaseDisplaySrc !== baseDisplaySrc && baseImageLoading && (
+                      {readyBaseDisplaySrc && readyBaseDisplaySrc !== baseRenderSrc && baseImageLoading && !(mobileLowZoomOverviewActive && readyBaseDisplaySrc === baseDisplaySrc) && (
                         <img
                           key={`ready-${readyBaseDisplaySrc}`}
                           src={readyBaseDisplaySrc}
@@ -7175,16 +7200,19 @@ function NorthAmericanNebulaPage({ navigate }) {
                         />
                       )}
                       <img
-                        key={`${baseLayer}-${showStars ? "with-stars" : "starless"}-${baseDisplaySrc}`}
-                        src={baseDisplaySrc}
+                        key={`${baseLayer}-${showStars ? "with-stars" : "starless"}-${baseRenderSrc}`}
+                        src={baseRenderSrc}
                         alt={`North American Nebula ${activeBase.label}${showStars ? " with stars" : ""}`}
                         draggable="false"
                         decoding="async"
                         loading="eager"
                         fetchPriority="high"
-                        onLoad={handleBaseImageLoad}
-                        onError={() => handleLayerFallbackOrMissing(activeBaseSrc, baseLayer)}
-                        className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill ${(baseImageLoading && readyBaseDisplaySrc && readyBaseDisplaySrc !== baseDisplaySrc) ? "opacity-0" : "opacity-100"}`}
+                        onLoad={() => handleBaseImageLoad(baseRenderSrc)}
+                        onError={() => {
+                          if (handleOverviewImageFallback(activeBaseSrc)) return;
+                          handleLayerFallbackOrMissing(activeBaseSrc, baseLayer);
+                        }}
+                        className={`pointer-events-none absolute inset-0 block h-full w-full select-none object-fill ${(baseImageLoading && readyBaseDisplaySrc && readyBaseDisplaySrc !== baseRenderSrc) ? "opacity-0" : "opacity-100"}`}
                       />
                     </>
                   )}
@@ -7226,28 +7254,34 @@ function NorthAmericanNebulaPage({ navigate }) {
                   {showPelicanOverlay && !missingLayers.pelican && (
                     <>
                       <img
-                        src={pelicanDisplaySrc}
+                        src={pelicanRenderSrc}
                         alt="North American Nebula Pelican overlay"
                         draggable="false"
                         decoding="async"
                         loading="eager"
                         fetchPriority="high"
-                        onLoad={() => { loadedLayerSrcsRef.current[pelicanDisplaySrc] = true; clearMissing("pelican"); }}
-                        onError={() => handleLayerFallbackOrMissing(overlayLayers.pelican.src, "pelican")}
+                        onLoad={() => { loadedLayerSrcsRef.current[pelicanRenderSrc] = true; clearMissing("pelican"); }}
+                        onError={() => {
+                          if (handleOverviewImageFallback(overlayLayers.pelican.src)) return;
+                          handleLayerFallbackOrMissing(overlayLayers.pelican.src, "pelican");
+                        }}
                         className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                       />
                     </>
                   )}
                   {showAnnotation && !missingLayers.annotation && (
                     <img
-                      src={annotationDisplaySrc}
+                      src={annotationRenderSrc}
                       alt="North American Nebula annotation overlay"
                       draggable="false"
                       decoding="async"
                       loading="eager"
                       fetchPriority="high"
-                      onLoad={() => { loadedLayerSrcsRef.current[annotationDisplaySrc] = true; clearMissing("annotation"); }}
-                      onError={() => handleLayerFallbackOrMissing(overlayLayers.annotation.src, "annotation")}
+                      onLoad={() => { loadedLayerSrcsRef.current[annotationRenderSrc] = true; clearMissing("annotation"); }}
+                      onError={() => {
+                        if (handleOverviewImageFallback(overlayLayers.annotation.src)) return;
+                        handleLayerFallbackOrMissing(overlayLayers.annotation.src, "annotation");
+                      }}
                       className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                     />
                   )}

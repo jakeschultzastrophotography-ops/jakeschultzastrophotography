@@ -27,9 +27,9 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-keepsake-12x10-paper', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Photo print', size: '12 × 10.2 inches (landscape)', material: 'Fuji Crystal DP II glossy photo paper', frame: 'Unframed',
-      priceCents: 3995, stripePriceIds: {}, sourceApproved: true,
+      priceCents: 3995, stripePriceIds: { test: 'price_1UY8MFE9TNuvn9mCRQLDw7qs' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
-      cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: false,
+      cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
     {
       id: 'north-american-nebula-centerpiece-30x25-paper', photographId: 'north-american-nebula-thumb-cropped',

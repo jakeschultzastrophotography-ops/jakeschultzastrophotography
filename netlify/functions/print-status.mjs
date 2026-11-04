@@ -1,4 +1,5 @@
 import { json, stripeClient } from '../lib/print-commerce.mjs';
+
 export async function handler(event) {
   if (event.httpMethod !== 'GET') return json(405, { error: 'Method not allowed.' });
   const id = event.queryStringParameters?.session_id;

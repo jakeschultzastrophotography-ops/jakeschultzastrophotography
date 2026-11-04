@@ -41,9 +41,9 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-keepsake-12x10-canvas', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Canvas print', size: '12 × 10.2 inches (landscape)', material: 'Glossy canvas on stretcher frame', frame: 'Gallery wrap',
-      priceCents: 6995, stripePriceIds: {}, sourceApproved: true,
+      priceCents: 6995, stripePriceIds: { test: 'price_1UY8SCE9TNuvn9mCYFveL66K' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
-      cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: false,
+      cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
     {
       id: 'north-american-nebula-centerpiece-30x25-canvas', photographId: 'north-american-nebula-thumb-cropped',

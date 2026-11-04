@@ -19,7 +19,7 @@ export const printCatalog = {
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Cropped to fill the 20 × 17-inch print with no white border.',
       pricing: { basis: 'WhiteWall print cost before tax and shipping', markupCents: 5000, verifiedLabCostCents: 3395, checkedAt: '2026-10-28' },
-      enabled: false,
+      enabled: true,
     },
   ],
   // Variant shape:

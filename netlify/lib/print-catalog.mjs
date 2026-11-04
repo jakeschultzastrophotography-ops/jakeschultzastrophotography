@@ -55,9 +55,9 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-wall-20x17-canvas', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Canvas print', size: '20 × 17 inches (landscape)', material: 'Glossy canvas on stretcher frame', frame: 'Gallery wrap',
-      priceCents: 13995, stripePriceIds: {}, sourceApproved: true,
+      priceCents: 13995, stripePriceIds: { test: 'price_1UY8OsE9TNuvn9mC6CuiQRgs' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
-      cropDescription: 'The approved 20 × 17-inch crop with no white border.', enabled: false,
+      cropDescription: 'The approved 20 × 17-inch crop with no white border.', enabled: true,
     },
     {
       id: 'north-american-nebula-keepsake-12x10-metal', photographId: 'north-american-nebula-thumb-cropped',

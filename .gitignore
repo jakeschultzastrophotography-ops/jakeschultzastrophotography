@@ -29,3 +29,6 @@ dist-ssr
 # Don't deploy the lockscreen source file
 public/images/wallpapers/backgrounds/Totality-Lock-Screen.jpg
 
+
+# Local print originals and prepared exports; never publish or commit.
+/private-print-masters/

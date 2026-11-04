@@ -1,3 +1,6 @@
+import PrintCheckoutResult from "./components/PrintCheckoutResult";
+import { photographs, homepagePhotographs } from "./data/photographs";
+import PrintOrderButton from "./components/PrintOrderButton";
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1074,148 +1077,7 @@ function HomePage({ sectionScrollMargin, heroFallback, navigate, latestNews, sec
   const getSectionClassName = (id) => sectionPresetClassName(getSectionConfig(id));
   const getSectionStyle = (id) => sectionInlineStyle(getSectionConfig(id));
 
-  const gallery = useMemo(
-    () => [
-      {
-        title: "North America Nebula Interactive Explorer",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
-        detailPath: "/gallery/north-american-nebula",
-        featuredInteractive: true,
-      },
-      {
-        title: "IC 1396 — Elephant Trunk Nebula",
-        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
-      },
-      {
-        title: "Andromeda Galaxy (M31)",
-        src: "/images/gallery/M31-andromeda-galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
-      },
-      {
-        title: "Triangulum Galaxy (M33)",
-        src: "/images/gallery/M33-Triangulum-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=s2kavm#gallery",
-      },
-      {
-        title: "Orion Nebula (M42)",
-        src: "/images/gallery/M42-orion-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=v04416#gallery",
-      },
-      {
-        title: "Pleiades (M45)",
-        src: "/images/gallery/M45-pleiades.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=07i1mm#gallery",
-      },
-      {
-        title: "M3 Star Cluster",
-        src: "/images/gallery/M3-star-cluster.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
-      },
-      {
-        title: "M13 Great Hercules Cluster",
-        src: "/images/gallery/M13.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
-      },
-      {
-        title: "Iris Nebula",
-        src: "/images/gallery/Iris-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
-      },
-      {
-        title: "M104 Sombrero Galaxy",
-        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
-      },
-      {
-        title: "Crescent Nebula",
-        src: "/images/gallery/crescent-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
-      },
-      {
-        title: "Cygnus Loop",
-        src: "/images/gallery/cygnus-loop.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=iuprk1#gallery",
-      },
-      {
-        title: "Eastern Veil Nebula",
-        src: "/images/gallery/eastern-veil-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ckddjp#gallery",
-      },
-      {
-        title: "Flame + Horsehead",
-        src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
-      },
-      {
-        title: "Pacman Nebula",
-        src: "/images/gallery/pacman-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=0petis#gallery",
-      },
-      {
-        title: "Pelican Nebula",
-        src: "/images/gallery/pelican-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=rfg4iu#gallery",
-      },
-      {
-        title: "Rosette Nebula",
-        src: "/images/gallery/rosette-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ql9o7q#gallery",
-      },
-      {
-        title: "California Nebula",
-        src: "/images/gallery/California-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=kep4o2#gallery",
-      },
-      {
-        title: "Comet C/2023 A3 (Tsuchinshan–ATLAS)",
-        src: "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=gua7l8#gallery",
-      },
-      {
-        title: "Milky Way (Jubilee)",
-        src: "/images/gallery/milky-way-at-jubilee.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jomm01#gallery",
-      },
-      {
-        title: "Auroras",
-        src: "/images/gallery/auroras.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7v0n71#gallery",
-      },
-      {
-        title: "Auroras (Jubilee)",
-        src: "/images/gallery/auroras-at-jubilee-observatory.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ro5i8r#gallery",
-      },
-      {
-        title: "Harvest Moon",
-        src: "/images/gallery/harvest-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=3ntchk#gallery",
-      },
-      {
-        title: "Venus + Crescent Moon",
-        src: "/images/gallery/venus-and-crescent-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=nbzfce#gallery",
-      },
-      {
-        title: "Totality",
-        src: "/images/gallery/totality.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jikvvk#gallery",
-      },
-      {
-        title: "Moon (1)",
-        src: "/images/gallery/moon-1.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=52ev9v#gallery",
-      },
-      {
-        title: "Moon (2)",
-        src: "/images/gallery/moon-2.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=tecn9s#gallery",
-      },
-    ],
-    []
-  );
+  const gallery = homepagePhotographs;
 
   const enabled = (id) => (typeof sectionEnabled === "function" ? !!sectionEnabled(id) : true);
 
@@ -1573,8 +1435,8 @@ case "gallery":
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
-            <motion.a
-              key={item.title}
+            <div key={item.id}>
+<motion.a
               href={item.detailPath || item.astrobin}
               target={item.detailPath ? undefined : "_blank"}
               rel={item.detailPath ? undefined : "noreferrer"}
@@ -1613,6 +1475,8 @@ case "gallery":
                 </div>
               </div>
             </motion.a>
+<PrintOrderButton photograph={item} />
+</div>
           ))}
         </div>
       </section>
@@ -1928,8 +1792,8 @@ return (
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {gallery.map((item) => (
-            <motion.a
-              key={item.title}
+            <div key={item.id}>
+<motion.a
               href={item.detailPath || item.astrobin}
               target={item.detailPath ? undefined : "_blank"}
               rel={item.detailPath ? undefined : "noreferrer"}
@@ -1968,6 +1832,8 @@ return (
                 </div>
               </div>
             </motion.a>
+<PrintOrderButton photograph={item} />
+</div>
           ))}
         </div>
       </section>
@@ -5808,6 +5674,16 @@ function NorthAmericanNebulaPage({ navigate }) {
   const tileImageWidth = 7887;
   const tileImageHeight = 6086;
   const tileSize = 512;
+  // Pelican Nebula field-of-view frame: clean, symmetrical overlay aligned to
+  // the separately captured 600 mm Pelican image inside the 250 mm RedCat field.
+  // The top intentionally extends above the NGC 7000 image canvas to match the
+  // actual overlapping frame position.
+  const pelicanFovFrame = {
+    left: 2866,
+    top: -628,
+    width: 3288,
+    height: 2536,
+  };
   const highResolutionTiles = useMemo(() => {
     const cols = Math.ceil(tileImageWidth / tileSize);
     const rows = Math.ceil(tileImageHeight / tileSize);
@@ -6293,6 +6169,22 @@ function NorthAmericanNebulaPage({ navigate }) {
         cssH,
         displayScale
       );
+    }
+    if (drawState.showPelicanOverlay) {
+      const frameX = viewRef.current.x + pelicanFovFrame.left * displayScale;
+      const frameY = viewRef.current.y + pelicanFovFrame.top * displayScale;
+      const frameW = pelicanFovFrame.width * displayScale;
+      const frameH = pelicanFovFrame.height * displayScale;
+      const frameLineWidth = Math.max(2, 24 * displayScale);
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 210, 105, 0.075)";
+      ctx.strokeStyle = "rgba(255, 214, 112, 0.86)";
+      ctx.lineWidth = frameLineWidth;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+      ctx.shadowBlur = Math.max(2, 18 * displayScale);
+      ctx.fillRect(frameX, frameY, frameW, frameH);
+      ctx.strokeRect(frameX + frameLineWidth / 2, frameY + frameLineWidth / 2, Math.max(1, frameW - frameLineWidth), Math.max(1, frameH - frameLineWidth));
+      ctx.restore();
     }
     if (drewBase) setMobileCanvasReady(true);
   };
@@ -7686,6 +7578,7 @@ function NorthAmericanNebulaPage({ navigate }) {
 
   return (
     <section className="mx-auto max-w-[1700px] px-0 py-0 sm:px-4 sm:py-2 lg:px-5">
+        <PrintOrderButton photograph={photographs[0]} />
       <div className="mb-1.5 hidden flex-wrap items-center justify-between gap-2 sm:flex">
         <button
           type="button"
@@ -7866,6 +7759,20 @@ function NorthAmericanNebulaPage({ navigate }) {
                         }}
                         className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                       />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute z-20 select-none"
+                        style={{
+                          left: `${pelicanFovFrame.left}px`,
+                          top: `${pelicanFovFrame.top}px`,
+                          width: `${pelicanFovFrame.width}px`,
+                          height: `${pelicanFovFrame.height}px`,
+                          boxSizing: "border-box",
+                          border: "24px solid rgba(255, 214, 112, 0.86)",
+                          background: "rgba(255, 210, 105, 0.075)",
+                          boxShadow: "0 0 0 10px rgba(0,0,0,0.32), 0 0 90px rgba(255,214,112,0.20)",
+                        }}
+                      />
                     </>
                   )}
                   {showAnnotation && !missingLayers.annotation && (
@@ -7922,9 +7829,9 @@ function NorthAmericanNebulaPage({ navigate }) {
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
               <iframe
-                key="north-america-object-explorer-source-2836"
+                key="north-america-object-explorer-source-294"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?v=2837#top"
+                src="/interactive/north-american-nebula/object-explorer.html?v=294#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -7941,9 +7848,9 @@ function NorthAmericanNebulaPage({ navigate }) {
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black text-center" style={embeddedDepthShellStyle}>
               <iframe
-                key="north-america-astrodepth-map-source-2836"
+                key="north-america-astrodepth-map-source-294"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?v=2837#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?v=294#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -8069,147 +7976,7 @@ function NorthAmericanNebulaPage({ navigate }) {
 
 
 function GalleryPage({ heroFallback }) {
-  const gallery = useMemo(
-    () => [
-      {
-        title: "North American Nebula",
-        src: "/images/gallery/north-american-nebula-thumb-cropped.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=wz2g3f",
-        detailPath: "/gallery/north-american-nebula",
-      },
-      {
-        title: "IC 1396 — Elephant Trunk Nebula",
-        src: "/images/gallery/IC-1396-Elephant-Trunk-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=4bd3ok#gallery",
-      },
-      {
-        title: "M31 Andromeda Galaxy",
-        src: "/images/gallery/M31-andromeda-galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=fp9yxy#gallery",
-      },
-      {
-        title: "M33 Triangulum Galaxy",
-        src: "/images/gallery/M33-Triangulum-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=s2kavm#gallery",
-      },
-      {
-        title: "M42 Orion Nebula",
-        src: "/images/gallery/M42-orion-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=v04416#gallery",
-      },
-      {
-        title: "M45 Pleiades",
-        src: "/images/gallery/M45-pleiades.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=07i1mm#gallery",
-      },
-      {
-        title: "M3 Star Cluster",
-        src: "/images/gallery/M3-star-cluster.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=oywabk#gallery",
-      },
-      {
-        title: "M13 Great Hercules Cluster",
-        src: "/images/gallery/M13.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=81isyq#gallery",
-      },
-      {
-        title: "Iris Nebula",
-        src: "/images/gallery/Iris-Nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=6rjj91#gallery",
-      },
-      {
-        title: "M104 Sombrero Galaxy",
-        src: "/images/gallery/M104-Sombrero-Galaxy.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=judzvm#gallery",
-      },
-      {
-        title: "Crescent Nebula",
-        src: "/images/gallery/crescent-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=9qpq1s#gallery",
-      },
-      {
-        title: "Cygnus Loop",
-        src: "/images/gallery/cygnus-loop.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=iuprk1#gallery",
-      },
-      {
-        title: "Eastern Veil Nebula",
-        src: "/images/gallery/eastern-veil-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ckddjp#gallery",
-      },
-      {
-        title: "Flame and Horsehead Nebula",
-        src: "/images/gallery/Flame-and-horsehead-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7xwtsy#gallery",
-      },
-      {
-        title: "Pacman Nebula",
-        src: "/images/gallery/pacman-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=0petis#gallery",
-      },
-      {
-        title: "Pelican Nebula",
-        src: "/images/gallery/pelican-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=rfg4iu#gallery",
-      },
-      {
-        title: "Rosette Nebula",
-        src: "/images/gallery/rosette-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ql9o7q#gallery",
-      },
-      {
-        title: "California Nebula",
-        src: "/images/gallery/California-nebula.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=kep4o2#gallery",
-      },
-      {
-        title: "Comet C/2023 A3 (Tsuchinshan-ATLAS)",
-        src: "/images/gallery/Comet-C2023-A3-(Tsuchinshan-ATLAS)v2.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=gua7l8#gallery",
-      },
-      {
-        title: "Milky Way at Jubilee",
-        src: "/images/gallery/milky-way-at-jubilee.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jomm01#gallery",
-      },
-      {
-        title: "Auroras",
-        src: "/images/gallery/auroras.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=7v0n71#gallery",
-      },
-      {
-        title: "Auroras at Jubilee Observatory",
-        src: "/images/gallery/auroras-at-jubilee-observatory.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=ro5i8r#gallery",
-      },
-      {
-        title: "Harvest Moon",
-        src: "/images/gallery/harvest-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=3ntchk#gallery",
-      },
-      {
-        title: "Venus and Crescent Moon",
-        src: "/images/gallery/venus-and-crescent-moon.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=nbzfce#gallery",
-      },
-      {
-        title: "Totality",
-        src: "/images/gallery/totality.jpg",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=jikvvk#gallery",
-      },
-      {
-        title: "Moon",
-        src: "/images/gallery/moon-1.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=52ev9v#gallery",
-      },
-      {
-        title: "Moon Close-Up",
-        src: "/images/gallery/moon-2.png",
-        astrobin: "https://app.astrobin.com/u/Astro_jake?i=tecn9s#gallery",
-      },
-    ],
-    []
-  );
+  const gallery = photographs;
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -8239,8 +8006,8 @@ function GalleryPage({ heroFallback }) {
         <div className="px-6 py-6 sm:px-8 sm:py-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {gallery.map((item) => (
-              <motion.a
-                key={item.title}
+              <div key={item.id}>
+<motion.a
                 href={item.detailPath || item.astrobin}
                 target={item.detailPath ? undefined : "_blank"}
                 rel={item.detailPath ? undefined : "noreferrer"}
@@ -8279,6 +8046,8 @@ function GalleryPage({ heroFallback }) {
                   </div>
                 </div>
               </motion.a>
+<PrintOrderButton photograph={item} />
+</div>
             ))}
           </div>
         </div>
@@ -8770,47 +8539,20 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
     </div>
   )}
 
-  {/* Saturn orb trigger */}
+  {/* Mobile menu trigger */}
   <button
     type="button"
     onClick={() => setOrbOpen((v) => !v)}
-    className="relative rounded-full border border-white/15 bg-black/55 backdrop-blur w-12 h-12 flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_14px_30px_rgba(0,0,0,0.45)] active:scale-[0.98] transition"
+    className="relative min-w-[92px] rounded-full border border-white/15 bg-black/62 px-5 py-3 backdrop-blur flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_14px_30px_rgba(0,0,0,0.45)] active:scale-[0.98] transition"
     aria-label={orbOpen ? "Close menu" : "Open menu"}
   >
     {/* subtle breathing glow */}
     <span className="pointer-events-none absolute inset-0 rounded-full opacity-70">
-      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.22),rgba(255,255,255,0)_55%)]" />
+      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.18),rgba(255,255,255,0)_55%)]" />
     </span>
-    {/* Saturn icon (clean, stroke-based) */}
-    <svg viewBox="0 0 24 24" className="h-6 w-6 opacity-90" aria-hidden="true">
-      <ellipse
-        cx="12"
-        cy="12"
-        rx="10"
-        ry="4"
-        transform="rotate(-18 12 12)"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <circle
-        cx="12"
-        cy="12"
-        r="4.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-      />
-      <path
-        d="M13.6 9.7c1.2.4 2.1 1.3 2.5 2.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-    </svg>
+    <span className="relative text-[12px] font-bold uppercase tracking-[0.24em] text-white/90">
+      Menu
+    </span>
   </button>
 
   {/* Orb panel */}
@@ -9510,7 +9252,9 @@ const onHome = path === "/";
       <div className="relative">
         <SiteSideNav path={path} navigate={navigate} onHome={onHome} collapsed={sideCollapsed} setCollapsed={setSideCollapsed} />
         <main className={sideCollapsed ? "md:pl-[76px]" : "md:pl-[284px]"}>
-          {onWallpapers ? (
+          {new URLSearchParams(window.location.search).has("print_checkout") ? (
+            <PrintCheckoutResult />
+          ) : onWallpapers ? (
             <PhoneBackgroundsPage heroFallback={heroFallback} />
           ) : onGallery ? (
             <GalleryPage heroFallback={heroFallback} />

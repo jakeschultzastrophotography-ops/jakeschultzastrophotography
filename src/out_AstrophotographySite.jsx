@@ -5808,6 +5808,16 @@ function NorthAmericanNebulaPage({ navigate }) {
   const tileImageWidth = 7887;
   const tileImageHeight = 6086;
   const tileSize = 512;
+  // Pelican Nebula field-of-view frame: clean, symmetrical overlay aligned to
+  // the separately captured 600 mm Pelican image inside the 250 mm RedCat field.
+  // The top intentionally extends above the NGC 7000 image canvas to match the
+  // actual overlapping frame position.
+  const pelicanFovFrame = {
+    left: 2866,
+    top: -628,
+    width: 3288,
+    height: 2536,
+  };
   const highResolutionTiles = useMemo(() => {
     const cols = Math.ceil(tileImageWidth / tileSize);
     const rows = Math.ceil(tileImageHeight / tileSize);
@@ -6293,6 +6303,22 @@ function NorthAmericanNebulaPage({ navigate }) {
         cssH,
         displayScale
       );
+    }
+    if (drawState.showPelicanOverlay) {
+      const frameX = viewRef.current.x + pelicanFovFrame.left * displayScale;
+      const frameY = viewRef.current.y + pelicanFovFrame.top * displayScale;
+      const frameW = pelicanFovFrame.width * displayScale;
+      const frameH = pelicanFovFrame.height * displayScale;
+      const frameLineWidth = Math.max(2, 24 * displayScale);
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 210, 105, 0.075)";
+      ctx.strokeStyle = "rgba(255, 214, 112, 0.86)";
+      ctx.lineWidth = frameLineWidth;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+      ctx.shadowBlur = Math.max(2, 18 * displayScale);
+      ctx.fillRect(frameX, frameY, frameW, frameH);
+      ctx.strokeRect(frameX + frameLineWidth / 2, frameY + frameLineWidth / 2, Math.max(1, frameW - frameLineWidth), Math.max(1, frameH - frameLineWidth));
+      ctx.restore();
     }
     if (drewBase) setMobileCanvasReady(true);
   };
@@ -7866,6 +7892,20 @@ function NorthAmericanNebulaPage({ navigate }) {
                         }}
                         className="pointer-events-none absolute inset-0 block h-full w-full select-none"
                       />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute z-20 select-none"
+                        style={{
+                          left: `${pelicanFovFrame.left}px`,
+                          top: `${pelicanFovFrame.top}px`,
+                          width: `${pelicanFovFrame.width}px`,
+                          height: `${pelicanFovFrame.height}px`,
+                          boxSizing: "border-box",
+                          border: "24px solid rgba(255, 214, 112, 0.86)",
+                          background: "rgba(255, 210, 105, 0.075)",
+                          boxShadow: "0 0 0 10px rgba(0,0,0,0.32), 0 0 90px rgba(255,214,112,0.20)",
+                        }}
+                      />
                     </>
                   )}
                   {showAnnotation && !missingLayers.annotation && (
@@ -7922,9 +7962,9 @@ function NorthAmericanNebulaPage({ navigate }) {
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black" style={embeddedObjectShellStyle}>
               <iframe
-                key="north-america-object-explorer-source-2836"
+                key="north-america-object-explorer-source-294"
                 title="North American Nebula Object Explorer"
-                src="/interactive/north-american-nebula/object-explorer.html?v=2837#top"
+                src="/interactive/north-american-nebula/object-explorer.html?v=294#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-object-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -7941,9 +7981,9 @@ function NorthAmericanNebulaPage({ navigate }) {
             </div>
             <div className="north-america-embedded-shell flex justify-center overflow-hidden bg-black text-center" style={embeddedDepthShellStyle}>
               <iframe
-                key="north-america-astrodepth-map-source-2836"
+                key="north-america-astrodepth-map-source-294"
                 title="North American Nebula 4D AstroDepth Map"
-                src="/interactive/north-american-nebula/astrodepth-map.html?v=2837#top"
+                src="/interactive/north-american-nebula/astrodepth-map.html?v=294#top"
                 loading="eager"
                 scrolling="auto"
                 className="north-america-depth-frame mx-auto block h-[calc(100dvh-150px)] min-h-[600px] w-full max-w-full border-0 sm:h-[82vh] sm:min-h-0"
@@ -8770,47 +8810,20 @@ function SiteSideNav({ path, navigate, onHome, collapsed, setCollapsed }) {
     </div>
   )}
 
-  {/* Saturn orb trigger */}
+  {/* Mobile menu trigger */}
   <button
     type="button"
     onClick={() => setOrbOpen((v) => !v)}
-    className="relative rounded-full border border-white/15 bg-black/55 backdrop-blur w-12 h-12 flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_14px_30px_rgba(0,0,0,0.45)] active:scale-[0.98] transition"
+    className="relative min-w-[92px] rounded-full border border-white/15 bg-black/62 px-5 py-3 backdrop-blur flex items-center justify-center shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_14px_30px_rgba(0,0,0,0.45)] active:scale-[0.98] transition"
     aria-label={orbOpen ? "Close menu" : "Open menu"}
   >
     {/* subtle breathing glow */}
     <span className="pointer-events-none absolute inset-0 rounded-full opacity-70">
-      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.22),rgba(255,255,255,0)_55%)]" />
+      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.18),rgba(255,255,255,0)_55%)]" />
     </span>
-    {/* Saturn icon (clean, stroke-based) */}
-    <svg viewBox="0 0 24 24" className="h-6 w-6 opacity-90" aria-hidden="true">
-      <ellipse
-        cx="12"
-        cy="12"
-        rx="10"
-        ry="4"
-        transform="rotate(-18 12 12)"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <circle
-        cx="12"
-        cy="12"
-        r="4.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-      />
-      <path
-        d="M13.6 9.7c1.2.4 2.1 1.3 2.5 2.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-    </svg>
+    <span className="relative text-[12px] font-bold uppercase tracking-[0.24em] text-white/90">
+      Menu
+    </span>
   </button>
 
   {/* Orb panel */}

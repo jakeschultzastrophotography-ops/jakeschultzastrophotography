@@ -1,0 +1,17 @@
+{
+  "name": "Jake Schultz Astrophotography",
+  "short_name": "JSAstro",
+  "description": "Jake Schultz Astrophotography",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050711",
+  "theme_color": "#050711",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/android-chrome-192x192.png?v=294", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/android-chrome-512x512.png?v=294", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/maskable-icon-192x192.png?v=294", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/maskable-icon-512x512.png?v=294", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

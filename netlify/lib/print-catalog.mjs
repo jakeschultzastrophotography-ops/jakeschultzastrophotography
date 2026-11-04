@@ -76,9 +76,9 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-wall-20x17-metal', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Metal print', size: '20 × 17 inches (landscape)', material: 'Glossy photo print on aluminum backing', frame: 'Wall mount included',
-      priceCents: 15995, stripePriceIds: {}, sourceApproved: true,
+      priceCents: 15995, stripePriceIds: { test: 'price_1UY8PmE9TNuvn9mCd1e1vP4L' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
-      cropDescription: 'The approved 20 × 17-inch crop with no white border.', enabled: false,
+      cropDescription: 'The approved 20 × 17-inch crop with no white border.', enabled: true,
     },
   ],
   // Variant shape:

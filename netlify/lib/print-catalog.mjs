@@ -41,7 +41,7 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-keepsake-12x10-canvas', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Canvas print', size: '12 × 10.2 inches (landscape)', material: 'Glossy canvas on stretcher frame', frame: 'Gallery wrap',
-      priceCents: 6995, stripePriceIds: { test: 'price_1UY8SCE9TNuvn9mCYFveL66K' }, sourceApproved: true,
+      priceCents: 6995, stripePriceIds: { test: 'price_1UY8SCE9TNuvn9mCYFveL66K', live: 'price_1UY8dOE9TNuvn9mCPh4Ughw5' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
@@ -62,21 +62,21 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-keepsake-12x10-metal', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Metal print', size: '12 × 10.2 inches (landscape)', material: 'Glossy photo print on aluminum backing', frame: 'Wall mount included',
-      priceCents: 7995, stripePriceIds: { test: 'price_1UY8TvE9TNuvn9mCTKFMQras' }, sourceApproved: true,
+      priceCents: 7995, stripePriceIds: { test: 'price_1UY8TvE9TNuvn9mCTKFMQras', live: 'price_1UY8eCE9TNuvn9mCmHpSlcik' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
     {
       id: 'north-american-nebula-centerpiece-30x25-metal', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Metal print', size: '30 × 25.5 inches (landscape)', material: 'Glossy photo print on aluminum backing', frame: 'Wall mount included',
-      priceCents: 27995, stripePriceIds: { test: 'price_1UY8UhE9TNuvn9mCuSZhOvrJ' }, sourceApproved: true,
+      priceCents: 27995, stripePriceIds: { test: 'price_1UY8UhE9TNuvn9mCuSZhOvrJ', live: 'price_1UY8frE9TNuvn9mCE0nwYfcY' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
     {
       id: 'north-american-nebula-wall-20x17-metal', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Metal print', size: '20 × 17 inches (landscape)', material: 'Glossy photo print on aluminum backing', frame: 'Wall mount included',
-      priceCents: 15995, stripePriceIds: { test: 'price_1UY8PmE9TNuvn9mCd1e1vP4L' }, sourceApproved: true,
+      priceCents: 15995, stripePriceIds: { test: 'price_1UY8PmE9TNuvn9mCd1e1vP4L', live: 'price_1UY8evE9TNuvn9mCIUIYESGd' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'The approved 20 × 17-inch crop with no white border.', enabled: true,
     },

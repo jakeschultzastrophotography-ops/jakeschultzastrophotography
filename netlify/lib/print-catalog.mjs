@@ -34,7 +34,7 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-centerpiece-30x25-paper', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Photo print', size: '30 × 25.5 inches (landscape)', material: 'Fuji Crystal DP II glossy photo paper', frame: 'Unframed',
-      priceCents: 14995, stripePriceIds: { test: 'price_1UY8ROE9TNuvn9mCZ60X8Xpg' }, sourceApproved: true,
+      priceCents: 14995, stripePriceIds: { test: 'price_1UY8ROE9TNuvn9mCZ60X8Xpg', live: 'price_1UY8bAE9TNuvn9mCLBow4IYL' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
@@ -48,7 +48,7 @@ export const printCatalog = {
     {
       id: 'north-american-nebula-centerpiece-30x25-canvas', photographId: 'north-american-nebula-thumb-cropped',
       product: 'Canvas print', size: '30 × 25.5 inches (landscape)', material: 'Glossy canvas on stretcher frame', frame: 'Gallery wrap',
-      priceCents: 23995, stripePriceIds: { test: 'price_1UY8T3E9TNuvn9mCiuuStoRK' }, sourceApproved: true,
+      priceCents: 23995, stripePriceIds: { test: 'price_1UY8T3E9TNuvn9mCiuuStoRK', live: 'price_1UY8c9E9TNuvn9mCVazvqQNA' }, sourceApproved: true,
       cropPreview: { src: '/images/prints/north-american-nebula-20x17-adjusted-20261028.webp', approved: true, revision: '20261028-user-adjusted-v1' },
       cropDescription: 'Scaled from the approved 20 × 17-inch crop with no white border.', enabled: true,
     },
